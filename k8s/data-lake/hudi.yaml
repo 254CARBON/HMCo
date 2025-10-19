@@ -1,0 +1,210 @@
+# Apache Hudi configuration for data lake tables
+# This file contains configuration and utilities for Hudi integration
+
+---
+# ConfigMap for Hudi configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: hudi-config
+  namespace: data-platform
+  labels:
+    app: hudi
+    component: data-lake
+data:
+  # Hudi configuration properties for Spark integration
+  hudi-defaults.conf: |
+    # Hudi Spark Configuration
+    spark.sql.catalog.spark_catalog=org.apache.spark.sql.hudi.catalog.HoodieCatalog
+    spark.serializer=org.apache.spark.serializer.KryoSerializer
+    spark.sql.adaptive.enabled=true
+    spark.sql.adaptive.coalescePartitions.enabled=true
+
+    # Hudi table configuration defaults
+    hoodie.datasource.write.recordkey.field=id
+    hoodie.datasource.write.partitionpath.field=partition
+    hoodie.datasource.write.precombine.field=timestamp
+    hoodie.datasource.write.operation=upsert
+    hoodie.datasource.write.table.type=COPY_ON_WRITE
+
+    # Hudi compaction settings
+    hoodie.compact.inline=true
+    hoodie.compact.inline.max.delta.commits=5
+
+    # Hudi metadata settings
+    hoodie.metadata.enable=true
+    hoodie.metadata.index.column.stats.enable=true
+
+    # S3 settings for MinIO
+    spark.hadoop.fs.s3a.endpoint=http://minio-service:9000
+    spark.hadoop.fs.s3a.access.key=minioadmin
+    spark.hadoop.fs.s3a.secret.key=minioadmin123
+    spark.hadoop.fs.s3a.path.style.access=true
+    spark.hadoop.fs.s3a.impl=org.apache.hadoop.fs.s3a.S3AFileSystem
+    spark.hadoop.fs.s3a.connection.ssl.enabled=false
+
+  # Spark job template for Hudi operations
+  spark-hudi-job-template.yaml: |
+    apiVersion: sparkoperator.k8s.io/v1beta2
+    kind: SparkApplication
+    metadata:
+      name: hudi-job-template
+      namespace: data-platform
+    spec:
+      type: Scala
+      mode: cluster
+      image: apache/spark:3.5.0
+      imagePullPolicy: IfNotPresent
+      mainClass: org.apache.hudi.utilities.deltastreamer.HoodieDeltaStreamer
+      mainApplicationFile: "local:///opt/spark/work-dir/hudi-utilities-bundle_2.12-0.14.0.jar"
+      arguments:
+      - "--table-type"
+      - "COPY_ON_WRITE"
+      - "--source-class"
+      - "org.apache.hudi.utilities.sources.JsonDFSSource"
+      - "--source-ordering-field"
+      - "timestamp"
+      - "--target-base-path"
+      - "s3a://hudi-tables/{{TABLE_NAME}}"
+      - "--target-table"
+      - "{{TABLE_NAME}}"
+      - "--props"
+      - "s3a://hudi-config/hudi-defaults.conf"
+      - "--source-limit"
+      - "1000000"
+      - "--op"
+      - "UPSERT"
+      - "--filter-dupes"
+      - "--enable-hive-sync"
+      - "--hoodie-conf"
+      - "hoodie.datasource.hive_sync.database={{DATABASE_NAME}}"
+      - "--hoodie-conf"
+      - "hoodie.datasource.hive_sync.table={{TABLE_NAME}}"
+      - "--hoodie-conf"
+      - "hoodie.datasource.hive_sync.partition_fields=partition"
+      - "--hoodie-conf"
+      - "hoodie.datasource.hive_sync.partition_extractor_class=org.apache.hudi.hive.MultiPartKeysValueExtractor"
+      - "--continuous"
+      - "--min-sync-interval-seconds"
+      - "60"
+      - "--source-path"
+      - "{{SOURCE_PATH}}"
+      sparkVersion: "3.5.0"
+      restartPolicy:
+        type: OnFailure
+        onFailureRetries: 3
+        onFailureRetryInterval: 10
+        onSubmissionFailureRetries: 5
+        onSubmissionFailureRetryInterval: 20
+      driver:
+        cores: 1
+        coreLimit: "2000m"
+        memory: "2g"
+        labels:
+          version: 3.5.0
+        serviceAccount: spark-operator-spark
+        configMaps:
+        - name: hudi-config
+          path: /opt/spark/work-dir/hudi-config
+        volumeMounts:
+        - name: spark-local-dir-1
+          mountPath: /opt/spark/work-dir
+      executor:
+        cores: 1
+        instances: 2
+        memory: "2g"
+        labels:
+          version: 3.5.0
+      volumes:
+      - emptyDir:
+          sizeLimit: 10Gi
+        name: spark-local-dir-1
+
+---
+# Job template for Hudi table creation
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: hudi-table-init-job
+  namespace: data-platform
+  labels:
+    app: hudi
+    component: data-lake
+spec:
+  template:
+    metadata:
+      labels:
+        app: hudi
+        component: data-lake
+    spec:
+      restartPolicy: OnFailure
+      containers:
+      - name: hudi-init
+        image: apache/spark:3.5.0
+        command:
+        - /bin/bash
+        - -c
+        - |
+          # Download Hudi utilities bundle
+          wget -O /tmp/hudi-utilities-bundle.jar https://repo1.maven.org/maven2/org/apache/hudi/hudi-utilities-bundle_2.12/0.14.0/hudi-utilities-bundle_2.12-0.14.0.jar
+
+          # Create Hudi table structure in MinIO
+          spark-shell --jars /tmp/hudi-utilities-bundle.jar -i << 'EOF'
+          import org.apache.hudi.QuickstartUtils._
+          import scala.collection.JavaConversions._
+          import org.apache.hudi.DataSourceWriteOptions._
+          import org.apache.hudi.config.HoodieWriteConfig._
+          import org.apache.hudi.common.model.HoodieTableType
+
+          // Initialize Spark session with Hudi
+          val spark = SparkSession.builder()
+            .appName("Hudi Table Init")
+            .config("spark.serializer", "org.apache.spark.serializer.KryoSerializer")
+            .config("spark.sql.adaptive.enabled", "true")
+            .config("spark.sql.adaptive.coalescePartitions.enabled", "true")
+            .config("spark.sql.extensions", "org.apache.spark.sql.hudi.HoodieSparkSessionExtension")
+            .config("spark.sql.catalog.spark_catalog", "org.apache.spark.sql.hudi.catalog.HoodieCatalog")
+            .getOrCreate()
+
+          // Create sample data
+          val data = Seq(
+            (1, "John", "2023-01-01", "partition1"),
+            (2, "Jane", "2023-01-02", "partition1"),
+            (3, "Bob", "2023-01-03", "partition2")
+          )
+
+          val df = spark.createDataFrame(data).toDF("id", "name", "timestamp", "partition")
+
+          // Write to Hudi table
+          df.write
+            .format("hudi")
+            .option(RECORDKEY_FIELD.key(), "id")
+            .option(PARTITIONPATH_FIELD.key(), "partition")
+            .option(PRECOMBINE_FIELD.key(), "timestamp")
+            .option(TBL_NAME.key(), "sample_table")
+            .option(TABLE_TYPE.key(), HoodieTableType.COPY_ON_WRITE.name())
+            .mode("overwrite")
+            .save("s3a://hudi-tables/sample_table")
+          EOF
+        env:
+        - name: SPARK_LOCAL_DIRS
+          value: "/tmp/spark-local"
+        - name: AWS_ACCESS_KEY_ID
+          valueFrom:
+            secretKeyRef:
+              name: minio-secret
+              key: access-key
+        - name: AWS_SECRET_ACCESS_KEY
+          valueFrom:
+            secretKeyRef:
+              name: minio-secret
+              key: secret-key
+        - name: S3_ENDPOINT
+          value: "http://minio-service:9000"
+        volumeMounts:
+        - name: spark-temp
+          mountPath: /tmp/spark-local
+      volumes:
+      - name: spark-temp
+        emptyDir:
+          sizeLimit: 5Gi

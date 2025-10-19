@@ -1,0 +1,146 @@
+# lakeFS for Git-like version control for data lakes
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: lakefs
+  namespace: data-platform
+  labels:
+    app: lakefs
+    component: data-lake
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: lakefs
+  template:
+    metadata:
+      labels:
+        app: lakefs
+        component: data-lake
+    spec:
+      imagePullSecrets: []
+      securityContext:
+        fsGroup: 1000
+        sysctls:
+        - name: fs.inotify.max_user_instances
+          value: "8192"
+      containers:
+      - name: lakefs
+        image: alpine:3.19
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 8000
+          name: lakefs-api
+        env:
+        - name: LAKEFS_VERSION
+          value: "1.70.1"
+        - name: LAKEFS_BLOCKSTORE_TYPE
+          value: "s3"
+        - name: LAKEFS_DATABASE_TYPE
+          value: "postgres"
+        - name: LAKEFS_BLOCKSTORE_S3_ENDPOINT
+          value: "http://minio-service:9000"
+        - name: LAKEFS_BLOCKSTORE_S3_ACCESS_KEY_ID
+          valueFrom:
+            secretKeyRef:
+              name: minio-secret
+              key: access-key
+        - name: LAKEFS_BLOCKSTORE_S3_SECRET_ACCESS_KEY
+          valueFrom:
+            secretKeyRef:
+              name: minio-secret
+              key: secret-key
+        - name: LAKEFS_BLOCKSTORE_S3_BUCKET_NAME
+          value: "lakefs-data"
+        - name: LAKEFS_AUTH_ENCRYPT_SECRET_KEY
+          value: "lakefs-encryption-key-12345678901234567890123456789012"
+        - name: LAKEFS_LOGGING_LEVEL
+          value: "INFO"
+        - name: LAKEFS_UI_ENABLED
+          value: "true"
+        - name: LAKEFS_CONFIG_FSNOTIFY_ENABLED
+          value: "false"
+        command:
+        - /bin/sh
+        - -c
+        args:
+        - |
+          set -euo pipefail
+          apk add --no-cache curl ca-certificates
+          tmp_dir="$(mktemp -d)"
+          curl -fsSL "https://github.com/treeverse/lakeFS/releases/download/v${LAKEFS_VERSION}/lakeFS_${LAKEFS_VERSION}_Linux_x86_64.tar.gz" -o "${tmp_dir}/lakefs.tar.gz"
+          tar -xzf "${tmp_dir}/lakefs.tar.gz" -C "${tmp_dir}"
+          lakefs_binary="$(find "${tmp_dir}" -type f -name lakefs -perm -u+x | head -n 1)"
+          if [ -z "${lakefs_binary}" ]; then
+            echo "lakefs binary not found in archive" >&2
+            exit 1
+          fi
+          install -m 0755 "${lakefs_binary}" /usr/local/bin/lakefs
+          ulimit -n 65536
+          exec lakefs run
+        envFrom:
+        - secretRef:
+            name: lakefs-secrets
+        volumeMounts:
+        - name: lakefs-data
+          mountPath: /lakefs/data
+          subPath: data
+        resources:
+          limits:
+            memory: "2Gi"
+            cpu: "1000m"
+          requests:
+            memory: "1Gi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /api/v1/health
+            port: 8000
+            scheme: HTTP
+          initialDelaySeconds: 60
+          periodSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /api/v1/health
+            port: 8000
+            scheme: HTTP
+          initialDelaySeconds: 10
+          periodSeconds: 10
+      volumes:
+      - name: lakefs-data
+        persistentVolumeClaim:
+          claimName: lakefs-data
+---
+# lakeFS Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: lakefs
+  namespace: data-platform
+  labels:
+    app: lakefs
+spec:
+  ports:
+  - port: 8000
+    targetPort: 8000
+    name: lakefs-api
+  selector:
+    app: lakefs
+  type: ClusterIP
+---
+# Persistent Volume Claim for lakeFS data
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: lakefs-data
+  namespace: data-platform
+  labels:
+    app: lakefs
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 50Gi
+  storageClassName: local-storage-standard
+---

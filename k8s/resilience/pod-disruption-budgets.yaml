@@ -1,0 +1,236 @@
+# PodDisruptionBudgets ensure services maintain minimum replicas during node maintenance
+# Prevents Kubernetes from evicting all pods at once
+
+---
+# Elasticsearch PDB
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: elasticsearch-pdb
+  namespace: data-platform
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: elasticsearch
+
+---
+# Kafka PDB
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: kafka-pdb
+  namespace: data-platform
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: kafka
+
+---
+# PostgreSQL (Shared) PDB
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: postgres-shared-pdb
+  namespace: data-platform
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: postgres-shared
+
+---
+# PostgreSQL (Workflow) PDB
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: postgres-workflow-pdb
+  namespace: data-platform
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: postgres-workflow
+
+---
+# Redis PDB
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: redis-pdb
+  namespace: data-platform
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: redis
+
+---
+# ZooKeeper PDB
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: zookeeper-pdb
+  namespace: data-platform
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: zookeeper
+
+---
+# MySQL PDB
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: mysql-pdb
+  namespace: data-platform
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: mysql-seatunnel
+
+---
+# Schema Registry PDB
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: schema-registry-pdb
+  namespace: data-platform
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: schema-registry
+
+---
+# MinIO PDB
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: minio-pdb
+  namespace: data-platform
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: minio
+
+---
+# DataHub Frontend PDB
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: datahub-frontend-pdb
+  namespace: data-platform
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: datahub-frontend
+
+---
+# Vault Production PDB
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: vault-pdb
+  namespace: vault-prod
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels:
+      app: vault
+
+---
+# Prometheus PDB
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: prometheus-pdb
+  namespace: monitoring
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: prometheus
+
+---
+# Grafana PDB
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: grafana-pdb
+  namespace: monitoring
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: grafana
+
+---
+# Loki PDB
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: loki-pdb
+  namespace: monitoring
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: loki
+
+---
+# AlertManager PDB
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: alertmanager-pdb
+  namespace: monitoring
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: alertmanager
+
+---
+# NGINX Ingress Controller PDB
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: nginx-ingress-pdb
+  namespace: ingress-nginx
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: ingress-nginx
+
+---
+# cert-manager PDB
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: cert-manager-pdb
+  namespace: cert-manager
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: cert-manager
+
+---
+# SeaTunnel/Flink PDB (JobManager)
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: seatunnel-flink-pdb
+  namespace: data-platform
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: seatunnel

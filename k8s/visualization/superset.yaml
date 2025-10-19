@@ -1,0 +1,328 @@
+# Apache Superset deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: superset
+  namespace: data-platform
+  labels:
+    app: superset
+    component: visualization
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: superset
+  template:
+    metadata:
+      labels:
+        app: superset
+        component: visualization
+    spec:
+      containers:
+      - name: superset
+        image: apache/superset:3.0.0
+        ports:
+        - containerPort: 8088
+          name: superset
+        env:
+        - name: SUPERSET_CONFIG_PATH
+          value: "/app/superset_config.py"
+        - name: FLASK_APP
+          value: "superset"
+        - name: PYTHONPATH
+          value: "/app"
+        - name: SUPERSET_HOME
+          value: "/app"
+        - name: DATABASE_DB
+          value: "superset"
+        - name: DATABASE_HOST
+          value: "postgres-shared-service"
+        - name: DATABASE_PORT
+          value: "5432"
+        - name: DATABASE_USER
+          value: "superset_user"
+        - name: DATABASE_PASSWORD
+          value: "superset_password"
+        - name: DATABASE_DIALECT
+          value: "postgresql"
+        - name: DATABASE_URI
+          value: "postgresql://superset_user:superset_password@postgres-shared-service:5432/superset"
+        - name: REDIS_HOST
+          value: "redis-service"
+        - name: REDIS_PORT
+          value: "6379"
+        - name: REDIS_DB
+          value: "1"
+        - name: SUPERSET_SECRET_KEY
+          value: "your-secret-key-change-this-in-production"
+        - name: SUPERSET_WEBSERVER_TIMEOUT
+          value: "300"
+        - name: SUPERSET_WEBSERVER_WORKERS
+          value: "4"
+        volumeMounts:
+        - name: superset-config
+          mountPath: /app/superset_config.py
+          subPath: superset_config.py
+        - name: superset-logs
+          mountPath: /app/logs
+        resources:
+          limits:
+            memory: "2Gi"
+            cpu: "1000m"
+          requests:
+            memory: "1Gi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8088
+            scheme: HTTP
+          initialDelaySeconds: 120
+          periodSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8088
+            scheme: HTTP
+          initialDelaySeconds: 30
+          periodSeconds: 10
+      - name: superset-worker
+        image: apache/superset:3.0.0
+        command:
+        - /bin/bash
+        - -c
+        - |
+          while true; do
+            python -c "
+            from superset import app
+            with app.app_context():
+                from superset.tasks.scheduler import scheduler
+                scheduler.run()
+            "
+            sleep 60
+          done
+        env:
+        - name: SUPERSET_CONFIG_PATH
+          value: "/app/superset_config.py"
+        - name: FLASK_APP
+          value: "superset"
+        - name: PYTHONPATH
+          value: "/app"
+        - name: DATABASE_DB
+          value: "superset"
+        - name: DATABASE_HOST
+          value: "postgres-shared-service"
+        - name: DATABASE_PORT
+          value: "5432"
+        - name: DATABASE_USER
+          value: "superset_user"
+        - name: DATABASE_PASSWORD
+          value: "superset_password"
+        - name: DATABASE_DIALECT
+          value: "postgresql"
+        - name: REDIS_HOST
+          value: "redis-service"
+        - name: REDIS_PORT
+          value: "6379"
+        - name: REDIS_DB
+          value: "1"
+        resources:
+          limits:
+            memory: "1Gi"
+            cpu: "500m"
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+      volumes:
+      - name: superset-config
+        configMap:
+          name: superset-config
+      - name: superset-logs
+        emptyDir: {}
+---
+# Superset Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: superset
+  namespace: data-platform
+  labels:
+    app: superset
+spec:
+  ports:
+  - port: 8088
+    targetPort: 8088
+    name: superset
+  selector:
+    app: superset
+  type: ClusterIP
+
+---
+# Redis for Superset caching
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis
+  namespace: data-platform
+  labels:
+    app: redis
+    component: caching
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: redis
+  template:
+    metadata:
+      labels:
+        app: redis
+        component: caching
+    spec:
+      containers:
+      - name: redis
+        image: redis:7.2-alpine
+        ports:
+        - containerPort: 6379
+          name: redis
+        resources:
+          limits:
+            memory: "512Mi"
+            cpu: "250m"
+          requests:
+            memory: "256Mi"
+            cpu: "100m"
+        livenessProbe:
+          exec:
+            command:
+              - redis-cli
+              - ping
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          exec:
+            command:
+              - redis-cli
+              - ping
+          initialDelaySeconds: 5
+          periodSeconds: 5
+---
+# Redis Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis-service
+  namespace: data-platform
+  labels:
+    app: redis
+spec:
+  ports:
+  - port: 6379
+    targetPort: 6379
+    name: redis
+  selector:
+    app: redis
+  type: ClusterIP
+
+---
+# ConfigMap for Superset configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: superset-config
+  namespace: data-platform
+  labels:
+    app: superset
+data:
+  superset_config.py: |
+    import os
+    from flask_appbuilder.security.manager import BaseSecurityManager
+
+    # Superset configuration
+    SUPERSET_WEBSERVER_PORT = 8088
+    SUPERSET_WEBSERVER_ADDRESS = "0.0.0.0"
+
+    # Database configuration
+    SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URI')
+
+    # Redis configuration for caching
+    REDIS_HOST = os.environ.get('REDIS_HOST', 'redis-service')
+    REDIS_PORT = int(os.environ.get('REDIS_PORT', 6379))
+    REDIS_DB = int(os.environ.get('REDIS_DB', 1))
+    REDIS_URL = f"redis://{REDIS_HOST}:{REDIS_PORT}/{REDIS_DB}"
+
+    # Cache configuration
+    CACHE_CONFIG = {
+        'CACHE_TYPE': 'redis',
+        'CACHE_DEFAULT_TIMEOUT': 300,
+        'CACHE_KEY_PREFIX': 'superset_',
+        'CACHE_REDIS_HOST': REDIS_HOST,
+        'CACHE_REDIS_PORT': REDIS_PORT,
+        'CACHE_REDIS_DB': REDIS_DB,
+        'CACHE_REDIS_URL': REDIS_URL
+    }
+
+    # Session configuration
+    SESSION_COOKIE_SECURE = False
+    SESSION_COOKIE_HTTPONLY = True
+    SESSION_COOKIE_SAMESITE = 'Lax'
+
+    # Security configuration
+    SECRET_KEY = os.environ.get('SUPERSET_SECRET_KEY', 'your-secret-key-change-this-in-production')
+    WTF_CSRF_ENABLED = True
+    WTF_CSRF_SECRET_KEY = SECRET_KEY
+
+    # Feature flags
+    FEATURE_FLAGS = {
+        "ENABLE_TEMPLATE_PROCESSING": True,
+        "DASHBOARD_NATIVE_FILTERS": True,
+        "DASHBOARD_CROSS_FILTERS": True,
+        "GENERIC_CHART_AXES": True,
+        "DRILL_TO_DETAIL": True,
+        "DRILL_BY": True,
+        "DASHBOARD_RBAC": True,
+        "ENABLE_ADVANCED_DATA_TYPES": True,
+        "DASHBOARD_NATIVE_FILTERS_SET": True,
+        "HORIZONTAL_FILTER_BAR": True,
+        "DASHBOARD_FILTERS_EXPERIMENTAL": True,
+    }
+
+    # Custom security manager (optional)
+    class CustomSecurityManager(BaseSecurityManager):
+        def __init__(self, appbuilder):
+            super(CustomSecurityManager, self).__init__(appbuilder)
+
+    CUSTOM_SECURITY_MANAGER = CustomSecurityManager
+
+    # Database connections for common datasources
+    SQLALCHEMY_CUSTOM_PASSWORD_STORE = {
+        'postgres-shared': {
+            'type': 'postgresql',
+            'host': 'postgres-shared-service',
+            'port': 5432,
+            'database': 'datahub',
+            'username': 'datahub',
+            'password': 'datahub_password'
+        },
+        'postgres-workflow': {
+            'type': 'postgresql',
+            'host': 'postgres-workflow-service',
+            'port': 5432,
+            'database': 'dolphinscheduler',
+            'username': 'dolphinscheduler',
+            'password': 'workflow_password'
+        },
+        'mysql-seatunnel': {
+            'type': 'mysql',
+            'host': 'mysql-seatunnel-service',
+            'port': 3306,
+            'database': 'seatunnel',
+            'username': 'seatunnel',
+            'password': 'seatunnel_password'
+        },
+        'trino': {
+            'type': 'trino',
+            'host': 'trino-coordinator',
+            'port': 8080,
+            'username': 'admin'
+        }
+    }

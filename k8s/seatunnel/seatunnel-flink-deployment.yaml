@@ -1,0 +1,196 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: seatunnel-job-config
+  namespace: data-platform
+  labels:
+    app: seatunnel
+    component: flink-job
+data:
+  seatunnel.streaming.conf: |
+    env {
+      parallelism = 1
+      job.mode = "STREAMING"
+      checkpoint.interval = 2000
+    }
+
+    source {
+        FakeSource {
+          plugin_output = "fake"
+          row.num = 160000
+          schema = {
+            fields {
+              name = "string"
+              age = "int"
+            }
+          }
+        }
+    }
+
+    transform {
+      FieldMapper {
+        plugin_input = "fake"
+        plugin_output = "fake1"
+        field_mapper = {
+          age = age
+          name = new_name
+        }
+      }
+    }
+
+    sink {
+      Console {
+        plugin_input = "fake1"
+      }
+    }
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: seatunnel-setup-script
+  namespace: data-platform
+  labels:
+    app: seatunnel
+data:
+  setup-seatunnel.sh: |
+    #!/bin/bash
+    set -e
+    SEATUNNEL_VERSION="2.3.12"
+    SEATUNNEL_HOME="/opt/seatunnel"
+    
+    echo "Setting up SeaTunnel ${SEATUNNEL_VERSION}..."
+    mkdir -p ${SEATUNNEL_HOME}
+    cd /tmp
+    
+    # Download SeaTunnel
+    echo "Downloading SeaTunnel ${SEATUNNEL_VERSION}..."
+    wget -q https://dlcdn.apache.org/seatunnel/${SEATUNNEL_VERSION}/apache-seatunnel-${SEATUNNEL_VERSION}-bin.tar.gz || {
+      echo "Failed to download SeaTunnel, continuing with empty setup..."
+      echo "warning" > /opt/seatunnel/.setup-status
+      exit 0
+    }
+    
+    tar -xzf apache-seatunnel-${SEATUNNEL_VERSION}-bin.tar.gz
+    
+    # Move content, handling existing directory
+    if [ -d "${SEATUNNEL_HOME}/bin" ]; then
+      echo "SeaTunnel already installed, skipping..."
+    else
+      cp -r apache-seatunnel-${SEATUNNEL_VERSION}/* ${SEATUNNEL_HOME}/
+    fi
+    
+    # Skip plugin installation for faster startup - plugins will be available at runtime
+    echo "SeaTunnel setup completed successfully"
+
+---
+apiVersion: flink.apache.org/v1beta1
+kind: FlinkDeployment
+metadata:
+  name: seatunnel-flink-streaming
+  namespace: data-platform
+  labels:
+    app: seatunnel
+    component: flink
+spec:
+  image: flink:1.13
+  imagePullPolicy: IfNotPresent
+  flinkVersion: v1_13
+  flinkConfiguration:
+    taskmanager.numberOfTaskSlots: "2"
+    state.backend: filesystem
+    state.checkpoints.dir: file:///checkpoints
+    state.savepoints.dir: file:///savepoints
+  serviceAccount: flink
+  jobManager:
+    replicas: 1
+    resource:
+      memory: "1024m"
+      cpu: 1
+  taskManager:
+    replicas: 1
+    resource:
+      memory: "1024m"
+      cpu: 1
+  podTemplate:
+    spec:
+      serviceAccountName: flink
+      initContainers:
+      - name: setup-seatunnel
+        image: flink:1.13
+        command: ["/bin/bash"]
+        args: ["/setup-scripts/setup-seatunnel.sh"]
+        volumeMounts:
+        - name: seatunnel-setup
+          mountPath: /setup-scripts
+        - name: seatunnel-home
+          mountPath: /opt/seatunnel
+      containers:
+      - name: flink-main-container
+        volumeMounts:
+        - name: job-artifacts
+          mountPath: /job-artifacts
+        - name: seatunnel-home
+          mountPath: /opt/seatunnel
+        - name: checkpoints
+          mountPath: /checkpoints
+        - name: savepoints
+          mountPath: /savepoints
+      volumes:
+      - name: job-artifacts
+        configMap:
+          name: seatunnel-job-config
+      - name: seatunnel-setup
+        configMap:
+          name: seatunnel-setup-script
+          defaultMode: 0755
+      - name: seatunnel-home
+        emptyDir: {}
+      - name: checkpoints
+        emptyDir: {}
+      - name: savepoints
+        emptyDir: {}
+  job:
+    jarURI: local:///opt/flink/examples/streaming/StateMachineExample.jar
+    parallelism: 1
+    upgradeMode: stateless
+    state: running
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: flink
+  namespace: data-platform
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: flink
+  namespace: data-platform
+rules:
+- apiGroups: [""]
+  resources: ["pods"]
+  verbs: ["*"]
+- apiGroups: [""]
+  resources: ["configmaps"]
+  verbs: ["*"]
+- apiGroups: ["apps"]
+  resources: ["deployments"]
+  verbs: ["*"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: flink
+  namespace: data-platform
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: flink
+subjects:
+- kind: ServiceAccount
+  name: flink
+  namespace: data-platform

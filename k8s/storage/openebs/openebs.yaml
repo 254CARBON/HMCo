@@ -1,0 +1,138 @@
+---
+# OpenEBS Namespace
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: openebs
+  labels:
+    name: openebs
+    app.kubernetes.io/name: openebs
+    app.kubernetes.io/part-of: data-infrastructure
+---
+# OpenEBS Operator
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: openebs-provisioner
+  namespace: openebs
+  labels:
+    name: openebs-provisioner
+    app.kubernetes.io/name: openebs
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      name: openebs-provisioner
+  template:
+    metadata:
+      labels:
+        name: openebs-provisioner
+        app.kubernetes.io/name: openebs
+    spec:
+      serviceAccountName: openebs-maya-operator
+      containers:
+      - name: openebs-provisioner
+        image: openebs/m-apiserver:2.12.2
+        imagePullPolicy: IfNotPresent
+        env:
+        - name: OPENEBS_IO_K8S_MASTER
+          value: "https://kubernetes.default.svc.cluster.local:443"
+        - name: OPENEBS_IO_KUBE_CONFIG
+          value: "/root/.kube/config"
+        - name: OPENEBS_NAMESPACE
+          value: "openebs"
+        - name: NODE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
+        - name: OPENEBS_IO_JIVA_CONTROLLER_IMAGE
+          value: "openebs/jiva:latest"
+        - name: OPENEBS_IO_JIVA_REPLICA_IMAGE
+          value: "openebs/jiva:latest"
+        - name: OPENEBS_IO_VOLUME_MONITOR_IMAGE
+          value: "openebs/m-exporter:latest"
+        - name: OPENEBS_IO_CSTOR_POOL_IMAGE
+          value: "openebs/cstor-pool:latest"
+        - name: OPENEBS_IO_CSTOR_VOLUME_IMAGE
+          value: "openebs/cstor-volume:latest"
+        - name: OPENEBS_IO_CSTOR_POOL_MGMT_IMAGE
+          value: "openebs/cstor-pool-mgmt:latest"
+        - name: OPENEBS_IO_CSTOR_VOLUME_MGMT_IMAGE
+          value: "openebs/cstor-volume-mgmt:latest"
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 5656
+          initialDelaySeconds: 30
+          periodSeconds: 60
+        readinessProbe:
+          httpGet:
+            path: /readyz
+            port: 5656
+          initialDelaySeconds: 5
+          periodSeconds: 10
+---
+# Service Account for OpenEBS
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: openebs-maya-operator
+  namespace: openebs
+---
+# ClusterRole for OpenEBS
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: openebs-maya-operator
+rules:
+- apiGroups: ["*"]
+  resources: ["*"]
+  verbs: ["*"]
+---
+# ClusterRoleBinding for OpenEBS
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: openebs-maya-operator
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: openebs-maya-operator
+subjects:
+- kind: ServiceAccount
+  name: openebs-maya-operator
+  namespace: openebs
+---
+# StorageClass for OpenEBS LocalPV
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: openebs-localpv
+  annotations:
+    storageclass.kubernetes.io/is-default-class: "false"
+    openebs.io/cas-type: local
+provisioner: openebs.io/local
+parameters:
+  storageType: "hostpath"
+  basePath: "/var/openebs/local"
+allowVolumeExpansion: true
+reclaimPolicy: Delete
+volumeBindingMode: WaitForFirstConsumer
+---
+# StorageClass for OpenEBS cStor (replicated)
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: openebs-cstor
+  annotations:
+    storageclass.kubernetes.io/is-default-class: "false"
+    openebs.io/cas-type: cstor
+provisioner: openebs.io/cstor
+parameters:
+  cas-type: cstor
+  cstorPoolCluster: "cstor-pool-cluster"
+allowVolumeExpansion: true
+reclaimPolicy: Delete
+volumeBindingMode: Immediate

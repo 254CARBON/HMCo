@@ -1,0 +1,152 @@
+# Shared Zookeeper cluster for Kafka and DolphinScheduler
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: zookeeper
+  namespace: data-platform
+  labels:
+    app: zookeeper
+    component: coordination
+spec:
+  serviceName: zookeeper-headless
+  replicas: 1  # Single node for dev/test
+  selector:
+    matchLabels:
+      app: zookeeper
+  volumeClaimTemplates:
+  - metadata:
+      name: data
+      labels:
+        app: zookeeper
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      storageClassName: local-storage-standard
+      resources:
+        requests:
+          storage: 10Gi
+  - metadata:
+      name: logs
+      labels:
+        app: zookeeper
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      storageClassName: local-storage-standard
+      resources:
+        requests:
+          storage: 5Gi
+  template:
+    metadata:
+      labels:
+        app: zookeeper
+        component: coordination
+    spec:
+      initContainers:
+      - name: fix-permissions
+        image: busybox:1.35
+        command:
+          - sh
+          - -c
+          - |
+            mkdir -p /var/lib/zookeeper/data/version-2
+            mkdir -p /var/lib/zookeeper/log/version-2
+            chmod -R 777 /var/lib/zookeeper/data
+            chmod -R 777 /var/lib/zookeeper/log
+        volumeMounts:
+        - name: data
+          mountPath: /var/lib/zookeeper/data
+        - name: logs
+          mountPath: /var/lib/zookeeper/log
+      containers:
+      - name: zookeeper
+        image: confluentinc/cp-zookeeper:7.4.0
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 2181
+          name: client
+        - containerPort: 2888
+          name: server
+        - containerPort: 3888
+          name: election
+        - containerPort: 8080
+          name: admin
+        env:
+        - name: ZOOKEEPER_CLIENT_PORT
+          value: "2181"
+        - name: ZOOKEEPER_TICK_TIME
+          value: "2000"
+        - name: ZOOKEEPER_INIT_LIMIT
+          value: "5"
+        - name: ZOOKEEPER_SYNC_LIMIT
+          value: "2"
+        - name: ZOOKEEPER_SERVERS
+          value: "zookeeper-0.zookeeper-headless:2888:3888"
+        - name: ZOOKEEPER_SERVER_ID
+          value: "1"
+        - name: ZOO_CFG_EXTRA
+          value: "metricsProvider.className=org.apache.zookeeper.metrics.prometheus.PrometheusMetricsProvider metricsProvider.httpPort=7070"
+        volumeMounts:
+        - name: data
+          mountPath: /var/lib/zookeeper/data
+        - name: logs
+          mountPath: /var/lib/zookeeper/log
+        resources:
+          limits:
+            memory: "1Gi"
+            cpu: "500m"
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+        livenessProbe:
+          tcpSocket:
+            port: 2181
+          initialDelaySeconds: 90
+          periodSeconds: 30
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          tcpSocket:
+            port: 2181
+          initialDelaySeconds: 60
+          periodSeconds: 15
+          timeoutSeconds: 5
+          failureThreshold: 2
+        securityContext:
+          runAsNonRoot: false
+---
+# Zookeeper Headless Service for internal communication
+apiVersion: v1
+kind: Service
+metadata:
+  name: zookeeper-headless
+  namespace: data-platform
+  labels:
+    app: zookeeper
+spec:
+  ports:
+  - port: 2888
+    name: server
+  - port: 3888
+    name: election
+  - port: 2181
+    name: client
+  clusterIP: None
+  selector:
+    app: zookeeper
+---
+# Zookeeper Client Service for external access
+apiVersion: v1
+kind: Service
+metadata:
+  name: zookeeper-service
+  namespace: data-platform
+  labels:
+    app: zookeeper
+spec:
+  ports:
+  - port: 2181
+    targetPort: 2181
+    name: client
+  selector:
+    app: zookeeper
+  type: ClusterIP
+---

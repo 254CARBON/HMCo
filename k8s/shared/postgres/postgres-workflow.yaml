@@ -1,0 +1,120 @@
+# Workflow PostgreSQL for DolphinScheduler
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgres-workflow
+  namespace: data-platform
+  labels:
+    app: postgres-workflow
+    component: database
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres-workflow
+  template:
+    metadata:
+      labels:
+        app: postgres-workflow
+        component: database
+    spec:
+      containers:
+      - name: postgres
+        image: postgres:15
+        ports:
+        - containerPort: 5432
+          name: postgres
+        env:
+        - name: POSTGRES_DB
+          value: "dolphinscheduler"
+        - name: POSTGRES_USER
+          value: "dolphinscheduler"
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: postgres-workflow-secret
+              key: password
+        - name: PGDATA
+          value: "/var/lib/postgresql/data/pgdata"
+        volumeMounts:
+        - name: postgres-data
+          mountPath: /var/lib/postgresql/data
+        - name: postgres-init
+          mountPath: /docker-entrypoint-initdb.d
+        resources:
+          limits:
+            memory: "2Gi"
+            cpu: "1000m"
+          requests:
+            memory: "1Gi"
+            cpu: "500m"
+        livenessProbe:
+          exec:
+            command:
+              - pg_isready
+              - -U
+              - dolphinscheduler
+              - -d
+              - dolphinscheduler
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          exec:
+            command:
+              - pg_isready
+              - -U
+              - dolphinscheduler
+              - -d
+              - dolphinscheduler
+          initialDelaySeconds: 5
+          periodSeconds: 5
+      volumes:
+      - name: postgres-data
+        emptyDir: {}
+      - name: postgres-init
+        configMap:
+          name: postgres-workflow-init
+---
+# PostgreSQL Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres-workflow-service
+  namespace: data-platform
+  labels:
+    app: postgres-workflow
+spec:
+  ports:
+  - port: 5432
+    targetPort: 5432
+    name: postgres
+  selector:
+    app: postgres-workflow
+  type: ClusterIP
+---
+---
+# Secret for PostgreSQL password
+apiVersion: v1
+kind: Secret
+metadata:
+  name: postgres-workflow-secret
+  namespace: data-platform
+  labels:
+    app: postgres-workflow
+type: Opaque
+data:
+  # Base64 encoded "workflow_password"
+  password: d29ya2Zsb3dfcGFzc3dvcmQ=
+---
+# ConfigMap for PostgreSQL initialization scripts
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postgres-workflow-init
+  namespace: data-platform
+  labels:
+    app: postgres-workflow
+data:
+  01-init.sql: |
+    -- DolphinScheduler initialization script
+    -- This will be populated with DolphinScheduler schema when deployed

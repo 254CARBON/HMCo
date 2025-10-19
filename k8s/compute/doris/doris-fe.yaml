@@ -1,0 +1,137 @@
+# Apache Doris Frontend (FE) nodes
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: doris-fe
+  namespace: data-platform
+  labels:
+    app: doris-fe
+    component: analytical-database
+spec:
+  serviceName: doris-fe-headless
+  replicas: 1
+  selector:
+    matchLabels:
+      app: doris-fe
+  template:
+    metadata:
+      labels:
+        app: doris-fe
+        component: analytical-database
+    spec:
+      imagePullSecrets: []
+      containers:
+      - name: doris-fe
+        image: apache/doris:2.0.2-fe-x86_64
+        ports:
+        - containerPort: 8030
+          name: fe-query
+        - containerPort: 9020
+          name: fe-edit
+        - containerPort: 9030
+          name: fe-mysql
+        - containerPort: 9010
+          name: fe-http
+        env:
+        - name: FE_MASTER_IP
+          value: "doris-fe-0.doris-fe-headless"
+        - name: FE_QUERY_PORT
+          value: "8030"
+        - name: FE_EDIT_LOG_PORT
+          value: "9020"
+        - name: MYSQL_PORT
+          value: "9030"
+        - name: HTTP_PORT
+          value: "9010"
+        - name: FE_ENABLE_LOGICAL_SESSION
+          value: "true"
+        - name: FE_LOG_DIR
+          value: "/opt/apache-doris/fe/log"
+        - name: FE_META_DIR
+          value: "/opt/apache-doris/fe/doris-meta"
+        volumeMounts:
+        - name: doris-fe-data
+          mountPath: /opt/apache-doris/fe
+        - name: doris-fe-logs
+          mountPath: /opt/apache-doris/fe/log
+        resources:
+          limits:
+            memory: "8Gi"
+            cpu: "2000m"
+          requests:
+            memory: "4Gi"
+            cpu: "1000m"
+        livenessProbe:
+          tcpSocket:
+            port: 8030
+          initialDelaySeconds: 60
+          periodSeconds: 30
+        readinessProbe:
+          tcpSocket:
+            port: 8030
+          initialDelaySeconds: 10
+          periodSeconds: 10
+  volumeClaimTemplates:
+  - metadata:
+      name: doris-fe-data
+    spec:
+      accessModes:
+      - ReadWriteOnce
+      resources:
+        requests:
+          storage: 20Gi
+      storageClassName: local-storage-standard
+  - metadata:
+      name: doris-fe-logs
+    spec:
+      accessModes:
+      - ReadWriteOnce
+      resources:
+        requests:
+          storage: 10Gi
+      storageClassName: local-storage-standard
+---
+# Doris FE Headless Service for internal communication
+apiVersion: v1
+kind: Service
+metadata:
+  name: doris-fe-headless
+  namespace: data-platform
+  labels:
+    app: doris-fe
+spec:
+  ports:
+  - port: 8030
+    name: fe-query
+  - port: 9020
+    name: fe-edit
+  - port: 9030
+    name: fe-mysql
+  - port: 9010
+    name: fe-http
+  clusterIP: None
+  selector:
+    app: doris-fe
+---
+# Doris FE LoadBalancer Service for external access
+apiVersion: v1
+kind: Service
+metadata:
+  name: doris-fe-service
+  namespace: data-platform
+  labels:
+    app: doris-fe
+spec:
+  ports:
+  - port: 8030
+    targetPort: 8030
+    name: fe-query
+  - port: 9030
+    targetPort: 9030
+    name: fe-mysql
+  - port: 9010
+    targetPort: 9010
+    name: fe-http
+  selector:
+    app: doris-fe
+  type: ClusterIP
