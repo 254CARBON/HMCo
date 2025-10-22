@@ -1,0 +1,70 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: portal-ingress
+  namespace: data-platform
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    cert-manager.io/cluster-issuer: "selfsigned"
+spec:
+  ingressClassName: nginx
+  tls:
+  - hosts:
+    - 254carbon.com
+    - www.254carbon.com
+    - portal.254carbon.com
+    secretName: portal-tls
+  rules:
+  - host: 254carbon.com
+    http:
+      paths:
+      - path: /api/services
+        pathType: Prefix
+        backend:
+          service:
+            name: portal-services
+            port:
+              number: 8080
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: portal
+            port:
+              number: 8080
+  - host: www.254carbon.com
+    http:
+      paths:
+      - path: /api/services
+        pathType: Prefix
+        backend:
+          service:
+            name: portal-services
+            port:
+              number: 8080
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: portal
+            port:
+              number: 8080
+  - host: portal.254carbon.com
+    http:
+      paths:
+      - path: /api/services
+        pathType: Prefix
+        backend:
+          service:
+            name: portal-services
+            port:
+              number: 8080
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: portal
+            port:
+              number: 8080

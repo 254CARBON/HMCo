@@ -1,0 +1,480 @@
+---
+# Cloudflare Access SSO - Unified Ingress Configuration for all 254Carbon services
+# This file combines all service ingress rules with Cloudflare Access authentication
+# Update the Cloudflare Access team domain to your team name (e.g., qagi.cloudflareaccess.com).
+# Tip: Zero Trust → Settings → Team → Team domain
+
+# Portal Ingress with Cloudflare Access
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: portal-ingress
+  namespace: data-platform
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    cert-manager.io/cluster-issuer: "selfsigned"
+spec:
+  ingressClassName: nginx
+  tls:
+  - hosts:
+    - 254carbon.com
+    - www.254carbon.com
+    - portal.254carbon.com
+    secretName: portal-tls
+  rules:
+  - host: 254carbon.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: portal
+            port:
+              number: 8080
+  - host: www.254carbon.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: portal
+            port:
+              number: 8080
+  - host: portal.254carbon.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: portal
+            port:
+              number: 8080
+
+---
+# Grafana Ingress with Cloudflare Access Authentication
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: grafana-ingress
+  namespace: monitoring
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    cert-manager.io/cluster-issuer: "selfsigned"
+    nginx.ingress.kubernetes.io/auth-url: "https://qagi.cloudflareaccess.com/cdn-cgi/access/authorize"
+    nginx.ingress.kubernetes.io/auth-signin: "https://qagi.cloudflareaccess.com/cdn-cgi/access/login?redirect_url=$escaped_request_uri"
+    nginx.ingress.kubernetes.io/auth-response-headers: "cf-access-jwt-assertion"
+    # Portal service discovery annotations
+    portal.254carbon.com/service-id: "grafana"
+    portal.254carbon.com/service-name: "Grafana"
+    portal.254carbon.com/service-category: "Monitoring"
+    portal.254carbon.com/service-description: "Observability dashboards and alerts."
+    portal.254carbon.com/service-icon: "📈"
+    portal.254carbon.com/service-health-path: "/api/health"
+    portal.254carbon.com/use-cloudflare-access: "true"
+    portal.254carbon.com/cf-access-secret-name: "cf-access-grafana"
+    portal.254carbon.com/cf-access-secret-namespace: "monitoring"
+    portal.254carbon.com/cf-access-client-id-key: "client_id"
+    portal.254carbon.com/cf-access-client-secret-key: "client_secret"
+spec:
+  ingressClassName: nginx
+  tls:
+  - hosts:
+    - grafana.254carbon.com
+    secretName: grafana-tls
+  rules:
+  - host: grafana.254carbon.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: grafana
+            port:
+              number: 3000
+  - host: grafana.local
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: grafana
+            port:
+              number: 3000
+
+---
+# Superset Ingress with Cloudflare Access Authentication
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: superset-ingress
+  namespace: data-platform
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    cert-manager.io/cluster-issuer: "selfsigned"
+    nginx.ingress.kubernetes.io/auth-url: "https://qagi.cloudflareaccess.com/cdn-cgi/access/authorize"
+    nginx.ingress.kubernetes.io/auth-signin: "https://qagi.cloudflareaccess.com/cdn-cgi/access/login?redirect_url=$escaped_request_uri"
+    nginx.ingress.kubernetes.io/auth-response-headers: "cf-access-jwt-assertion"
+spec:
+  ingressClassName: nginx
+  tls:
+  - hosts:
+    - superset.254carbon.com
+    secretName: superset-tls
+  rules:
+  - host: superset.254carbon.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: superset
+            port:
+              number: 8088
+  - host: superset.local
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: superset
+            port:
+              number: 8088
+
+---
+# DataHub Ingress with Cloudflare Access Authentication
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: datahub-ingress
+  namespace: data-platform
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    cert-manager.io/cluster-issuer: "selfsigned"
+    nginx.ingress.kubernetes.io/auth-url: "https://qagi.cloudflareaccess.com/cdn-cgi/access/authorize"
+    nginx.ingress.kubernetes.io/auth-signin: "https://qagi.cloudflareaccess.com/cdn-cgi/access/login?redirect_url=$escaped_request_uri"
+    nginx.ingress.kubernetes.io/auth-response-headers: "cf-access-jwt-assertion"
+spec:
+  ingressClassName: nginx
+  tls:
+  - hosts:
+    - datahub.254carbon.com
+    secretName: datahub-tls
+  rules:
+  - host: datahub.254carbon.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: datahub-frontend
+            port:
+              number: 9002
+      - path: /api
+        pathType: Prefix
+        backend:
+          service:
+            name: datahub-gms
+            port:
+              number: 8080
+  - host: datahub.local
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: datahub-frontend
+            port:
+              number: 9002
+      - path: /api
+        pathType: Prefix
+        backend:
+          service:
+            name: datahub-gms
+            port:
+              number: 8080
+
+---
+# Trino Ingress with Cloudflare Access Authentication
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: trino-ingress
+  namespace: data-platform
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    cert-manager.io/cluster-issuer: "selfsigned"
+    nginx.ingress.kubernetes.io/auth-url: "https://qagi.cloudflareaccess.com/cdn-cgi/access/authorize"
+    nginx.ingress.kubernetes.io/auth-signin: "https://qagi.cloudflareaccess.com/cdn-cgi/access/login?redirect_url=$escaped_request_uri"
+    nginx.ingress.kubernetes.io/auth-response-headers: "cf-access-jwt-assertion"
+spec:
+  ingressClassName: nginx
+  tls:
+  - hosts:
+    - trino.254carbon.com
+    secretName: trino-tls
+  rules:
+  - host: trino.254carbon.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: trino-coordinator
+            port:
+              number: 8080
+  - host: trino.local
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: trino-coordinator
+            port:
+              number: 8080
+
+---
+# Doris Ingress with Cloudflare Access Authentication
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: doris-ingress
+  namespace: data-platform
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    cert-manager.io/cluster-issuer: "selfsigned"
+    nginx.ingress.kubernetes.io/auth-url: "https://qagi.cloudflareaccess.com/cdn-cgi/access/authorize"
+    nginx.ingress.kubernetes.io/auth-signin: "https://qagi.cloudflareaccess.com/cdn-cgi/access/login?redirect_url=$escaped_request_uri"
+    nginx.ingress.kubernetes.io/auth-response-headers: "cf-access-jwt-assertion"
+spec:
+  ingressClassName: nginx
+  tls:
+  - hosts:
+    - doris.254carbon.com
+    secretName: doris-tls
+  rules:
+  - host: doris.254carbon.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: doris-fe-service
+            port:
+              number: 8030
+  - host: doris.local
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: doris-fe-service
+            port:
+              number: 8030
+
+---
+# Vault Ingress with Cloudflare Access Authentication
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: vault-ingress
+  namespace: vault-prod
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    cert-manager.io/cluster-issuer: "selfsigned"
+    nginx.ingress.kubernetes.io/backend-protocol: "HTTP"
+    nginx.ingress.kubernetes.io/auth-url: "https://qagi.cloudflareaccess.com/cdn-cgi/access/authorize"
+    nginx.ingress.kubernetes.io/auth-signin: "https://qagi.cloudflareaccess.com/cdn-cgi/access/login?redirect_url=$escaped_request_uri"
+    nginx.ingress.kubernetes.io/auth-response-headers: "cf-access-jwt-assertion"
+spec:
+  ingressClassName: nginx
+  tls:
+  - hosts:
+    - vault.254carbon.com
+    secretName: vault-tls
+  rules:
+  - host: vault.254carbon.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: vault
+            port:
+              number: 8200
+  - host: vault.local
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: vault
+            port:
+              number: 8200
+
+---
+# MinIO Ingress with Cloudflare Access Authentication
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: minio-console-ingress
+  namespace: data-platform
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    cert-manager.io/cluster-issuer: "selfsigned"
+    nginx.ingress.kubernetes.io/auth-url: "https://qagi.cloudflareaccess.com/cdn-cgi/access/authorize"
+    nginx.ingress.kubernetes.io/auth-signin: "https://qagi.cloudflareaccess.com/cdn-cgi/access/login?redirect_url=$escaped_request_uri"
+    nginx.ingress.kubernetes.io/auth-response-headers: "cf-access-jwt-assertion"
+spec:
+  ingressClassName: nginx
+  tls:
+  - hosts:
+    - minio.254carbon.com
+    secretName: minio-tls
+  rules:
+  - host: minio.254carbon.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: minio-console
+            port:
+              number: 9001
+  - host: minio.local
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: minio-console
+            port:
+              number: 9001
+
+---
+# DolphinScheduler Ingress with Cloudflare Access Authentication
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: dolphinscheduler-ingress
+  namespace: data-platform
+  annotations:
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    cert-manager.io/cluster-issuer: "selfsigned"
+    nginx.ingress.kubernetes.io/auth-url: "https://qagi.cloudflareaccess.com/cdn-cgi/access/authorize"
+    nginx.ingress.kubernetes.io/auth-signin: "https://qagi.cloudflareaccess.com/cdn-cgi/access/login?redirect_url=$escaped_request_uri"
+    nginx.ingress.kubernetes.io/auth-response-headers: "cf-access-jwt-assertion"
+spec:
+  ingressClassName: nginx
+  tls:
+  - hosts:
+    - dolphin.254carbon.com
+    - dolphinscheduler.127.0.0.1.nip.io
+    secretName: dolphinscheduler-tls
+  rules:
+  - host: dolphin.254carbon.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: dolphinscheduler-api
+            port:
+              number: 12345
+  - host: dolphinscheduler.local
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: dolphinscheduler-api
+            port:
+              number: 12345
+  - host: dolphinscheduler.127.0.0.1.nip.io
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: dolphinscheduler-api
+            port:
+              number: 12345
+
+---
+# LakeFS Ingress with Cloudflare Access Authentication
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: lakefs-ingress
+  namespace: data-platform
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    cert-manager.io/cluster-issuer: "selfsigned"
+    nginx.ingress.kubernetes.io/auth-url: "https://qagi.cloudflareaccess.com/cdn-cgi/access/authorize"
+    nginx.ingress.kubernetes.io/auth-signin: "https://qagi.cloudflareaccess.com/cdn-cgi/access/login?redirect_url=$escaped_request_uri"
+    nginx.ingress.kubernetes.io/auth-response-headers: "cf-access-jwt-assertion"
+spec:
+  ingressClassName: nginx
+  tls:
+  - hosts:
+    - lakefs.254carbon.com
+    secretName: lakefs-tls
+  rules:
+  - host: lakefs.254carbon.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: lakefs
+            port:
+              number: 8000
+  - host: lakefs.local
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: lakefs
+            port:
+              number: 8000
