@@ -1,0 +1,59 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: datahub-postgres-ingestion-recipe
+  namespace: data-platform
+  labels:
+    app: datahub
+    component: ingestion
+data:
+  postgres-recipe.yaml: |
+    source:
+      type: postgres
+      config:
+        host_port: "postgres-shared-service.data-platform.svc.cluster.local:5432"
+        database: "datahub"
+        username: "datahub"
+        password: "${POSTGRES_PASSWORD}"
+        
+        # Schema filtering
+        schema_pattern:
+          allow:
+            - "public"
+          deny:
+            - "information_schema"
+            - "pg_.*"
+        
+        # Table filtering
+        table_pattern:
+          allow:
+            - ".*"
+          deny:
+            - "tmp_.*"
+            - "staging_.*"
+        
+        # Include views
+        include_views: true
+        include_tables: true
+        
+        # Profiling configuration - simplified to avoid conflicts
+        profiling:
+          enabled: true
+          profile_table_level_only: true
+          max_workers: 5
+        
+        # Stateful ingestion
+        stateful_ingestion:
+          enabled: true
+          remove_stale_metadata: true
+
+    sink:
+      type: datahub-rest
+      config:
+        server: "http://datahub-gms.data-platform.svc.cluster.local:8080"
+        token: "${DATAHUB_SYSTEM_TOKEN}"
+
+    pipeline_name: "postgres_metadata_ingestion"
+
+
+

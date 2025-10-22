@@ -22,6 +22,8 @@ spec:
       parameters:
       - name: "data-lake.enabled"
         value: "true"
+      - name: "datahub.enabled"
+        value: "true"
   destination:
     server: https://kubernetes.default.svc
     namespace: data-platform
