@@ -1,0 +1,48 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: node-tuning-for-doris
+  namespace: kube-system
+  labels:
+    app: node-tuning
+spec:
+  selector:
+    matchLabels:
+      app: node-tuning
+  template:
+    metadata:
+      labels:
+        app: node-tuning
+    spec:
+      hostNetwork: true
+      hostPID: true
+      hostIPC: true
+      containers:
+      - name: sysctl-tuner
+        image: busybox:1.35
+        command:
+        - /bin/sh
+        - -c
+        - |
+          # Increase inotify limits for Doris and other applications
+          sysctl -w fs.inotify.max_user_instances=8192
+          sysctl -w fs.inotify.max_user_watches=524288
+          sysctl -w fs.inotify.max_queued_events=32768
+          
+          # Increase max map count for Elasticsearch/Doris
+          sysctl -w vm.max_map_count=2000000
+          
+          # Keep container running
+          echo "System tuning applied successfully"
+          tail -f /dev/null
+        securityContext:
+          privileged: true
+        resources:
+          requests:
+            cpu: 10m
+            memory: 32Mi
+          limits:
+            cpu: 50m
+            memory: 64Mi
+
+

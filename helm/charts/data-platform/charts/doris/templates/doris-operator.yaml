@@ -1,0 +1,86 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: doris-operator
+  namespace: doris
+  labels:
+    app.kubernetes.io/created-by: doris-operator
+    app.kubernetes.io/instance: doris-operator
+    app.kubernetes.io/name: deployment
+    app.kubernetes.io/part-of: doris-operator
+    control-plane: doris-operator
+  annotations:
+    kubectl.kubernetes.io/default-container: dorisoperator
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      control-plane: doris-operator
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/created-by: doris-operator
+        app.kubernetes.io/instance: doris-operator
+        app.kubernetes.io/name: deployment
+        app.kubernetes.io/part-of: doris-operator
+        control-plane: doris-operator
+      annotations:
+        kubectl.kubernetes.io/default-container: dorisoperator
+    spec:
+      serviceAccountName: doris-operator
+      terminationGracePeriodSeconds: 10
+      securityContext:
+        runAsNonRoot: true
+      containers:
+        - name: dorisoperator
+          image: apache/doris:operator-latest
+          imagePullPolicy: Always
+          command: ["/dorisoperator"]
+          args: ["--leader-elect"]
+          env:
+            - name: ENABLE_WEBHOOK
+              value: "false"
+            - name: START_DISAGGREGATED_OPERATOR
+              value: "false"
+            - name: OPERATOR_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: OPERATOR_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: SERVICE_NAME
+              value: doris-operator-service
+          resources:
+            requests:
+              cpu: "1"
+              memory: 2Gi
+            limits:
+              cpu: "2"
+              memory: 4Gi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8081
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: 8081
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          volumeMounts:
+            - name: cert
+              mountPath: /tmp/k8s-webhook-server/serving-certs
+              readOnly: true
+      volumes:
+        - name: cert
+          secret:
+            secretName: doris-operator-secret-cert

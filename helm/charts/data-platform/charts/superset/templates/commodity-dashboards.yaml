@@ -1,0 +1,297 @@
+# Superset Dashboards for Commodity Data Platform
+# Monitors data quality, pipeline performance, and market metrics
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: superset-commodity-dashboards
+  namespace: data-platform
+  labels:
+    app: superset
+    component: dashboards
+data:
+  # Commodity Price Monitoring Dashboard
+  commodity-prices-dashboard.json: |
+    {
+      "dashboard_title": "Commodity Price Monitoring",
+      "description": "Real-time monitoring of crude oil, natural gas, electricity, and LNG prices",
+      "charts": [
+        {
+          "chart_name": "Energy Prices Trend",
+          "viz_type": "line",
+          "datasource": "commodity_data.energy_prices",
+          "query": {
+            "metrics": ["AVG(price)"],
+            "groupby": ["price_date", "commodity"],
+            "time_range": "Last 30 days"
+          }
+        },
+        {
+          "chart_name": "Price Distribution by Commodity",
+          "viz_type": "box_plot",
+          "datasource": "commodity_data.energy_prices",
+          "query": {
+            "metrics": ["price"],
+            "groupby": ["commodity"],
+            "time_range": "Last 7 days"
+          }
+        },
+        {
+          "chart_name": "Daily Price Changes",
+          "viz_type": "bar",
+          "datasource": "commodity_data.energy_prices",
+          "query": {
+            "metrics": ["(price - LAG(price)) / LAG(price) * 100 as pct_change"],
+            "groupby": ["commodity"],
+            "time_range": "Yesterday"
+          }
+        },
+        {
+          "chart_name": "Price Volatility",
+          "viz_type": "area",
+          "datasource": "commodity_data.energy_prices",
+          "query": {
+            "metrics": ["STDDEV(price)"],
+            "groupby": ["price_date"],
+            "time_range": "Last 90 days"
+          }
+        }
+      ],
+      "filters": [
+        {"column": "commodity", "type": "multiselect"},
+        {"column": "location", "type": "multiselect"},
+        {"column": "price_date", "type": "time_range"}
+      ]
+    }
+
+  # Data Pipeline Health Dashboard
+  pipeline-health-dashboard.json: |
+    {
+      "dashboard_title": "Data Pipeline Health",
+      "description": "Monitor data ingestion pipelines, quality checks, and freshness",
+      "charts": [
+        {
+          "chart_name": "Data Ingestion Status",
+          "viz_type": "big_number_total",
+          "datasource": "commodity_data.energy_prices",
+          "query": {
+            "metrics": ["COUNT(*)"],
+            "filters": [
+              {"column": "ingestion_time", "op": ">=", "value": "CURRENT_DATE"}
+            ]
+          }
+        },
+        {
+          "chart_name": "Data Freshness by Source",
+          "viz_type": "table",
+          "datasource": "CUSTOM_SQL",
+          "query": {
+            "sql": "SELECT 'energy_prices' as source, MAX(ingestion_time) as last_update, ROUND((CURRENT_TIMESTAMP - MAX(ingestion_time)) / 3600, 2) as hours_old FROM commodity_data.energy_prices UNION ALL SELECT 'economic_indicators', MAX(ingestion_time), ROUND((CURRENT_TIMESTAMP - MAX(ingestion_time)) / 3600, 2) FROM commodity_data.economic_indicators UNION ALL SELECT 'weather_forecasts', MAX(ingestion_time), ROUND((CURRENT_TIMESTAMP - MAX(ingestion_time)) / 3600, 2) FROM commodity_data.weather_forecasts"
+          }
+        },
+        {
+          "chart_name": "Records Ingested Per Day",
+          "viz_type": "bar",
+          "datasource": "commodity_data.energy_prices",
+          "query": {
+            "metrics": ["COUNT(*)"],
+            "groupby": ["DATE(ingestion_time)"],
+            "time_range": "Last 14 days",
+            "order_by": "DATE(ingestion_time) DESC"
+          }
+        },
+        {
+          "chart_name": "Data Quality Score",
+          "viz_type": "gauge",
+          "datasource": "CUSTOM_SQL",
+          "query": {
+            "sql": "SELECT ROUND(100.0 * (1 - CAST(COUNT(CASE WHEN price IS NULL OR price < 0 THEN 1 END) AS DOUBLE) / COUNT(*)), 2) as quality_score FROM commodity_data.energy_prices WHERE price_date >= CURRENT_DATE - INTERVAL '7' DAY"
+          },
+          "target": 99.0,
+          "warning_threshold": 95.0
+        },
+        {
+          "chart_name": "Failed Ingestion Attempts",
+          "viz_type": "line",
+          "datasource": "dolphinscheduler.task_instance",
+          "query": {
+            "metrics": ["COUNT(*)"],
+            "groupby": ["DATE(end_time)"],
+            "filters": [
+              {"column": "state", "op": "==", "value": "FAILURE"}
+            ],
+            "time_range": "Last 30 days"
+          }
+        }
+      ],
+      "refresh_frequency": 300
+    }
+
+  # Economic Indicators Dashboard
+  economic-indicators-dashboard.json: |
+    {
+      "dashboard_title": "Economic Indicators",
+      "description": "Track key economic indicators affecting commodity markets",
+      "charts": [
+        {
+          "chart_name": "FRED Indicators Trend",
+          "viz_type": "line",
+          "datasource": "commodity_data.economic_indicators",
+          "query": {
+            "metrics": ["AVG(value)"],
+            "groupby": ["observation_date", "indicator_code"],
+            "time_range": "Last 12 months"
+          }
+        },
+        {
+          "chart_name": "Indicator Correlation Matrix",
+          "viz_type": "heatmap",
+          "datasource": "CUSTOM_SQL",
+          "query": {
+            "sql": "SELECT i1.indicator_code as indicator1, i2.indicator_code as indicator2, CORR(i1.value, i2.value) as correlation FROM commodity_data.economic_indicators i1 JOIN commodity_data.economic_indicators i2 ON i1.observation_date = i2.observation_date WHERE i1.observation_date >= CURRENT_DATE - INTERVAL '90' DAY GROUP BY i1.indicator_code, i2.indicator_code"
+          }
+        },
+        {
+          "chart_name": "Latest Indicator Values",
+          "viz_type": "big_number",
+          "datasource": "CUSTOM_SQL",
+          "query": {
+            "sql": "SELECT indicator_code, value, observation_date FROM (SELECT indicator_code, value, observation_date, ROW_NUMBER() OVER (PARTITION BY indicator_code ORDER BY observation_date DESC) as rn FROM commodity_data.economic_indicators) t WHERE rn = 1"
+          }
+        }
+      ]
+    }
+
+  # Weather Impact Dashboard
+  weather-impact-dashboard.json: |
+    {
+      "dashboard_title": "Weather Impact Analysis",
+      "description": "Monitor weather conditions affecting commodity production and transportation",
+      "charts": [
+        {
+          "chart_name": "Temperature Trends by Region",
+          "viz_type": "line",
+          "datasource": "commodity_data.weather_forecasts",
+          "query": {
+            "metrics": ["AVG(temperature)"],
+            "groupby": ["forecast_time", "location"],
+            "time_range": "Next 7 days"
+          }
+        },
+        {
+          "chart_name": "Precipitation Probability",
+          "viz_type": "area",
+          "datasource": "commodity_data.weather_forecasts",
+          "query": {
+            "metrics": ["AVG(precipitation_probability)"],
+            "groupby": ["location"],
+            "time_range": "Next 3 days"
+          }
+        },
+        {
+          "chart_name": "Weather Alerts Map",
+          "viz_type": "country_map",
+          "datasource": "commodity_data.weather_forecasts",
+          "query": {
+            "metrics": ["MAX(wind_speed)", "MAX(precipitation_probability)"],
+            "groupby": ["location"],
+            "time_range": "Today"
+          }
+        }
+      ]
+    }
+
+  # Data Quality Metrics Dashboard
+  data-quality-dashboard.json: |
+    {
+      "dashboard_title": "Data Quality Metrics",
+      "description": "Comprehensive data quality monitoring and validation",
+      "charts": [
+        {
+          "chart_name": "Null Value Rate",
+          "viz_type": "bar",
+          "datasource": "CUSTOM_SQL",
+          "query": {
+            "sql": "SELECT 'price' as field, ROUND(100.0 * COUNT(CASE WHEN price IS NULL THEN 1 END) / COUNT(*), 2) as null_rate FROM commodity_data.energy_prices WHERE price_date >= CURRENT_DATE - INTERVAL '7' DAY UNION ALL SELECT 'location', ROUND(100.0 * COUNT(CASE WHEN location IS NULL THEN 1 END) / COUNT(*), 2) FROM commodity_data.energy_prices WHERE price_date >= CURRENT_DATE - INTERVAL '7' DAY"
+          }
+        },
+        {
+          "chart_name": "Out-of-Range Values",
+          "viz_type": "table",
+          "datasource": "CUSTOM_SQL",
+          "query": {
+            "sql": "SELECT commodity, COUNT(*) as invalid_count, MIN(price) as min_price, MAX(price) as max_price FROM commodity_data.energy_prices WHERE price_date >= CURRENT_DATE - INTERVAL '7' DAY AND (price < 0 OR price > 10000) GROUP BY commodity"
+          }
+        },
+        {
+          "chart_name": "Duplicate Records",
+          "viz_type": "big_number_total",
+          "datasource": "CUSTOM_SQL",
+          "query": {
+            "sql": "SELECT COUNT(*) - COUNT(DISTINCT commodity || price_date || location) as duplicates FROM commodity_data.energy_prices WHERE price_date >= CURRENT_DATE - INTERVAL '7' DAY"
+          }
+        },
+        {
+          "chart_name": "Data Completeness Score",
+          "viz_type": "gauge",
+          "datasource": "CUSTOM_SQL",
+          "query": {
+            "sql": "SELECT ROUND(100.0 * COUNT(DISTINCT price_date) / 7, 2) as completeness FROM commodity_data.energy_prices WHERE price_date >= CURRENT_DATE - INTERVAL '7' DAY"
+          },
+          "target": 100.0,
+          "warning_threshold": 90.0
+        }
+      ],
+      "refresh_frequency": 600
+    }
+
+---
+# Superset Dashboard Deployment Job
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: superset-import-commodity-dashboards
+  namespace: data-platform
+  labels:
+    app: superset
+    component: setup
+spec:
+  template:
+    metadata:
+      labels:
+        app: superset
+        component: setup
+    spec:
+      restartPolicy: OnFailure
+      containers:
+      - name: import-dashboards
+        image: apache/superset:latest
+        command:
+        - /bin/bash
+        - -c
+        - |
+          set -e
+          echo "Waiting for Superset to be ready..."
+          until curl -f http://superset:8088/health; do
+            echo "Waiting..."
+            sleep 5
+          done
+          
+          echo "Importing commodity dashboards..."
+          # Import dashboard definitions
+          # Note: Manual import via UI is recommended for first-time setup
+          echo "Dashboards are ready for import via Superset UI"
+          echo "Access Superset at: https://superset.254carbon.com"
+          echo "Import dashboard JSON files from the configmap"
+        env:
+        - name: SUPERSET_URL
+          value: "http://superset:8088"
+        volumeMounts:
+        - name: dashboards
+          mountPath: /dashboards
+      volumes:
+      - name: dashboards
+        configMap:
+          name: superset-commodity-dashboards
+

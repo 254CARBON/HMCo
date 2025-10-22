@@ -1,0 +1,282 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: experiments.kubeflow.org
+spec:
+  group: kubeflow.org
+  versions:
+  - name: v1beta1
+    served: true
+    storage: true
+    schema:
+      openAPIV3Schema:
+        type: object
+        properties:
+          spec:
+            type: object
+            properties:
+              algorithm:
+                type: object
+              objective:
+                type: object
+              parameters:
+                type: array
+              parallelTrialCount:
+                type: integer
+              maxTrialCount:
+                type: integer
+              maxFailedTrialCount:
+                type: integer
+  scope: Namespaced
+  names:
+    kind: Experiment
+    plural: experiments
+    singular: experiment
+    shortNames:
+    - exp
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: katib-controller
+  namespace: kubeflow
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: katib-controller
+rules:
+- apiGroups: [""]
+  resources: ["*"]
+  verbs: ["*"]
+- apiGroups: ["apps"]
+  resources: ["*"]
+  verbs: ["*"]
+- apiGroups: ["batch"]
+  resources: ["*"]
+  verbs: ["*"]
+- apiGroups: ["kubeflow.org"]
+  resources: ["*"]
+  verbs: ["*"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: katib-controller
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: katib-controller
+subjects:
+- kind: ServiceAccount
+  name: katib-controller
+  namespace: kubeflow
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: katib-config
+  namespace: kubeflow
+data:
+  config.yaml: |
+    runtime:
+      suggestions:
+      - algorithmName: random
+        image: docker.io/kubeflowkatib/suggestion-hyperopt:v0.16.0
+      - algorithmName: tpe
+        image: docker.io/kubeflowkatib/suggestion-hyperopt:v0.16.0
+      - algorithmName: grid
+        image: docker.io/kubeflowkatib/suggestion-chocolate:v0.16.0
+      - algorithmName: hyperband
+        image: docker.io/kubeflowkatib/suggestion-hyperband:v0.16.0
+      - algorithmName: bayesianoptimization
+        image: docker.io/kubeflowkatib/suggestion-skopt:v0.16.0
+      - algorithmName: cmaes
+        image: docker.io/kubeflowkatib/suggestion-goptuna:v0.16.0
+      - algorithmName: sobol
+        image: docker.io/kubeflowkatib/suggestion-goptuna:v0.16.0
+      metricsCollectors:
+      - kind: StdOut
+        image: docker.io/kubeflowkatib/file-metrics-collector:v0.16.0
+      - kind: File
+        image: docker.io/kubeflowkatib/file-metrics-collector:v0.16.0
+      - kind: TensorFlowEvent
+        image: docker.io/kubeflowkatib/tfevent-metrics-collector:v0.16.0
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: katib-controller
+  namespace: kubeflow
+  labels:
+    app: katib-controller
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: katib-controller
+  template:
+    metadata:
+      labels:
+        app: katib-controller
+    spec:
+      serviceAccountName: katib-controller
+      containers:
+      - name: katib-controller
+        image: docker.io/kubeflowkatib/katib-controller:v0.16.0
+        command:
+        - ./katib-controller
+        args:
+        - --webhook-port=8443
+        ports:
+        - containerPort: 8443
+          name: webhook
+          protocol: TCP
+        - containerPort: 8080
+          name: metrics
+          protocol: TCP
+        env:
+        - name: KATIB_CORE_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        resources:
+          requests:
+            cpu: 100m
+            memory: 256Mi
+          limits:
+            cpu: 500m
+            memory: 1Gi
+        volumeMounts:
+        - name: katib-config
+          mountPath: /opt/katib
+      volumes:
+      - name: katib-config
+        configMap:
+          name: katib-config
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: katib-db-manager
+  namespace: kubeflow
+  labels:
+    app: katib-db-manager
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: katib-db-manager
+  template:
+    metadata:
+      labels:
+        app: katib-db-manager
+    spec:
+      containers:
+      - name: katib-db-manager
+        image: docker.io/kubeflowkatib/katib-db-manager:v0.16.0
+        ports:
+        - containerPort: 6789
+          name: api
+        env:
+        - name: DB_NAME
+          value: "mysql"
+        - name: DB_USER
+          value: "root"
+        - name: DB_PASSWORD
+          value: "root"
+        - name: DB_HOST
+          value: "mysql-service.kubeflow.svc.cluster.local"
+        - name: DB_PORT
+          value: "3306"
+        resources:
+          requests:
+            cpu: 100m
+            memory: 256Mi
+          limits:
+            cpu: 500m
+            memory: 1Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: katib-db-manager
+  namespace: kubeflow
+  labels:
+    app: katib-db-manager
+spec:
+  type: ClusterIP
+  selector:
+    app: katib-db-manager
+  ports:
+  - name: api
+    port: 6789
+    targetPort: 6789
+    protocol: TCP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: katib-ui
+  namespace: kubeflow
+  labels:
+    app: katib-ui
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: katib-ui
+  template:
+    metadata:
+      labels:
+        app: katib-ui
+    spec:
+      containers:
+      - name: katib-ui
+        image: docker.io/kubeflowkatib/katib-ui:v0.16.0
+        ports:
+        - containerPort: 8080
+          name: http
+        resources:
+          requests:
+            cpu: 100m
+            memory: 256Mi
+          limits:
+            cpu: 500m
+            memory: 1Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: katib-ui
+  namespace: kubeflow
+  labels:
+    app: katib-ui
+spec:
+  type: ClusterIP
+  selector:
+    app: katib-ui
+  ports:
+  - name: http
+    port: 80
+    targetPort: 8080
+    protocol: TCP
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: katib-controller
+  namespace: kubeflow
+  labels:
+    app: katib-controller
+spec:
+  selector:
+    matchLabels:
+      app: katib-controller
+  endpoints:
+  - port: metrics
+    path: /metrics
+    interval: 30s
+
+
+

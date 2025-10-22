@@ -1,0 +1,143 @@
+# Apache Doris Backend (BE) nodes
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: doris-be
+  namespace: data-platform
+  labels:
+    app: doris-be
+    component: analytical-database
+spec:
+  serviceName: doris-be-headless
+  replicas: 1
+  selector:
+    matchLabels:
+      app: doris-be
+  template:
+    metadata:
+      labels:
+        app: doris-be
+        component: analytical-database
+    spec:
+      imagePullSecrets: []
+      securityContext:
+        fsGroup: 0
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+      - name: doris-be
+        image: apache/doris:be-3.0.8
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          seccompProfile:
+            type: RuntimeDefault
+        ports:
+        - containerPort: 9060
+          name: be-webserver
+        - containerPort: 9050
+          name: be-heartbeat
+        - containerPort: 8040
+          name: be-brpc
+        - containerPort: 8060
+          name: be-mysql
+        - containerPort: 8070
+          name: be-arrow-flight
+        - containerPort: 9000
+          name: be-storage
+        env:
+        - name: FE_SERVERS
+          value: "fe1:doris-fe-0.doris-fe-headless.data-platform.svc.cluster.local:9010"
+        - name: BE_ADDR
+          value: "doris-be-0.doris-be-headless.data-platform.svc.cluster.local:9050"
+        - name: NODE_ROLE
+          value: "mix"
+        volumeMounts:
+        - name: doris-be-data
+          mountPath: /opt/apache-doris/be
+        - name: doris-be-logs
+          mountPath: /opt/apache-doris/be/log
+        resources:
+          limits:
+            memory: "16Gi"
+            cpu: "4000m"
+          requests:
+            memory: "8Gi"
+            cpu: "2000m"
+        livenessProbe:
+          tcpSocket:
+            port: 9060
+          initialDelaySeconds: 60
+          periodSeconds: 30
+        readinessProbe:
+          tcpSocket:
+            port: 9060
+          initialDelaySeconds: 10
+          periodSeconds: 10
+  volumeClaimTemplates:
+  - metadata:
+      name: doris-be-data
+    spec:
+      accessModes:
+      - ReadWriteOnce
+      resources:
+        requests:
+          storage: 100Gi
+      storageClassName: local-path
+  - metadata:
+      name: doris-be-logs
+    spec:
+      accessModes:
+      - ReadWriteOnce
+      resources:
+        requests:
+          storage: 20Gi
+      storageClassName: local-path
+---
+# Doris BE Headless Service for internal communication
+apiVersion: v1
+kind: Service
+metadata:
+  name: doris-be-headless
+  namespace: data-platform
+  labels:
+    app: doris-be
+spec:
+  ports:
+  - port: 9060
+    name: be-webserver
+  - port: 9050
+    name: be-heartbeat
+  - port: 8040
+    name: be-brpc
+  - port: 8060
+    name: be-mysql
+  - port: 8070
+    name: be-arrow-flight
+  - port: 9000
+    name: be-storage
+  clusterIP: None
+  selector:
+    app: doris-be
+---
+# Doris BE LoadBalancer Service for external access
+apiVersion: v1
+kind: Service
+metadata:
+  name: doris-be-service
+  namespace: data-platform
+  labels:
+    app: doris-be
+spec:
+  ports:
+  - port: 9060
+    targetPort: 9060
+    name: be-webserver
+  - port: 8060
+    targetPort: 8060
+    name: be-mysql
+  selector:
+    app: doris-be
+  type: ClusterIP

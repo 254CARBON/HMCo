@@ -1,0 +1,204 @@
+---
+# Kubeflow Pipelines for ML Workflow Orchestration
+# Simplified deployment for commodity price prediction pipelines
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: kubeflow
+
+---
+# Note: Full Kubeflow installation via kustomize:
+# kubectl apply -k "github.com/kubeflow/manifests/apps/pipeline/upstream/env/platform-agnostic-multi-user?ref=v2.0.0"
+
+# Minimal pipeline server for this deployment
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: pipeline-runner
+  namespace: kubeflow
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ml-pipeline-templates
+  namespace: kubeflow
+data:
+  commodity-price-prediction.yaml: |
+    # ML Pipeline: Commodity Price Prediction
+    # Steps: Data extraction → Feature engineering → Model training → Evaluation → Deployment
+    
+    apiVersion: argoproj.io/v1alpha1
+    kind: Workflow
+    metadata:
+      generateName: commodity-price-prediction-
+    spec:
+      entrypoint: price-prediction-pipeline
+      
+      templates:
+      - name: price-prediction-pipeline
+        steps:
+        - - name: extract-data
+            template: data-extraction
+        - - name: engineer-features
+            template: feature-engineering
+        - - name: train-model
+            template: model-training
+        - - name: evaluate-model
+            template: model-evaluation
+        - - name: deploy-model
+            template: model-deployment
+      
+      - name: data-extraction
+        container:
+          image: python:3.11
+          command: [python]
+          args:
+          - -c
+          - |
+            import pandas as pd
+            from trino import dbapi
+            
+            # Extract data from Iceberg
+            conn = dbapi.connect(
+              host='trino-coordinator.data-platform',
+              port=8080,
+              user='pipeline'
+            )
+            
+            df = pd.read_sql("""
+              SELECT * FROM iceberg_catalog.commodity_data.energy_prices
+              WHERE price_date >= CURRENT_DATE - INTERVAL '365' DAY
+            """, conn)
+            
+            df.to_parquet('/data/raw_data.parquet')
+            print(f"Extracted {len(df)} records")
+          volumeMounts:
+          - name: data
+            mountPath: /data
+      
+      - name: feature-engineering
+        container:
+          image: python:3.11
+          command: [python]
+          args:
+          - -c
+          - |
+            import pandas as pd
+            import numpy as np
+            
+            df = pd.read_parquet('/data/raw_data.parquet')
+            
+            # Create features
+            df['price_ma_7'] = df.groupby('commodity')['price'].rolling(7).mean().reset_index(drop=True)
+            df['price_ma_30'] = df.groupby('commodity')['price'].rolling(30).mean().reset_index(drop=True)
+            df['price_volatility'] = df.groupby('commodity')['price'].rolling(30).std().reset_index(drop=True)
+            df['day_of_week'] = pd.to_datetime(df['price_date']).dt.dayofweek
+            
+            df.to_parquet('/data/features.parquet')
+            print("Feature engineering complete")
+          volumeMounts:
+          - name: data
+            mountPath: /data
+      
+      - name: model-training
+        container:
+          image: python:3.11
+          command: [python]
+          args:
+          - -c
+          - |
+            import pandas as pd
+            from sklearn.ensemble import RandomForestRegressor
+            import mlflow
+            import pickle
+            
+            mlflow.set_tracking_uri('http://mlflow.data-platform:5000')
+            mlflow.set_experiment('commodity-price-prediction')
+            
+            df = pd.read_parquet('/data/features.parquet')
+            
+            # Train model
+            with mlflow.start_run():
+              features = ['price_ma_7', 'price_ma_30', 'price_volatility', 'day_of_week']
+              X = df[features].fillna(0)
+              y = df['price']
+              
+              model = RandomForestRegressor(n_estimators=100)
+              model.fit(X, y)
+              
+              # Log model
+              mlflow.sklearn.log_model(model, "model")
+              mlflow.log_metric("training_samples", len(df))
+              
+              with open('/data/model.pkl', 'wb') as f:
+                pickle.dump(model, f)
+            
+            print("Model training complete")
+          volumeMounts:
+          - name: data
+            mountPath: /data
+      
+      - name: model-evaluation
+        container:
+          image: python:3.11
+          command: [python]
+          args:
+          - -c
+          - |
+            import pandas as pd
+            import pickle
+            from sklearn.metrics import mean_absolute_error, r2_score
+            
+            df = pd.read_parquet('/data/features.parquet')
+            
+            with open('/data/model.pkl', 'rb') as f:
+              model = pickle.load(f)
+            
+            features = ['price_ma_7', 'price_ma_30', 'price_volatility', 'day_of_week']
+            X = df[features].fillna(0)
+            y = df['price']
+            
+            predictions = model.predict(X)
+            mae = mean_absolute_error(y, predictions)
+            r2 = r2_score(y, predictions)
+            
+            print(f"MAE: {mae:.2f}, R2: {r2:.4f}")
+            
+            # Save metrics
+            with open('/data/metrics.txt', 'w') as f:
+              f.write(f"mae={mae}\nr2={r2}\n")
+          volumeMounts:
+          - name: data
+            mountPath: /data
+      
+      - name: model-deployment
+        container:
+          image: python:3.11
+          command: [python]
+          args:
+          - -c
+          - |
+            import mlflow
+            
+            mlflow.set_tracking_uri('http://mlflow.data-platform:5000')
+            
+            # Register model
+            client = mlflow.tracking.MlflowClient()
+            runs = client.search_runs(experiment_ids=['1'], order_by=["start_time DESC"], max_results=1)
+            
+            if runs:
+              run_id = runs[0].info.run_id
+              model_uri = f"runs:/{run_id}/model"
+              
+              mlflow.register_model(
+                model_uri=model_uri,
+                name="commodity-price-predictor"
+              )
+              
+              print("Model registered successfully")
+      
+      volumes:
+      - name: data
+        emptyDir: {}

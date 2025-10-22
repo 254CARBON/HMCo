@@ -8,3 +8,7 @@ dependencies:
     version: "0.1.0"
     repository: "file://./charts/mlflow"
     condition: mlflow.enabled
+  - name: kubeflow
+    version: "0.1.0"
+    repository: "file://./charts/kubeflow"
+    condition: kubeflow.enabled
