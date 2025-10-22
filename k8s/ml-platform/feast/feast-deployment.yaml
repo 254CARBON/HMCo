@@ -11,7 +11,8 @@ data:
     project: commodity_ml
     provider: local
     registry:
-      path: /feast/data/registry.db
+      registry_type: "sql"
+      path: "postgresql://feast_user:feast_password@postgres-shared-service.data-platform.svc.cluster.local:5432/feast"
     online_store:
       type: redis
       connection_string: redis-service.data-platform.svc.cluster.local:6379
@@ -81,6 +82,11 @@ spec:
         env:
         - name: FEAST_USAGE
           value: "False"
+        - name: FEAST_REGISTRY_DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: feast-db-secret
+              key: FEAST_REGISTRY_DB_PASSWORD
       containers:
       - name: feast-server
         image: feastdev/feature-server:0.35.0
@@ -97,6 +103,11 @@ spec:
         env:
         - name: FEAST_USAGE
           value: "False"
+        - name: FEAST_REGISTRY_DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: feast-db-secret
+              key: FEAST_REGISTRY_DB_PASSWORD
         resources:
           requests:
             cpu: 500m
@@ -132,8 +143,15 @@ spec:
       - name: feast-features
         configMap:
           name: feast-features
-      - name: feast-data
-        emptyDir: {}
+  volumeClaimTemplates:
+  - metadata:
+      name: feast-data
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      storageClassName: local-path
+      resources:
+        requests:
+          storage: 1Gi
 ---
 apiVersion: v1
 kind: Service
