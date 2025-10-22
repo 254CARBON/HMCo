@@ -1,0 +1,59 @@
+# DataHub Ingestion Recipe for Deequ Quality Checks
+# This recipe catalogs Deequ quality checks as data quality assets
+# and links them to the source tables being validated
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: datahub-deequ-ingestion
+  namespace: data-platform
+  labels:
+    app: datahub
+    component: ingestion
+data:
+  deequ-quality-recipe.json: |
+    {
+      "source": {
+        "type": "data-quality",
+        "config": {
+          "platform": "deequ",
+          "data_quality_provider": {
+            "type": "iceberg",
+            "catalog_type": "rest",
+            "uri": "http://iceberg-rest-catalog:8181",
+            "warehouse": "s3://iceberg-warehouse/",
+            "database": "monitoring",
+            "table": "deequ_quality_checks"
+          },
+          "data_quality_checks": {
+            "include_checks": true,
+            "include_profiles": true,
+            "include_anomalies": true,
+            "check_types": [
+              "Completeness",
+              "Uniqueness",
+              "PatternMatch",
+              "ReferentialIntegrity",
+              "Freshness"
+            ]
+          },
+          "link_to_source_tables": true,
+          "source_table_catalog": {
+            "type": "iceberg",
+            "catalog_type": "rest",
+            "uri": "http://iceberg-rest-catalog:8181",
+            "warehouse": "s3://iceberg-warehouse/"
+          },
+          "stateful_ingestion": {
+            "enabled": true,
+            "max_checkpoint_age_days": 7
+          }
+        }
+      },
+      "sink": {
+        "type": "datahub-rest",
+        "config": {
+          "server": "http://datahub-gms:8080"
+        }
+      }
+    }

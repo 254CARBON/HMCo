@@ -1,0 +1,40 @@
+# DataHub Ingress - Direct Access (No Cloudflare Access)
+# Use this for direct access without SSO redirect loops
+
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: datahub-ingress
+  namespace: data-platform
+  annotations:
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    nginx.ingress.kubernetes.io/proxy-connect-timeout: "120"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "120"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "120"
+spec:
+  ingressClassName: nginx
+  tls:
+  - hosts:
+    - datahub.254carbon.com
+    secretName: datahub-tls
+  rules:
+  - host: datahub.254carbon.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: datahub-frontend
+            port:
+              number: 9002
+      - path: /api
+        pathType: Prefix
+        backend:
+          service:
+            name: datahub-gms
+            port:
+              number: 8080
+

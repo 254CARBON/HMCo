@@ -1,0 +1,143 @@
+# Iceberg Initialization Job
+# This job creates the necessary PostgreSQL database and MinIO bucket for Iceberg
+
+---
+# Job to initialize PostgreSQL database for Iceberg REST catalog
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: iceberg-postgres-init
+  namespace: data-platform
+  labels:
+    app: iceberg-init
+    component: data-lake
+spec:
+  ttlSecondsAfterFinished: 600
+  backoffLimit: 3
+  template:
+    metadata:
+      labels:
+        app: iceberg-init
+        component: data-lake
+    spec:
+      restartPolicy: OnFailure
+      dnsPolicy: ClusterFirst
+      dnsConfig:
+        options:
+        - name: ndots
+          value: "1"
+      containers:
+      - name: postgres-init
+        image: postgres:15
+        command:
+        - /bin/bash
+        - -c
+        - |
+          set -e
+          echo "Initializing PostgreSQL database for Iceberg..."
+          
+          # Wait for PostgreSQL to be ready
+          until pg_isready -h postgres-shared-service -p 5432 -U postgres; do
+            echo "Waiting for PostgreSQL to be ready..."
+            sleep 5
+          done
+          
+          echo "PostgreSQL is ready, creating database and user..."
+          
+          # Create database if it doesn't exist
+          PGPASSWORD=$POSTGRES_PASSWORD psql -h postgres-shared-service -U postgres -tc \
+            "SELECT 1 FROM pg_database WHERE datname = 'iceberg_rest'" | grep -q 1 || \
+          PGPASSWORD=$POSTGRES_PASSWORD psql -h postgres-shared-service -U postgres <<EOF
+          CREATE DATABASE iceberg_rest;
+          \c iceberg_rest
+          CREATE SCHEMA IF NOT EXISTS iceberg_catalog;
+          CREATE USER iceberg_user WITH PASSWORD 'iceberg_password';
+          GRANT ALL PRIVILEGES ON DATABASE iceberg_rest TO iceberg_user;
+          GRANT ALL PRIVILEGES ON SCHEMA iceberg_catalog TO iceberg_user;
+          GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA iceberg_catalog TO iceberg_user;
+          GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA iceberg_catalog TO iceberg_user;
+          ALTER DEFAULT PRIVILEGES IN SCHEMA iceberg_catalog GRANT ALL ON TABLES TO iceberg_user;
+          ALTER DEFAULT PRIVILEGES IN SCHEMA iceberg_catalog GRANT ALL ON SEQUENCES TO iceberg_user;
+          EOF
+          
+          echo "Database initialization complete!"
+        env:
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: postgres-shared-secret
+              key: password
+        - name: PGHOST
+          value: postgres-shared-service
+        - name: PGPORT
+          value: "5432"
+
+---
+# Job to create MinIO bucket for Iceberg warehouse
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: iceberg-minio-init
+  namespace: data-platform
+  labels:
+    app: iceberg-init
+    component: data-lake
+spec:
+  ttlSecondsAfterFinished: 600
+  backoffLimit: 3
+  template:
+    metadata:
+      labels:
+        app: iceberg-init
+        component: data-lake
+    spec:
+      restartPolicy: OnFailure
+      dnsPolicy: ClusterFirst
+      dnsConfig:
+        options:
+        - name: ndots
+          value: "1"
+      containers:
+      - name: minio-init
+        image: minio/mc:latest
+        command:
+        - /bin/sh
+        - -c
+        - |
+          set -e
+          echo "Initializing MinIO bucket for Iceberg..."
+          
+          # Configure mc
+          mc alias set myminio http://minio-service:9000 $AWS_ACCESS_KEY_ID $AWS_SECRET_ACCESS_KEY
+          
+          # Create bucket if it doesn't exist
+          if ! mc ls myminio/iceberg-warehouse >/dev/null 2>&1; then
+            echo "Creating bucket: iceberg-warehouse"
+            mc mb myminio/iceberg-warehouse
+            mc anonymous set none myminio/iceberg-warehouse
+            echo "Bucket created successfully"
+          else
+            echo "Bucket already exists: iceberg-warehouse"
+          fi
+          
+          # Set versioning (recommended for Iceberg)
+          mc version enable myminio/iceberg-warehouse || true
+          
+          echo "MinIO initialization complete!"
+          
+          # List buckets to verify
+          echo "Current buckets:"
+          mc ls myminio/
+        env:
+        - name: AWS_ACCESS_KEY_ID
+          valueFrom:
+            secretKeyRef:
+              name: minio-secret
+              key: access-key
+        - name: AWS_SECRET_ACCESS_KEY
+          valueFrom:
+            secretKeyRef:
+              name: minio-secret
+              key: secret-key
+
+

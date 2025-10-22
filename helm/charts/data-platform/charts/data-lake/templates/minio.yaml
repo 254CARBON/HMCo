@@ -1,0 +1,134 @@
+# MinIO distributed deployment for S3-compatible storage
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: minio
+  namespace: data-platform
+  labels:
+    app: minio
+    component: object-storage
+spec:
+  serviceName: minio-headless
+  replicas: 1
+  selector:
+    matchLabels:
+      app: minio
+  template:
+    metadata:
+      labels:
+        app: minio
+        component: object-storage
+    spec:
+      imagePullSecrets: []
+      containers:
+      - name: minio
+        image: quay.io/minio/minio:RELEASE.2022-02-16T00-35-27Z
+        ports:
+        - containerPort: 9000
+          name: minio-api
+        - containerPort: 9001
+          name: minio-console
+        command:
+        - minio
+        - server
+        - /data
+        - --console-address
+        - :9001
+        env:
+        - name: MINIO_ROOT_USER
+          valueFrom:
+            secretKeyRef:
+              name: minio-secret
+              key: access-key
+        - name: MINIO_ROOT_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: minio-secret
+              key: secret-key
+        volumeMounts:
+        - name: minio-data
+          mountPath: /data
+        resources:
+          limits:
+            memory: "2Gi"
+            cpu: "1000m"
+          requests:
+            memory: "1Gi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /minio/health/live
+            port: 9000
+            scheme: HTTP
+          initialDelaySeconds: 60
+          periodSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /minio/health/ready
+            port: 9000
+            scheme: HTTP
+          initialDelaySeconds: 10
+          periodSeconds: 10
+  volumeClaimTemplates:
+  - metadata:
+      name: minio-data
+    spec:
+      accessModes:
+      - ReadWriteOnce
+      resources:
+        requests:
+          storage: 50Gi
+      storageClassName: local-path
+---
+# MinIO Headless Service for internal communication
+apiVersion: v1
+kind: Service
+metadata:
+  name: minio-headless
+  namespace: data-platform
+  labels:
+    app: minio
+spec:
+  ports:
+  - port: 9000
+    name: minio-api
+  clusterIP: None
+  selector:
+    app: minio
+---
+# MinIO LoadBalancer Service for external access
+apiVersion: v1
+kind: Service
+metadata:
+  name: minio-service
+  namespace: data-platform
+  labels:
+    app: minio
+spec:
+  ports:
+  - port: 9000
+    targetPort: 9000
+    name: minio-api
+  - port: 9001
+    targetPort: 9001
+    name: minio-console
+  selector:
+    app: minio
+  type: ClusterIP
+---
+# MinIO Console Service (separate for web interface)
+apiVersion: v1
+kind: Service
+metadata:
+  name: minio-console
+  namespace: data-platform
+  labels:
+    app: minio
+spec:
+  ports:
+  - port: 9001
+    targetPort: 9001
+    name: minio-console
+  selector:
+    app: minio
+  type: ClusterIP

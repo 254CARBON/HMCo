@@ -1,0 +1,34 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mlflow-config
+  namespace: data-platform
+  labels:
+    app: mlflow
+data:
+  # MLFlow tracking server configuration
+  mlflow_tracking_uri: "postgresql://mlflow:mlflow-secure-password-change-me@postgres-shared-service.data-platform.svc.cluster.local:5432/mlflow"
+  artifact_root: "s3://mlflow-artifacts"
+  
+  # MinIO S3 configuration
+  aws_s3_endpoint_url: "http://minio-service.data-platform.svc.cluster.local:9000"
+  mlflow_s3_endpoint_url: "http://minio-service.data-platform.svc.cluster.local:9000"
+  
+  # TLS verification (MinIO uses self-signed cert in dev)
+  aws_s3_verify: "false"
+  
+  # MLFlow server settings
+  mlflow_backend_store_uri: "postgresql://mlflow:mlflow-secure-password-change-me@postgres-shared-service.data-platform.svc.cluster.local:5432/mlflow"
+  mlflow_default_artifact_root: "s3://mlflow-artifacts"
+  
+  # Tracking server host and port
+  server_host: "0.0.0.0"
+  server_port: "5000"
+  
+  # Gunicorn configuration for production-grade serving
+  gunicorn_workers: "4"
+  gunicorn_threads: "2"
+  gunicorn_timeout: "300"
+  
+  # Logging configuration
+  log_level: "INFO"
