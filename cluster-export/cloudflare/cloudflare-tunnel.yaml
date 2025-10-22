@@ -1,0 +1,310 @@
+apiVersion: v1
+items:
+- apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    annotations:
+      deployment.kubernetes.io/revision: "14"
+      kubectl.kubernetes.io/last-applied-configuration: |
+        {"apiVersion":"apps/v1","kind":"Deployment","metadata":{"annotations":{},"labels":{"app.kubernetes.io/component":"tunnel","app.kubernetes.io/name":"cloudflare-tunnel"},"name":"cloudflared","namespace":"cloudflare-tunnel"},"spec":{"replicas":2,"selector":{"matchLabels":{"app.kubernetes.io/name":"cloudflare-tunnel"}},"strategy":{"rollingUpdate":{"maxSurge":1,"maxUnavailable":0},"type":"RollingUpdate"},"template":{"metadata":{"annotations":{"prometheus.io/path":"/metrics","prometheus.io/port":"2000","prometheus.io/scrape":"true"},"labels":{"app.kubernetes.io/name":"cloudflare-tunnel"}},"spec":{"affinity":{"podAntiAffinity":{"preferredDuringSchedulingIgnoredDuringExecution":[{"podAffinityTerm":{"labelSelector":{"matchExpressions":[{"key":"app.kubernetes.io/name","operator":"In","values":["cloudflare-tunnel"]}]},"topologyKey":"kubernetes.io/hostname"},"weight":100}]}},"containers":[{"args":["tunnel","--config","/etc/cloudflare-tunnel/config/config.yaml","run"],"command":["cloudflared"],"env":[{"name":"TZ","value":"UTC"},{"name":"TUNNEL_TRANSPORT_PROTOCOL","value":"h2mux"},{"name":"TUNNEL_LOGLEVEL","value":"info"},{"name":"TUNNEL_ORIGIN_CERT","value":"/etc/cloudflare-tunnel/creds/credentials.json"}],"image":"cloudflare/cloudflared:latest","imagePullPolicy":"Always","livenessProbe":{"failureThreshold":3,"httpGet":{"path":"/metrics","port":2000,"scheme":"HTTP"},"initialDelaySeconds":30,"periodSeconds":10,"timeoutSeconds":5},"name":"cloudflared","ports":[{"containerPort":2000,"name":"metrics","protocol":"TCP"}],"readinessProbe":{"failureThreshold":3,"httpGet":{"path":"/metrics","port":2000,"scheme":"HTTP"},"initialDelaySeconds":10,"periodSeconds":5,"timeoutSeconds":3},"resources":{"limits":{"cpu":"500m","memory":"512Mi"},"requests":{"cpu":"100m","memory":"128Mi"}},"volumeMounts":[{"mountPath":"/etc/cloudflare-tunnel/config","name":"config","readOnly":true},{"mountPath":"/etc/cloudflare-tunnel/creds","name":"credentials","readOnly":true},{"mountPath":"/var/lib/cloudflare-tunnel","name":"cache"}]}],"restartPolicy":"Always","serviceAccountName":"cloudflared","volumes":[{"configMap":{"defaultMode":420,"items":[{"key":"config.yaml","path":"config.yaml"}],"name":"cloudflared-config"},"name":"config"},{"name":"credentials","secret":{"defaultMode":384,"items":[{"key":"credentials.json","path":"credentials.json"}],"secretName":"cloudflare-tunnel-credentials"}},{"emptyDir":{},"name":"cache"}]}}}}
+    creationTimestamp: "2025-10-20T15:59:04Z"
+    generation: 14
+    labels:
+      app.kubernetes.io/component: tunnel
+      app.kubernetes.io/name: cloudflare-tunnel
+    name: cloudflared
+    namespace: cloudflare-tunnel
+    resourceVersion: "91451"
+    uid: e86e613b-089f-44da-b33b-eab3415ed1ea
+  spec:
+    progressDeadlineSeconds: 600
+    replicas: 2
+    revisionHistoryLimit: 10
+    selector:
+      matchLabels:
+        app.kubernetes.io/name: cloudflare-tunnel
+    strategy:
+      rollingUpdate:
+        maxSurge: 1
+        maxUnavailable: 0
+      type: RollingUpdate
+    template:
+      metadata:
+        annotations:
+          kubectl.kubernetes.io/restartedAt: "2025-10-20T17:39:23Z"
+          prometheus.io/path: /metrics
+          prometheus.io/port: "2000"
+          prometheus.io/scrape: "true"
+        creationTimestamp: null
+        labels:
+          app.kubernetes.io/name: cloudflare-tunnel
+      spec:
+        affinity:
+          podAntiAffinity:
+            preferredDuringSchedulingIgnoredDuringExecution:
+            - podAffinityTerm:
+                labelSelector:
+                  matchExpressions:
+                  - key: app.kubernetes.io/name
+                    operator: In
+                    values:
+                    - cloudflare-tunnel
+                topologyKey: kubernetes.io/hostname
+              weight: 100
+        containers:
+        - args:
+          - tunnel
+          - --config
+          - /etc/cloudflare-tunnel/config/config.yaml
+          - run
+          command:
+          - cloudflared
+          env:
+          - name: TZ
+            value: UTC
+          - name: TUNNEL_TRANSPORT_PROTOCOL
+            value: h2mux
+          - name: TUNNEL_LOGLEVEL
+            value: info
+          - name: TUNNEL_ORIGIN_CERT
+            value: /etc/cloudflare-tunnel/creds/credentials.json
+          - name: TUNNEL_TOKEN
+            valueFrom:
+              secretKeyRef:
+                key: token
+                name: cloudflare-tunnel-token
+          image: cloudflare/cloudflared:latest
+          imagePullPolicy: Always
+          livenessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /metrics
+              port: 2000
+              scheme: HTTP
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 5
+          name: cloudflared
+          ports:
+          - containerPort: 2000
+            name: metrics
+            protocol: TCP
+          readinessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /metrics
+              port: 2000
+              scheme: HTTP
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            successThreshold: 1
+            timeoutSeconds: 3
+          resources:
+            limits:
+              cpu: 500m
+              memory: 512Mi
+            requests:
+              cpu: 100m
+              memory: 128Mi
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+          volumeMounts:
+          - mountPath: /etc/cloudflare-tunnel/config
+            name: config
+            readOnly: true
+          - mountPath: /etc/cloudflare-tunnel/creds
+            name: credentials
+            readOnly: true
+          - mountPath: /var/lib/cloudflare-tunnel
+            name: cache
+        dnsPolicy: ClusterFirst
+        restartPolicy: Always
+        schedulerName: default-scheduler
+        securityContext: {}
+        serviceAccount: cloudflared
+        serviceAccountName: cloudflared
+        terminationGracePeriodSeconds: 30
+        volumes:
+        - configMap:
+            defaultMode: 420
+            items:
+            - key: config.yaml
+              path: config.yaml
+            name: cloudflared-config
+          name: config
+        - name: credentials
+          secret:
+            defaultMode: 384
+            items:
+            - key: credentials.json
+              path: credentials.json
+            secretName: cloudflare-tunnel-credentials
+        - emptyDir: {}
+          name: cache
+  status:
+    availableReplicas: 2
+    conditions:
+    - lastTransitionTime: "2025-10-20T18:06:22Z"
+      lastUpdateTime: "2025-10-20T18:06:22Z"
+      message: Deployment has minimum availability.
+      reason: MinimumReplicasAvailable
+      status: "True"
+      type: Available
+    - lastTransitionTime: "2025-10-20T17:39:18Z"
+      lastUpdateTime: "2025-10-20T18:06:22Z"
+      message: ReplicaSet "cloudflared-586475886d" has successfully progressed.
+      reason: NewReplicaSetAvailable
+      status: "True"
+      type: Progressing
+    observedGeneration: 14
+    readyReplicas: 2
+    replicas: 2
+    updatedReplicas: 2
+- apiVersion: v1
+  kind: Service
+  metadata:
+    annotations:
+      kubectl.kubernetes.io/last-applied-configuration: |
+        {"apiVersion":"v1","kind":"Service","metadata":{"annotations":{},"labels":{"app.kubernetes.io/name":"cloudflare-tunnel"},"name":"cloudflared-metrics","namespace":"cloudflare-tunnel"},"spec":{"ports":[{"name":"metrics","port":2000,"protocol":"TCP","targetPort":2000}],"selector":{"app.kubernetes.io/name":"cloudflare-tunnel"},"type":"ClusterIP"}}
+    creationTimestamp: "2025-10-20T15:59:04Z"
+    labels:
+      app.kubernetes.io/name: cloudflare-tunnel
+    name: cloudflared-metrics
+    namespace: cloudflare-tunnel
+    resourceVersion: "76238"
+    uid: 5e230206-5560-499c-b970-b5b12072293b
+  spec:
+    clusterIP: 10.105.120.50
+    clusterIPs:
+    - 10.105.120.50
+    internalTrafficPolicy: Cluster
+    ipFamilies:
+    - IPv4
+    ipFamilyPolicy: SingleStack
+    ports:
+    - name: metrics
+      port: 2000
+      protocol: TCP
+      targetPort: 2000
+    selector:
+      app.kubernetes.io/name: cloudflare-tunnel
+    sessionAffinity: None
+    type: ClusterIP
+  status:
+    loadBalancer: {}
+- apiVersion: v1
+  data:
+    config.yaml: |
+      tunnel: 291bc289-e3c3-4446-a9ad-8e327660ecd5
+      credentials-file: /etc/cloudflare-tunnel/creds/credentials.json
+      metrics: 0.0.0.0:2000
+      metrics-update-freq: 5s
+
+      ingress:
+        - hostname: portal.254carbon.com
+          service: http://ingress-nginx-controller.ingress-nginx:80
+          originRequest:
+            httpHostHeader: portal.254carbon.com
+        - hostname: www.254carbon.com
+          service: http://ingress-nginx-controller.ingress-nginx:80
+          originRequest:
+            httpHostHeader: www.254carbon.com
+        - hostname: grafana.254carbon.com
+          service: http://ingress-nginx-controller.ingress-nginx:80
+          originRequest:
+            httpHostHeader: grafana.254carbon.com
+        - hostname: superset.254carbon.com
+          service: http://ingress-nginx-controller.ingress-nginx:80
+          originRequest:
+            httpHostHeader: superset.254carbon.com
+        - hostname: datahub.254carbon.com
+          service: http://ingress-nginx-controller.ingress-nginx:80
+          originRequest:
+            httpHostHeader: datahub.254carbon.com
+        - hostname: trino.254carbon.com
+          service: http://ingress-nginx-controller.ingress-nginx:80
+          originRequest:
+            httpHostHeader: trino.254carbon.com
+        - hostname: doris.254carbon.com
+          service: http://ingress-nginx-controller.ingress-nginx:80
+          originRequest:
+            httpHostHeader: doris.254carbon.com
+        - hostname: vault.254carbon.com
+          service: http://ingress-nginx-controller.ingress-nginx:80
+          originRequest:
+            httpHostHeader: vault.254carbon.com
+        - hostname: minio.254carbon.com
+          service: http://ingress-nginx-controller.ingress-nginx:80
+          originRequest:
+            httpHostHeader: minio.254carbon.com
+        - hostname: dolphin.254carbon.com
+          service: http://ingress-nginx-controller.ingress-nginx:80
+          originRequest:
+            httpHostHeader: dolphin.254carbon.com
+        - hostname: lakefs.254carbon.com
+          service: http://ingress-nginx-controller.ingress-nginx:80
+          originRequest:
+            httpHostHeader: lakefs.254carbon.com
+        - hostname: mlflow.254carbon.com
+          service: http://ingress-nginx-controller.ingress-nginx:80
+          originRequest:
+            httpHostHeader: mlflow.254carbon.com
+        - hostname: spark-history.254carbon.com
+          service: http://ingress-nginx-controller.ingress-nginx:80
+          originRequest:
+            httpHostHeader: spark-history.254carbon.com
+        - hostname: harbor.254carbon.com
+          service: http://ingress-nginx-controller.ingress-nginx:80
+          originRequest:
+            httpHostHeader: harbor.254carbon.com
+        - service: http_status:404
+  kind: ConfigMap
+  metadata:
+    annotations:
+      kubectl.kubernetes.io/last-applied-configuration: |
+        {"apiVersion":"v1","data":{"config.yaml":"tunnel: 291bc289-e3c3-4446-a9ad-8e327660ecd5\ncredentials-file: /etc/cloudflare-tunnel/creds/credentials.json\nmetrics: 0.0.0.0:2000\nmetrics-update-freq: 5s\n\ningress:\n  - hostname: portal.254carbon.com\n    service: http://ingress-nginx-controller.ingress-nginx:80\n    originRequest:\n      httpHostHeader: portal.254carbon.com\n  - hostname: www.254carbon.com\n    service: http://ingress-nginx-controller.ingress-nginx:80\n    originRequest:\n      httpHostHeader: www.254carbon.com\n  - hostname: grafana.254carbon.com\n    service: http://ingress-nginx-controller.ingress-nginx:80\n    originRequest:\n      httpHostHeader: grafana.254carbon.com\n  - hostname: superset.254carbon.com\n    service: http://ingress-nginx-controller.ingress-nginx:80\n    originRequest:\n      httpHostHeader: superset.254carbon.com\n  - hostname: datahub.254carbon.com\n    service: http://ingress-nginx-controller.ingress-nginx:80\n    originRequest:\n      httpHostHeader: datahub.254carbon.com\n  - hostname: trino.254carbon.com\n    service: http://ingress-nginx-controller.ingress-nginx:80\n    originRequest:\n      httpHostHeader: trino.254carbon.com\n  - hostname: doris.254carbon.com\n    service: http://ingress-nginx-controller.ingress-nginx:80\n    originRequest:\n      httpHostHeader: doris.254carbon.com\n  - hostname: vault.254carbon.com\n    service: http://ingress-nginx-controller.ingress-nginx:80\n    originRequest:\n      httpHostHeader: vault.254carbon.com\n  - hostname: minio.254carbon.com\n    service: http://ingress-nginx-controller.ingress-nginx:80\n    originRequest:\n      httpHostHeader: minio.254carbon.com\n  - hostname: dolphin.254carbon.com\n    service: http://ingress-nginx-controller.ingress-nginx:80\n    originRequest:\n      httpHostHeader: dolphin.254carbon.com\n  - hostname: lakefs.254carbon.com\n    service: http://ingress-nginx-controller.ingress-nginx:80\n    originRequest:\n      httpHostHeader: lakefs.254carbon.com\n  - hostname: mlflow.254carbon.com\n    service: http://ingress-nginx-controller.ingress-nginx:80\n    originRequest:\n      httpHostHeader: mlflow.254carbon.com\n  - hostname: spark-history.254carbon.com\n    service: http://ingress-nginx-controller.ingress-nginx:80\n    originRequest:\n      httpHostHeader: spark-history.254carbon.com\n  - hostname: harbor.254carbon.com\n    service: http://ingress-nginx-controller.ingress-nginx:80\n    originRequest:\n      httpHostHeader: harbor.254carbon.com\n  - service: http_status:404\n"},"kind":"ConfigMap","metadata":{"annotations":{},"labels":{"app.kubernetes.io/name":"cloudflare-tunnel"},"name":"cloudflared-config","namespace":"cloudflare-tunnel"}}
+    creationTimestamp: "2025-10-20T15:58:59Z"
+    labels:
+      app.kubernetes.io/name: cloudflare-tunnel
+    name: cloudflared-config
+    namespace: cloudflare-tunnel
+    resourceVersion: "77974"
+    uid: d369ec69-4ad6-4f58-ac58-a44f01656e90
+- apiVersion: v1
+  data:
+    ca.crt: |
+      -----BEGIN CERTIFICATE-----
+      MIIDBTCCAe2gAwIBAgIITbm3FCXTLlAwDQYJKoZIhvcNAQELBQAwFTETMBEGA1UE
+      AxMKa3ViZXJuZXRlczAeFw0yNTEwMjAwNDIxNTVaFw0zNTEwMTgwNDI2NTVaMBUx
+      EzARBgNVBAMTCmt1YmVybmV0ZXMwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEK
+      AoIBAQDAuRx/dYcsD7hq2LV+NP3zlh0oJBtSi30A5KYTPfmcADEEG25lik81vpef
+      rjKjX0DWU2ZhhKArygrTXc+EAXm8B6H7tnxI413Kn7rDUqw9+fsfhGzH4CC/budy
+      Un+pqTOaDMQiGdS4MuBGdAFi5GDoW5A1yf+W58RA/WxzQ6z0X02VMXqVg71NGa0Q
+      Qt8kn89Y9SXz7RBhCnx6JXyZIQWTQzjN4KZkVsJgOFAs4pl/nMNwYZowpjp07yMu
+      DMTJz7E9wSe63154g4+aBinaODHS14gul3Z+mDpYJS7rRveRzyIUUji/As64qfmH
+      2RzIUg9c+EtmrjuJzL6YQs8ClDKDAgMBAAGjWTBXMA4GA1UdDwEB/wQEAwICpDAP
+      BgNVHRMBAf8EBTADAQH/MB0GA1UdDgQWBBTKiegkBVco1361YaGuIM6FOrSJ8TAV
+      BgNVHREEDjAMggprdWJlcm5ldGVzMA0GCSqGSIb3DQEBCwUAA4IBAQAx5XoPaxFB
+      xX56999Or7Laotj025h4u/13RkFVbrlHGnASoGcUVk/QCkKSLYqXnBCsQ3Tc+wQ0
+      fHwGgQokh+uiCIprWX28PC+Xx3NpBJHaR7QudL94OBL7Gfi6TfD2QIWAKEbYKlXO
+      UJyk0toYmYINWAIULIfxvNvs7ahL+FmHXsIigTW5VyY4Y+o8LDbG/3s55+utPH5Y
+      2Y89XwyRz3m/SzwVW6gQVVoFVkija/R/tuPaCLKu/4Ssdg29NacvqEigCm4gBE2l
+      BhCw+y+g46XiB8Y7ktlMHqP7WDCuaIr24bUVh6E/dpNSUqD4zxQssHU2lH4qocWd
+      ltir8f2TDjQa
+      -----END CERTIFICATE-----
+  kind: ConfigMap
+  metadata:
+    annotations:
+      kubernetes.io/description: Contains a CA bundle that can be used to verify the
+        kube-apiserver when using internal endpoints such as the internal service
+        IP or kubernetes.default.svc. No other usage is guaranteed across distributions
+        of Kubernetes clusters.
+    creationTimestamp: "2025-10-20T15:58:59Z"
+    name: kube-root-ca.crt
+    namespace: cloudflare-tunnel
+    resourceVersion: "76219"
+    uid: 72dc9725-58e6-4bbd-91d4-935b1537ba0d
+kind: List
+metadata:
+  resourceVersion: ""

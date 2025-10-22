@@ -1,0 +1,230 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Portal Prototype — Terminal Style</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="app">
+      <header class="topbar" role="banner">
+        <div class="brand">
+          <span class="logo" aria-hidden="true">◆</span>
+          <span class="title">Portal</span>
+          <span class="env env-prod" aria-label="Environment: Production">PROD</span>
+        </div>
+        <div class="top-actions">
+          <div class="search">
+            <input id="global-search" type="search" placeholder="Search… (Press /)" aria-label="Global search" />
+          </div>
+          <button class="btn ghost" id="open-palette" aria-label="Open command palette">⌘K</button>
+          <button class="btn ghost" id="open-help" aria-label="Open shortcuts">?</button>
+          <div class="user" aria-label="User menu" tabindex="0">HM</div>
+        </div>
+      </header>
+
+      <div class="ticker" role="region" aria-label="Live signals ticker">
+        <div class="ticker-track">
+          <div class="tick positive">CPU ▲ 12%</div>
+          <div class="tick negative">Errors ▼ 3.2%</div>
+          <div class="tick info">Latency ≈ 214ms</div>
+          <div class="tick warn">Jobs Queued ● 17</div>
+          <div class="tick">Deploys ● 2</div>
+          <div class="tick positive">Uptime 99.98%</div>
+          <div class="tick info">Storage 62% used</div>
+        </div>
+      </div>
+
+      <div class="main">
+        <nav class="sidebar" aria-label="Primary">
+          <a class="nav-item active" data-view="overview" href="#">Overview</a>
+          <a class="nav-item" data-view="entities" href="#">Entities</a>
+          <a class="nav-item" data-view="services" href="#">Services</a>
+          <a class="nav-item" data-view="datasets" href="#">Datasets</a>
+          <a class="nav-item" data-view="analytics" href="#">Analytics</a>
+          <a class="nav-item" data-view="alerts" href="#">Alerts</a>
+          <div class="sep"></div>
+          <a class="nav-item" data-view="saved" href="#">Saved Views</a>
+          <a class="nav-item" data-view="settings" href="#">Settings</a>
+        </nav>
+
+        <section class="content" role="main">
+          <div id="view-overview" class="view active" aria-label="Overview">
+          <div class="kpis" aria-label="Key metrics">
+            <div class="card kpi">
+              <div class="kpi-name">Active Entities</div>
+              <div class="kpi-value">1,284</div>
+              <div class="kpi-delta up">+3.1% vs 7d</div>
+            </div>
+            <div class="card kpi">
+              <div class="kpi-name">Alerts (Open)</div>
+              <div class="kpi-value">24</div>
+              <div class="kpi-delta warn">+5 today</div>
+            </div>
+            <div class="card kpi">
+              <div class="kpi-name">Data Freshness</div>
+              <div class="kpi-value">98.6%</div>
+              <div class="kpi-delta ok">On target</div>
+            </div>
+            <div class="card kpi">
+              <div class="kpi-name">Job Queue</div>
+              <div class="kpi-value">17</div>
+              <div class="kpi-delta down">−2 vs 24h</div>
+            </div>
+          </div>
+
+          <div class="grid">
+            <div class="card watchlist">
+              <div class="card-head">
+                <div class="card-title">Watchlist</div>
+                <div class="card-actions"><button class="btn small">Manage</button></div>
+              </div>
+              <ul class="watch-items">
+                <li><span class="tag ok">OK</span> LakeFS — Sync Lag 3m</li>
+                <li><span class="tag warn">WARN</span> Kafka — ISR Shrink</li>
+                <li><span class="tag err">ERR</span> Ingest — 500 spikes</li>
+                <li><span class="tag ok">OK</span> Vault — Sealed 0</li>
+              </ul>
+            </div>
+
+            <div class="card table">
+              <div class="card-head">
+                <div class="card-title">Entities — Monitoring View</div>
+                <div class="card-actions">
+                  <button class="btn small ghost">Columns</button>
+                  <button class="btn small ghost">Save View</button>
+                </div>
+              </div>
+              <div class="table-wrap" role="table" aria-label="Entities table">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Entity</th>
+                      <th>Status</th>
+                      <th>Latency</th>
+                      <th>Errors</th>
+                      <th>Updated</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td>ETL — Orders</td>
+                      <td><span class="tag ok">OK</span></td>
+                      <td>182ms</td>
+                      <td>0.03%</td>
+                      <td>2m ago</td>
+                    </tr>
+                    <tr>
+                      <td>Ingest — Kafka</td>
+                      <td><span class="tag warn">WARN</span></td>
+                      <td>410ms</td>
+                      <td>0.7%</td>
+                      <td>1m ago</td>
+                    </tr>
+                    <tr>
+                      <td>API — Public</td>
+                      <td><span class="tag err">ERR</span></td>
+                      <td>—</td>
+                      <td>3.2%</td>
+                      <td>Just now</td>
+                    </tr>
+                    <tr>
+                      <td>Iceberg Optimize</td>
+                      <td><span class="tag ok">OK</span></td>
+                      <td>240ms</td>
+                      <td>0.00%</td>
+                      <td>5m ago</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div class="card chart">
+              <div class="card-head">
+                <div class="card-title">Errors — Last 24h</div>
+                <div class="card-actions">
+                  <select aria-label="Time range">
+                    <option>24h</option>
+                    <option>7d</option>
+                    <option>30d</option>
+                  </select>
+                </div>
+              </div>
+              <div class="chart-placeholder" aria-hidden="true"></div>
+              <div class="muted small">Placeholder chart area</div>
+            </div>
+
+            <div class="card empty">
+              <div class="empty-state">
+                <div class="empty-title">No saved views yet</div>
+                <div class="empty-desc">Create and save table/filters to access them here.</div>
+                <button class="btn">Create a view</button>
+              </div>
+            </div>
+          </div>
+          </div>
+
+          <div id="view-services" class="view" aria-label="Service directory">
+            <div class="card">
+              <div class="card-head">
+                <div class="card-title">Service Directory</div>
+                <div class="card-actions">
+                  <input id="service-filter" class="input" type="search" placeholder="Filter services…" aria-label="Filter services" />
+                </div>
+              </div>
+              <div id="service-grid" class="service-grid" aria-live="polite"></div>
+              <div class="muted small">Links may require SSO; status check is best-effort.</div>
+            </div>
+          </div>
+        </section>
+
+        <aside class="drawer" aria-label="Details panel" aria-hidden="true">
+          <div class="drawer-head">
+            <div class="drawer-title">Details</div>
+            <button class="btn small ghost" id="close-drawer">Close</button>
+          </div>
+          <div class="drawer-body">
+            <p class="muted">Select an item to view details.</p>
+          </div>
+        </aside>
+      </div>
+
+      <!-- Command Palette Overlay -->
+      <div class="overlay hidden" id="palette" role="dialog" aria-modal="true" aria-label="Command palette">
+        <div class="overlay-card">
+          <input id="palette-input" type="text" placeholder="Type a command or search…" aria-label="Command input" />
+          <ul class="palette-list" id="palette-list" role="listbox" aria-label="Commands">
+            <li data-action="goto:overview">Go to: Overview</li>
+            <li data-action="goto:services">Go to: Services</li>
+            <li data-action="goto:entities">Go to: Entities</li>
+            <li data-action="goto:datasets">Go to: Datasets</li>
+            <li data-action="goto:analytics">Go to: Analytics</li>
+            <li data-action="goto:alerts">Go to: Alerts</li>
+            <li data-action="help">Show keyboard shortcuts</li>
+          </ul>
+          <div class="overlay-hint">Esc to close • ↑/↓ to navigate • Enter to run</div>
+        </div>
+      </div>
+
+      <!-- Help / Shortcuts Overlay -->
+      <div class="overlay hidden" id="help" role="dialog" aria-modal="true" aria-label="Keyboard shortcuts">
+        <div class="overlay-card">
+          <h3>Keyboard Shortcuts</h3>
+          <div class="shortcuts">
+            <div><kbd>⌘/Ctrl</kbd><span>+</span><kbd>K</kbd> — Command palette</div>
+            <div><kbd>/</kbd> — Focus search</div>
+            <div><kbd>?</kbd> — This help</div>
+            <div><kbd>g</kbd> then <kbd>e</kbd> — Go to Entities</div>
+            <div><kbd>↑</kbd>/<kbd>↓</kbd> — Navigate lists</div>
+            <div><kbd>Enter</kbd> — Open/Run</div>
+            <div><kbd>Esc</kbd> — Close overlay</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script src="app.js"></script>
+  </body>
+  </html>

@@ -1,0 +1,23 @@
+{
+  "name": "OpenFIGI Instrument Mapping Update",
+  "description": "Weekly update of commodity instrument FIGI mappings",
+  "scheduleStartTime": "2025-01-01 08:00:00",
+  "scheduleEndTime": "2030-12-31 23:59:59",
+  "crontab": "0 8 * * 1",
+  "scheduleWarningType": "NONE",
+  "timeout": 1800,
+  "tenantCode": "default",
+  "processType": "DAG",
+  "tasks": [
+    {
+      "name": "update_figi_mappings",
+      "type": "PYTHON",
+      "params": {
+        "rawScript": "import requests\nimport os\nimport json\n\nAPI_KEY = os.getenv('OPENFIGI_API_KEY')\n\n# Commodities to map\ncommodities = [\n    {'idType': 'TICKER', 'idValue': 'CL', 'exchCode': 'US'},  # WTI Crude\n    {'idType': 'TICKER', 'idValue': 'NG', 'exchCode': 'US'},  # Natural Gas\n    {'idType': 'TICKER', 'idValue': 'HO', 'exchCode': 'US'},  # Heating Oil\n    {'idType': 'TICKER', 'idValue': 'RB', 'exchCode': 'US'}   # Gasoline\n]\n\nurl = 'https://api.openfigi.com/v3/mapping'\nheaders = {'Content-Type': 'application/json', 'X-OPENFIGI-APIKEY': API_KEY}\n\nresponse = requests.post(url, headers=headers, json=commodities)\nprint(f'OpenFIGI API: {response.status_code}')\n\nif response.status_code == 200:\n    results = response.json()\n    for i, result in enumerate(results):\n        if 'data' in result:\n            data = result['data'][0] if result['data'] else {}\n            print(f'{commodities[i][\"idValue\"]}: FIGI={data.get(\"figi\")}, Name={data.get(\"name\")}')\n\nprint('FIGI mapping update complete')"
+      },
+      "timeout": 900,
+      "retryTimes": 2,
+      "retryInterval": 180
+    }
+  ]
+}

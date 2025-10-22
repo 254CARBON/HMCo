@@ -1,0 +1,5 @@
+# 254Carbon Event Producer Library Requirements
+confluent-kafka[avro]==2.3.0
+
+
+

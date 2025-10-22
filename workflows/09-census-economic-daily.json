@@ -1,0 +1,23 @@
+{
+  "name": "US Census Economic Indicators",
+  "description": "Daily US Census Bureau economic indicators",
+  "scheduleStartTime": "2025-01-01 07:00:00",
+  "scheduleEndTime": "2030-12-31 23:59:59",
+  "crontab": "0 7 * * *",
+  "scheduleWarningType": "FAILURE",
+  "timeout": 1800,
+  "tenantCode": "default",
+  "processType": "DAG",
+  "tasks": [
+    {
+      "name": "ingest_census_indicators",
+      "type": "PYTHON",
+      "params": {
+        "rawScript": "import requests\nimport os\n\nAPI_KEY = os.getenv('CENSUS_API_KEY')\n\nurl = 'https://api.census.gov/data/timeseries/eits/resconst'\nparams = {\n    'get': 'cell_value,data_type_code,time_slot_id,category_code',\n    'key': API_KEY,\n    'time': 'from 2023'\n}\n\nresponse = requests.get(url, params=params)\nprint(f'US Census API: {response.status_code}')\n\nif response.status_code == 200:\n    data = response.json()\n    print(f'Records: {len(data) - 1} economic indicators')  # -1 for header row\n    print('Sample data:')\n    for row in data[1:6]:  # Show first 5 data rows\n        print(f'  {row}')\n\nprint('Census data ingestion complete')"
+      },
+      "timeout": 1200,
+      "retryTimes": 3,
+      "retryInterval": 300
+    }
+  ]
+}

@@ -1,0 +1,23 @@
+{
+  "name": "GIE European Gas Storage Data",
+  "description": "Daily European gas storage levels from GIE (AGSI/ALSI)",
+  "scheduleStartTime": "2025-01-01 06:00:00",
+  "scheduleEndTime": "2030-12-31 23:59:59",
+  "crontab": "0 6 * * *",
+  "scheduleWarningType": "FAILURE",
+  "timeout": 1800,
+  "tenantCode": "default",
+  "processType": "DAG",
+  "tasks": [
+    {
+      "name": "ingest_gie_eu_storage",
+      "type": "PYTHON",
+      "params": {
+        "rawScript": "import requests\nimport os\nfrom datetime import datetime, timedelta\n\nAPI_KEY = os.getenv('GIE_API_KEY')\n\nend_date = datetime.now().date()\nstart_date = end_date - timedelta(days=30)\n\nurl = 'https://agsi.gie.eu/api'\nheaders = {'x-key': API_KEY}\nparams = {'country': 'EU', 'from': start_date.isoformat(), 'to': end_date.isoformat(), 'size': 300}\n\nresponse = requests.get(url, headers=headers, params=params)\nprint(f'GIE AGSI API: {response.status_code}')\n\nif response.status_code == 200:\n    data = response.json()\n    records = data.get('data', [])\n    print(f'Records: {len(records)} storage entries')\n    if records:\n        latest = records[0]\n        print(f'Latest gas in storage: {latest.get(\"gasInStorage\")} GWh')\n        print(f'Storage fullness: {latest.get(\"full\")}%')\n\nprint('GIE storage data ingestion complete')"
+      },
+      "timeout": 1200,
+      "retryTimes": 3,
+      "retryInterval": 300
+    }
+  ]
+}

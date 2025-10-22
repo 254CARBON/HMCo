@@ -1,0 +1,84 @@
+{
+  "name": "Daily Market Data Ingestion",
+  "description": "Collect daily market prices for commodities, electricity, LNG, natural gas",
+  "scheduleStartTime": "2025-01-01 02:00:00",
+  "scheduleEndTime": "2030-12-31 23:59:59",
+  "crontab": "0 2 * * *",
+  "scheduleWarningType": "FAILURE",
+  "timeout": 3600,
+  "tenantCode": "default",
+  "processType": "DAG",
+  "tasks": [
+    {
+      "name": "ingest_crude_oil_prices",
+      "type": "SHELL",
+      "params": {
+        "rawScript": "#!/bin/bash\nset -e\n# Run SeaTunnel connector for crude oil prices\ncurl -X POST http://seatunnel-service:8080/execute \\\n  -H 'Content-Type: application/json' \\\n  -d '{\n    \"connector\": \"energy-prices\",\n    \"commodity\": \"crude_oil\",\n    \"date\": \"'$(date +%Y-%m-%d)'\"\n  }'\necho \"Crude oil prices ingested successfully\""
+      },
+      "timeout": 1800,
+      "retryTimes": 3,
+      "retryInterval": 300
+    },
+    {
+      "name": "ingest_natural_gas_prices",
+      "type": "SHELL",
+      "params": {
+        "rawScript": "#!/bin/bash\nset -e\n# Run SeaTunnel connector for natural gas prices\ncurl -X POST http://seatunnel-service:8080/execute \\\n  -H 'Content-Type: application/json' \\\n  -d '{\n    \"connector\": \"energy-prices\",\n    \"commodity\": \"natural_gas\",\n    \"date\": \"'$(date +%Y-%m-%d)'\"\n  }'\necho \"Natural gas prices ingested successfully\""
+      },
+      "timeout": 1800,
+      "retryTimes": 3,
+      "retryInterval": 300,
+      "preTasks": ["ingest_crude_oil_prices"]
+    },
+    {
+      "name": "ingest_electricity_prices",
+      "type": "SHELL",
+      "params": {
+        "rawScript": "#!/bin/bash\nset -e\n# Run SeaTunnel connector for electricity prices\ncurl -X POST http://seatunnel-service:8080/execute \\\n  -H 'Content-Type: application/json' \\\n  -d '{\n    \"connector\": \"energy-prices\",\n    \"commodity\": \"electricity\",\n    \"date\": \"'$(date +%Y-%m-%d)'\"\n  }'\necho \"Electricity prices ingested successfully\""
+      },
+      "timeout": 1800,
+      "retryTimes": 3,
+      "retryInterval": 300,
+      "preTasks": ["ingest_natural_gas_prices"]
+    },
+    {
+      "name": "ingest_lng_prices",
+      "type": "SHELL",
+      "params": {
+        "rawScript": "#!/bin/bash\nset -e\n# Run SeaTunnel connector for LNG prices\ncurl -X POST http://seatunnel-service:8080/execute \\\n  -H 'Content-Type: application/json' \\\n  -d '{\n    \"connector\": \"energy-prices\",\n    \"commodity\": \"lng\",\n    \"date\": \"'$(date +%Y-%m-%d)'\"\n  }'\necho \"LNG prices ingested successfully\""
+      },
+      "timeout": 1800,
+      "retryTimes": 3,
+      "retryInterval": 300,
+      "preTasks": ["ingest_electricity_prices"]
+    },
+    {
+      "name": "validate_market_data",
+      "type": "SQL",
+      "params": {
+        "type": "TRINO",
+        "datasource": "trino-coordinator:8080",
+        "sql": "SELECT COUNT(*) as record_count, MAX(price_date) as latest_date FROM commodity_data.energy_prices WHERE price_date = CURRENT_DATE - INTERVAL '1' DAY",
+        "sqlType": "QUERY"
+      },
+      "timeout": 600,
+      "preTasks": ["ingest_lng_prices"]
+    },
+    {
+      "name": "send_success_notification",
+      "type": "HTTP",
+      "params": {
+        "url": "http://dolphinscheduler-alert:50053/alert",
+        "httpMethod": "POST",
+        "httpParams": [
+          {
+            "prop": "message",
+            "value": "Market data ingestion completed successfully for $(date +%Y-%m-%d)"
+          }
+        ]
+      },
+      "timeout": 300,
+      "preTasks": ["validate_market_data"]
+    }
+  ]
+}

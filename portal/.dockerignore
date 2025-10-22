@@ -1,0 +1,17 @@
+node_modules
+npm-debug.log
+.next
+dist
+build
+.git
+.gitignore
+README.md
+.env.example
+.eslintrc.json
+.prettierrc
+tsconfig.json
+yarn.lock
+package-lock.json
+.DS_Store
+.env
+.env.local

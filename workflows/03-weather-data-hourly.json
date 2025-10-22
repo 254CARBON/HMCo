@@ -1,0 +1,35 @@
+{
+  "name": "Hourly Weather Data Collection",
+  "description": "Collect weather forecasts affecting commodity production and transportation",
+  "scheduleStartTime": "2025-01-01 00:00:00",
+  "scheduleEndTime": "2030-12-31 23:59:59",
+  "crontab": "0 */4 * * *",
+  "scheduleWarningType": "NONE",
+  "timeout": 1800,
+  "tenantCode": "default",
+  "processType": "DAG",
+  "tasks": [
+    {
+      "name": "ingest_us_weather_forecast",
+      "type": "SHELL",
+      "params": {
+        "rawScript": "#!/bin/bash\nset -e\n# Collect US weather forecasts for key commodity regions\nregions=(\"houston:LZK:48,65\" \"chicago:LOT:31,69\" \"newyork:OKX:33,37\")\nfor region in \"${regions[@]}\"; do\n  IFS=':' read -r city office grid <<< \"$region\"\n  echo \"Collecting weather for $city...\"\n  curl -X POST http://seatunnel-service:8080/execute \\\n    -H 'Content-Type: application/json' \\\n    -d \"{\n      \\\"connector\\\": \\\"weather-data\\\",\n      \\\"location\\\": \\\"$city\\\",\n      \\\"office\\\": \\\"$office\\\",\n      \\\"grid\\\": \\\"$grid\\\"\n    }\"\ndone\necho \"Weather data collected successfully\""
+      },
+      "timeout": 1200,
+      "retryTimes": 2,
+      "retryInterval": 180
+    },
+    {
+      "name": "analyze_weather_impact",
+      "type": "SQL",
+      "params": {
+        "type": "TRINO",
+        "datasource": "trino-coordinator:8080",
+        "sql": "INSERT INTO commodity_data.weather_impact_analysis SELECT location, AVG(temperature) as avg_temp, AVG(precipitation_probability) as avg_precip_prob, forecast_time, 'COMPUTED' as analysis_type FROM commodity_data.weather_forecasts WHERE ingestion_date = CURRENT_DATE GROUP BY location, forecast_time",
+        "sqlType": "NON_QUERY"
+      },
+      "timeout": 600,
+      "preTasks": ["ingest_us_weather_forecast"]
+    }
+  ]
+}

@@ -1,0 +1,36 @@
+cert-manager         cert-manager-7dfcddcdd5-lrn5b                       1/1     Running                 0                13m
+cert-manager         cert-manager-cainjector-58d74bf4f5-cprs7            1/1     Running                 0                13m
+cert-manager         cert-manager-webhook-6db4c65b5d-bkxcn               1/1     Running                 0                13m
+cloudflare-tunnel    cloudflared-586475886d-jgsvv                        1/1     Running                 0                3h5m
+cloudflare-tunnel    cloudflared-586475886d-jm4sj                        1/1     Running                 0                3h5m
+data-platform        cm-acme-http-solver-kmss6                           1/1     Running                 0                6m58s
+data-platform        cm-acme-http-solver-q7x2l                           1/1     Running                 0                6m58s
+data-platform        cm-acme-http-solver-r25d2                           1/1     Running                 0                6m58s
+data-platform        datahub-frontend-7779b88556-bz56k                   1/1     Running                 0                105m
+data-platform        datahub-mae-consumer-5b96df9b9-7bplm                1/1     Running                 14 (6m24s ago)   105m
+data-platform        minio-0                                             1/1     Running                 0                16h
+data-platform        portal-7b4f66945d-4jwxb                             1/1     Running                 0                76m
+data-platform        portal-7b4f66945d-qw9fj                             1/1     Running                 0                76m
+data-platform        portal-services-7568d7ddd5-vrqgk                    1/1     Running                 0                63m
+data-platform        postgres-shared-0                                   1/1     Running                 1 (15h ago)      16h
+data-platform        postgres-shared-1                                   1/1     Running                 1 (15h ago)      15h
+data-platform        postgres-workflow-567574b65f-lkt8t                  1/1     Running                 0                16h
+data-platform        redis-86995c768c-nt22j                              1/1     Running                 0                105m
+data-platform        zookeeper-0                                         1/1     Running                 0                16h
+ingress-nginx        nginx-ingress-controller-574b8d7f59-mdqhn           1/1     Running                 0                16h
+kube-system          coredns-6f6b679f8f-f8vk8                            1/1     Running                 0                16h
+kube-system          coredns-6f6b679f8f-hc867                            1/1     Running                 0                16h
+kube-system          etcd-dev-cluster-control-plane                      1/1     Running                 0                16h
+kube-system          kindnet-tmhpz                                       1/1     Running                 0                16h
+kube-system          kube-apiserver-dev-cluster-control-plane            1/1     Running                 0                16h
+kube-system          kube-controller-manager-dev-cluster-control-plane   1/1     Running                 0                16h
+kube-system          kube-proxy-w7z9w                                    1/1     Running                 0                16h
+kube-system          kube-scheduler-dev-cluster-control-plane            1/1     Running                 0                16h
+local-path-storage   local-path-provisioner-ccc7bf7fc-k5jds              1/1     Running                 0                16h
+registry             harbor-core-5d896ff4c7-djwvh                        1/1     Running                 0                16h
+registry             harbor-database-0                                   1/1     Running                 0                16h
+registry             harbor-jobservice-7486b84d44-ll2gs                  1/1     Running                 3 (16h ago)      16h
+registry             harbor-portal-55f47b58b9-sss67                      1/1     Running                 0                16h
+registry             harbor-redis-0                                      1/1     Running                 0                16h
+registry             harbor-registry-696dc8645d-tjpdt                    2/2     Running                 0                16h
+registry             harbor-trivy-0                                      1/1     Running                 0                16h

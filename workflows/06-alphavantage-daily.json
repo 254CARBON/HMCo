@@ -1,0 +1,23 @@
+{
+  "name": "AlphaVantage Commodity Data Ingestion",
+  "description": "Daily collection of commodity futures data from AlphaVantage",
+  "scheduleStartTime": "2025-01-01 04:00:00",
+  "scheduleEndTime": "2030-12-31 23:59:59",
+  "crontab": "0 4 * * *",
+  "scheduleWarningType": "FAILURE",
+  "timeout": 1800,
+  "tenantCode": "default",
+  "processType": "DAG",
+  "tasks": [
+    {
+      "name": "ingest_alphavantage_commodities",
+      "type": "PYTHON",
+      "params": {
+        "rawScript": "import requests\nimport os\nfrom datetime import datetime\n\nAPI_KEY = os.getenv('ALPHAVANTAGE_API_KEY')\nSYMBOLS = ['CL=F', 'NG=F', 'HO=F', 'RB=F']\n\nfor symbol in SYMBOLS:\n    url = 'https://www.alphavantage.co/query'\n    params = {'function': 'TIME_SERIES_DAILY', 'symbol': symbol, 'apikey': API_KEY, 'outputsize': 'compact'}\n    response = requests.get(url, params=params)\n    print(f'{symbol}: {response.status_code}')\n    if response.status_code == 200:\n        data = response.json()\n        print(f'  Records: {len(data.get(\"Time Series (Daily)\", {}))} days')\n\nprint('AlphaVantage ingestion complete')"
+      },
+      "timeout": 1200,
+      "retryTimes": 3,
+      "retryInterval": 300
+    }
+  ]
+}

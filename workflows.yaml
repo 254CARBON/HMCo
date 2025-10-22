@@ -1,0 +1,264 @@
+apiVersion: v1
+data:
+  alternative-data-weekly.json: |
+    {
+      "name": "Weekly Alternative Data Integration",
+      "description": "Process and integrate alternative data sources for commodity insights",
+      "scheduleStartTime": "2025-01-01 04:00:00",
+      "scheduleEndTime": "2030-12-31 23:59:59",
+      "crontab": "0 4 * * 0",
+      "scheduleWarningType": "FAILURE",
+      "timeout": 7200,
+      "tenantCode": "default",
+      "processType": "DAG",
+      "tasks": [
+        {
+          "name": "scan_alternative_data_sources",
+          "type": "SHELL",
+          "params": {
+            "rawScript": "#!/bin/bash\nset -e\n# Scan MinIO for new alternative data files\necho \"Scanning for new alternative data...\"\nmc alias set minio http://minio-service:9000 $MINIO_ACCESS_KEY $MINIO_SECRET_KEY\nmc ls --recursive minio/commodity-data/alternative/ | grep -E '\\.parquet$|\\.csv$' > /tmp/new_files.txt\ncat /tmp/new_files.txt\necho \"Found $(wc -l < /tmp/new_files.txt) files to process\""
+          },
+          "timeout": 600
+        },
+        {
+          "name": "ingest_alternative_data",
+          "type": "SHELL",
+          "params": {
+            "rawScript": "#!/bin/bash\nset -e\n# Ingest alternative data using SeaTunnel\necho \"Processing alternative data files...\"\ncurl -X POST http://seatunnel-service:8080/execute \\\n  -H 'Content-Type: application/json' \\\n  -d '{\n    \"connector\": \"alternative-data\",\n    \"process_date\": \"'$(date +%Y-%m-%d)'\"\n  }'\necho \"Alternative data ingestion completed\""
+          },
+          "timeout": 3600,
+          "retryTimes": 2,
+          "preTasks": ["scan_alternative_data_sources"]
+        }
+      ]
+    }
+  data-quality-checks.json: |
+    {
+      "name": "Data Quality Validation",
+      "description": "Validate data quality across all commodity datasets",
+      "scheduleStartTime": "2025-01-01 06:00:00",
+      "scheduleEndTime": "2030-12-31 23:59:59",
+      "crontab": "0 6 * * *",
+      "scheduleWarningType": "FAILURE",
+      "timeout": 1800,
+      "tenantCode": "default",
+      "processType": "DAG",
+      "tasks": [
+        {
+          "name": "check_data_freshness",
+          "type": "SQL",
+          "params": {
+            "type": "TRINO",
+            "datasource": "trino-coordinator:8080",
+            "sql": "SELECT table_name, MAX(ingestion_time) as latest_ingestion, CURRENT_TIMESTAMP - MAX(ingestion_time) as age_hours FROM (SELECT 'energy_prices' as table_name, MAX(ingestion_time) as ingestion_time FROM commodity_data.energy_prices UNION ALL SELECT 'economic_indicators', MAX(ingestion_time) FROM commodity_data.economic_indicators UNION ALL SELECT 'weather_forecasts', MAX(ingestion_time) FROM commodity_data.weather_forecasts) t GROUP BY table_name",
+            "sqlType": "QUERY"
+          },
+          "timeout": 300
+        },
+        {
+          "name": "check_data_completeness",
+          "type": "SQL",
+          "params": {
+            "type": "TRINO",
+            "datasource": "trino-coordinator:8080",
+            "sql": "SELECT 'energy_prices' as table_name, COUNT(*) as row_count, COUNT(DISTINCT price_date) as date_count FROM commodity_data.energy_prices WHERE price_date >= CURRENT_DATE - INTERVAL '7' DAY",
+            "sqlType": "QUERY"
+          },
+          "timeout": 300,
+          "preTasks": ["check_data_freshness"]
+        },
+        {
+          "name": "check_data_validity",
+          "type": "SQL",
+          "params": {
+            "type": "TRINO",
+            "datasource": "trino-coordinator:8080",
+            "sql": "SELECT COUNT(*) as invalid_records FROM commodity_data.energy_prices WHERE price IS NULL OR price < 0 OR price > 10000",
+            "sqlType": "QUERY"
+          },
+          "timeout": 300,
+          "preTasks": ["check_data_completeness"]
+        }
+      ]
+    }
+  economic-indicators-daily.json: |
+    {
+      "name": "Daily Economic Indicators Collection",
+      "description": "Collect economic indicators from FRED, World Bank, and other sources",
+      "scheduleStartTime": "2025-01-01 03:00:00",
+      "scheduleEndTime": "2030-12-31 23:59:59",
+      "crontab": "0 3 * * *",
+      "scheduleWarningType": "FAILURE",
+      "timeout": 3600,
+      "tenantCode": "default",
+      "processType": "DAG",
+      "tasks": [
+        {
+          "name": "ingest_fred_indicators",
+          "type": "SHELL",
+          "params": {
+            "rawScript": "#!/bin/bash\nset -e\n# Collect FRED economic indicators\nindicators=(\"DCOILWTICO\" \"DHHNGSP\" \"DPROPANEMBTX\" \"GASREGW\" \"ELECPRICE\")\nfor indicator in \"${indicators[@]}\"; do\n  echo \"Collecting $indicator from FRED...\"\n  curl -X POST http://seatunnel-service:8080/execute \\\n    -H 'Content-Type: application/json' \\\n    -d \"{\n      \\\"connector\\\": \\\"economic-data\\\",\n      \\\"source\\\": \\\"FRED\\\",\n      \\\"series_id\\\": \\\"$indicator\\\",\n      \\\"date\\\": \\\"$(date +%Y-%m-%d)\\\"\n    }\"\ndone\necho \"FRED indicators collected successfully\""
+          },
+          "timeout": 1800,
+          "retryTimes": 3,
+          "retryInterval": 300
+        },
+        {
+          "name": "ingest_world_bank_data",
+          "type": "SHELL",
+          "params": {
+            "rawScript": "#!/bin/bash\nset -e\n# Collect World Bank commodity price indicators\necho \"Collecting World Bank commodity prices...\"\ncurl -X POST http://seatunnel-service:8080/execute \\\n  -H 'Content-Type: application/json' \\\n  -d '{\n    \"connector\": \"economic-data\",\n    \"source\": \"WORLD_BANK\",\n    \"dataset\": \"commodity_prices\",\n    \"date\": \"'$(date +%Y-%m-%d)'\"\n  }'\necho \"World Bank data collected successfully\""
+          },
+          "timeout": 1800,
+          "retryTimes": 3,
+          "retryInterval": 300,
+          "preTasks": ["ingest_fred_indicators"]
+        },
+        {
+          "name": "aggregate_economic_data",
+          "type": "SQL",
+          "params": {
+            "type": "TRINO",
+            "datasource": "trino-coordinator:8080",
+            "sql": "INSERT INTO commodity_data.economic_summary SELECT indicator_code, observation_date, AVG(value) as avg_value, source, CURRENT_TIMESTAMP as computed_at FROM commodity_data.economic_indicators WHERE observation_date = CURRENT_DATE - INTERVAL '1' DAY GROUP BY indicator_code, observation_date, source",
+            "sqlType": "NON_QUERY"
+          },
+          "timeout": 600,
+          "preTasks": ["ingest_world_bank_data"]
+        }
+      ]
+    }
+  market-data-daily.json: |
+    {
+      "name": "Daily Market Data Ingestion",
+      "description": "Collect daily market prices for commodities, electricity, LNG, natural gas",
+      "scheduleStartTime": "2025-01-01 02:00:00",
+      "scheduleEndTime": "2030-12-31 23:59:59",
+      "crontab": "0 2 * * *",
+      "scheduleWarningType": "FAILURE",
+      "timeout": 3600,
+      "tenantCode": "default",
+      "processType": "DAG",
+      "tasks": [
+        {
+          "name": "ingest_crude_oil_prices",
+          "type": "SHELL",
+          "params": {
+            "rawScript": "#!/bin/bash\nset -e\n# Run SeaTunnel connector for crude oil prices\ncurl -X POST http://seatunnel-service:8080/execute \\\n  -H 'Content-Type: application/json' \\\n  -d '{\n    \"connector\": \"energy-prices\",\n    \"commodity\": \"crude_oil\",\n    \"date\": \"'$(date +%Y-%m-%d)'\"\n  }'\necho \"Crude oil prices ingested successfully\""
+          },
+          "timeout": 1800,
+          "retryTimes": 3,
+          "retryInterval": 300
+        },
+        {
+          "name": "ingest_natural_gas_prices",
+          "type": "SHELL",
+          "params": {
+            "rawScript": "#!/bin/bash\nset -e\n# Run SeaTunnel connector for natural gas prices\ncurl -X POST http://seatunnel-service:8080/execute \\\n  -H 'Content-Type: application/json' \\\n  -d '{\n    \"connector\": \"energy-prices\",\n    \"commodity\": \"natural_gas\",\n    \"date\": \"'$(date +%Y-%m-%d)'\"\n  }'\necho \"Natural gas prices ingested successfully\""
+          },
+          "timeout": 1800,
+          "retryTimes": 3,
+          "retryInterval": 300,
+          "preTasks": ["ingest_crude_oil_prices"]
+        },
+        {
+          "name": "ingest_electricity_prices",
+          "type": "SHELL",
+          "params": {
+            "rawScript": "#!/bin/bash\nset -e\n# Run SeaTunnel connector for electricity prices\ncurl -X POST http://seatunnel-service:8080/execute \\\n  -H 'Content-Type: application/json' \\\n  -d '{\n    \"connector\": \"energy-prices\",\n    \"commodity\": \"electricity\",\n    \"date\": \"'$(date +%Y-%m-%d)'\"\n  }'\necho \"Electricity prices ingested successfully\""
+          },
+          "timeout": 1800,
+          "retryTimes": 3,
+          "retryInterval": 300,
+          "preTasks": ["ingest_natural_gas_prices"]
+        },
+        {
+          "name": "ingest_lng_prices",
+          "type": "SHELL",
+          "params": {
+            "rawScript": "#!/bin/bash\nset -e\n# Run SeaTunnel connector for LNG prices\ncurl -X POST http://seatunnel-service:8080/execute \\\n  -H 'Content-Type: application/json' \\\n  -d '{\n    \"connector\": \"energy-prices\",\n    \"commodity\": \"lng\",\n    \"date\": \"'$(date +%Y-%m-%d)'\"\n  }'\necho \"LNG prices ingested successfully\""
+          },
+          "timeout": 1800,
+          "retryTimes": 3,
+          "retryInterval": 300,
+          "preTasks": ["ingest_electricity_prices"]
+        },
+        {
+          "name": "validate_market_data",
+          "type": "SQL",
+          "params": {
+            "type": "TRINO",
+            "datasource": "trino-coordinator:8080",
+            "sql": "SELECT COUNT(*) as record_count, MAX(price_date) as latest_date FROM commodity_data.energy_prices WHERE price_date = CURRENT_DATE - INTERVAL '1' DAY",
+            "sqlType": "QUERY"
+          },
+          "timeout": 600,
+          "preTasks": ["ingest_lng_prices"]
+        },
+        {
+          "name": "send_success_notification",
+          "type": "HTTP",
+          "params": {
+            "url": "http://dolphinscheduler-alert:50053/alert",
+            "httpMethod": "POST",
+            "httpParams": [
+              {
+                "prop": "message",
+                "value": "Market data ingestion completed successfully for $(date +%Y-%m-%d)"
+              }
+            ]
+          },
+          "timeout": 300,
+          "preTasks": ["validate_market_data"]
+        }
+      ]
+    }
+  weather-data-hourly.json: |
+    {
+      "name": "Hourly Weather Data Collection",
+      "description": "Collect weather forecasts affecting commodity production and transportation",
+      "scheduleStartTime": "2025-01-01 00:00:00",
+      "scheduleEndTime": "2030-12-31 23:59:59",
+      "crontab": "0 */4 * * *",
+      "scheduleWarningType": "NONE",
+      "timeout": 1800,
+      "tenantCode": "default",
+      "processType": "DAG",
+      "tasks": [
+        {
+          "name": "ingest_us_weather_forecast",
+          "type": "SHELL",
+          "params": {
+            "rawScript": "#!/bin/bash\nset -e\n# Collect US weather forecasts for key commodity regions\nregions=(\"houston:LZK:48,65\" \"chicago:LOT:31,69\" \"newyork:OKX:33,37\")\nfor region in \"${regions[@]}\"; do\n  IFS=':' read -r city office grid <<< \"$region\"\n  echo \"Collecting weather for $city...\"\n  curl -X POST http://seatunnel-service:8080/execute \\\n    -H 'Content-Type: application/json' \\\n    -d \"{\n      \\\"connector\\\": \\\"weather-data\\\",\n      \\\"location\\\": \\\"$city\\\",\n      \\\"office\\\": \\\"$office\\\",\n      \\\"grid\\\": \\\"$grid\\\"\n    }\"\ndone\necho \"Weather data collected successfully\""
+          },
+          "timeout": 1200,
+          "retryTimes": 2,
+          "retryInterval": 180
+        },
+        {
+          "name": "analyze_weather_impact",
+          "type": "SQL",
+          "params": {
+            "type": "TRINO",
+            "datasource": "trino-coordinator:8080",
+            "sql": "INSERT INTO commodity_data.weather_impact_analysis SELECT location, AVG(temperature) as avg_temp, AVG(precipitation_probability) as avg_precip_prob, forecast_time, 'COMPUTED' as analysis_type FROM commodity_data.weather_forecasts WHERE ingestion_date = CURRENT_DATE GROUP BY location, forecast_time",
+            "sqlType": "NON_QUERY"
+          },
+          "timeout": 600,
+          "preTasks": ["ingest_us_weather_forecast"]
+        }
+      ]
+    }
+kind: ConfigMap
+metadata:
+  annotations:
+    kubectl.kubernetes.io/last-applied-configuration: |
+      {"apiVersion":"v1","data":{"alternative-data-weekly.json":"{\n  \"name\": \"Weekly Alternative Data Integration\",\n  \"description\": \"Process and integrate alternative data sources for commodity insights\",\n  \"scheduleStartTime\": \"2025-01-01 04:00:00\",\n  \"scheduleEndTime\": \"2030-12-31 23:59:59\",\n  \"crontab\": \"0 4 * * 0\",\n  \"scheduleWarningType\": \"FAILURE\",\n  \"timeout\": 7200,\n  \"tenantCode\": \"default\",\n  \"processType\": \"DAG\",\n  \"tasks\": [\n    {\n      \"name\": \"scan_alternative_data_sources\",\n      \"type\": \"SHELL\",\n      \"params\": {\n        \"rawScript\": \"#!/bin/bash\\nset -e\\n# Scan MinIO for new alternative data files\\necho \\\"Scanning for new alternative data...\\\"\\nmc alias set minio http://minio-service:9000 $MINIO_ACCESS_KEY $MINIO_SECRET_KEY\\nmc ls --recursive minio/commodity-data/alternative/ | grep -E '\\\\.parquet$|\\\\.csv$' \u003e /tmp/new_files.txt\\ncat /tmp/new_files.txt\\necho \\\"Found $(wc -l \u003c /tmp/new_files.txt) files to process\\\"\"\n      },\n      \"timeout\": 600\n    },\n    {\n      \"name\": \"ingest_alternative_data\",\n      \"type\": \"SHELL\",\n      \"params\": {\n        \"rawScript\": \"#!/bin/bash\\nset -e\\n# Ingest alternative data using SeaTunnel\\necho \\\"Processing alternative data files...\\\"\\ncurl -X POST http://seatunnel-service:8080/execute \\\\\\n  -H 'Content-Type: application/json' \\\\\\n  -d '{\\n    \\\"connector\\\": \\\"alternative-data\\\",\\n    \\\"process_date\\\": \\\"'$(date +%Y-%m-%d)'\\\"\\n  }'\\necho \\\"Alternative data ingestion completed\\\"\"\n      },\n      \"timeout\": 3600,\n      \"retryTimes\": 2,\n      \"preTasks\": [\"scan_alternative_data_sources\"]\n    }\n  ]\n}\n","data-quality-checks.json":"{\n  \"name\": \"Data Quality Validation\",\n  \"description\": \"Validate data quality across all commodity datasets\",\n  \"scheduleStartTime\": \"2025-01-01 06:00:00\",\n  \"scheduleEndTime\": \"2030-12-31 23:59:59\",\n  \"crontab\": \"0 6 * * *\",\n  \"scheduleWarningType\": \"FAILURE\",\n  \"timeout\": 1800,\n  \"tenantCode\": \"default\",\n  \"processType\": \"DAG\",\n  \"tasks\": [\n    {\n      \"name\": \"check_data_freshness\",\n      \"type\": \"SQL\",\n      \"params\": {\n        \"type\": \"TRINO\",\n        \"datasource\": \"trino-coordinator:8080\",\n        \"sql\": \"SELECT table_name, MAX(ingestion_time) as latest_ingestion, CURRENT_TIMESTAMP - MAX(ingestion_time) as age_hours FROM (SELECT 'energy_prices' as table_name, MAX(ingestion_time) as ingestion_time FROM commodity_data.energy_prices UNION ALL SELECT 'economic_indicators', MAX(ingestion_time) FROM commodity_data.economic_indicators UNION ALL SELECT 'weather_forecasts', MAX(ingestion_time) FROM commodity_data.weather_forecasts) t GROUP BY table_name\",\n        \"sqlType\": \"QUERY\"\n      },\n      \"timeout\": 300\n    },\n    {\n      \"name\": \"check_data_completeness\",\n      \"type\": \"SQL\",\n      \"params\": {\n        \"type\": \"TRINO\",\n        \"datasource\": \"trino-coordinator:8080\",\n        \"sql\": \"SELECT 'energy_prices' as table_name, COUNT(*) as row_count, COUNT(DISTINCT price_date) as date_count FROM commodity_data.energy_prices WHERE price_date \u003e= CURRENT_DATE - INTERVAL '7' DAY\",\n        \"sqlType\": \"QUERY\"\n      },\n      \"timeout\": 300,\n      \"preTasks\": [\"check_data_freshness\"]\n    },\n    {\n      \"name\": \"check_data_validity\",\n      \"type\": \"SQL\",\n      \"params\": {\n        \"type\": \"TRINO\",\n        \"datasource\": \"trino-coordinator:8080\",\n        \"sql\": \"SELECT COUNT(*) as invalid_records FROM commodity_data.energy_prices WHERE price IS NULL OR price \u003c 0 OR price \u003e 10000\",\n        \"sqlType\": \"QUERY\"\n      },\n      \"timeout\": 300,\n      \"preTasks\": [\"check_data_completeness\"]\n    }\n  ]\n}\n","economic-indicators-daily.json":"{\n  \"name\": \"Daily Economic Indicators Collection\",\n  \"description\": \"Collect economic indicators from FRED, World Bank, and other sources\",\n  \"scheduleStartTime\": \"2025-01-01 03:00:00\",\n  \"scheduleEndTime\": \"2030-12-31 23:59:59\",\n  \"crontab\": \"0 3 * * *\",\n  \"scheduleWarningType\": \"FAILURE\",\n  \"timeout\": 3600,\n  \"tenantCode\": \"default\",\n  \"processType\": \"DAG\",\n  \"tasks\": [\n    {\n      \"name\": \"ingest_fred_indicators\",\n      \"type\": \"SHELL\",\n      \"params\": {\n        \"rawScript\": \"#!/bin/bash\\nset -e\\n# Collect FRED economic indicators\\nindicators=(\\\"DCOILWTICO\\\" \\\"DHHNGSP\\\" \\\"DPROPANEMBTX\\\" \\\"GASREGW\\\" \\\"ELECPRICE\\\")\\nfor indicator in \\\"${indicators[@]}\\\"; do\\n  echo \\\"Collecting $indicator from FRED...\\\"\\n  curl -X POST http://seatunnel-service:8080/execute \\\\\\n    -H 'Content-Type: application/json' \\\\\\n    -d \\\"{\\n      \\\\\\\"connector\\\\\\\": \\\\\\\"economic-data\\\\\\\",\\n      \\\\\\\"source\\\\\\\": \\\\\\\"FRED\\\\\\\",\\n      \\\\\\\"series_id\\\\\\\": \\\\\\\"$indicator\\\\\\\",\\n      \\\\\\\"date\\\\\\\": \\\\\\\"$(date +%Y-%m-%d)\\\\\\\"\\n    }\\\"\\ndone\\necho \\\"FRED indicators collected successfully\\\"\"\n      },\n      \"timeout\": 1800,\n      \"retryTimes\": 3,\n      \"retryInterval\": 300\n    },\n    {\n      \"name\": \"ingest_world_bank_data\",\n      \"type\": \"SHELL\",\n      \"params\": {\n        \"rawScript\": \"#!/bin/bash\\nset -e\\n# Collect World Bank commodity price indicators\\necho \\\"Collecting World Bank commodity prices...\\\"\\ncurl -X POST http://seatunnel-service:8080/execute \\\\\\n  -H 'Content-Type: application/json' \\\\\\n  -d '{\\n    \\\"connector\\\": \\\"economic-data\\\",\\n    \\\"source\\\": \\\"WORLD_BANK\\\",\\n    \\\"dataset\\\": \\\"commodity_prices\\\",\\n    \\\"date\\\": \\\"'$(date +%Y-%m-%d)'\\\"\\n  }'\\necho \\\"World Bank data collected successfully\\\"\"\n      },\n      \"timeout\": 1800,\n      \"retryTimes\": 3,\n      \"retryInterval\": 300,\n      \"preTasks\": [\"ingest_fred_indicators\"]\n    },\n    {\n      \"name\": \"aggregate_economic_data\",\n      \"type\": \"SQL\",\n      \"params\": {\n        \"type\": \"TRINO\",\n        \"datasource\": \"trino-coordinator:8080\",\n        \"sql\": \"INSERT INTO commodity_data.economic_summary SELECT indicator_code, observation_date, AVG(value) as avg_value, source, CURRENT_TIMESTAMP as computed_at FROM commodity_data.economic_indicators WHERE observation_date = CURRENT_DATE - INTERVAL '1' DAY GROUP BY indicator_code, observation_date, source\",\n        \"sqlType\": \"NON_QUERY\"\n      },\n      \"timeout\": 600,\n      \"preTasks\": [\"ingest_world_bank_data\"]\n    }\n  ]\n}\n","market-data-daily.json":"{\n  \"name\": \"Daily Market Data Ingestion\",\n  \"description\": \"Collect daily market prices for commodities, electricity, LNG, natural gas\",\n  \"scheduleStartTime\": \"2025-01-01 02:00:00\",\n  \"scheduleEndTime\": \"2030-12-31 23:59:59\",\n  \"crontab\": \"0 2 * * *\",\n  \"scheduleWarningType\": \"FAILURE\",\n  \"timeout\": 3600,\n  \"tenantCode\": \"default\",\n  \"processType\": \"DAG\",\n  \"tasks\": [\n    {\n      \"name\": \"ingest_crude_oil_prices\",\n      \"type\": \"SHELL\",\n      \"params\": {\n        \"rawScript\": \"#!/bin/bash\\nset -e\\n# Run SeaTunnel connector for crude oil prices\\ncurl -X POST http://seatunnel-service:8080/execute \\\\\\n  -H 'Content-Type: application/json' \\\\\\n  -d '{\\n    \\\"connector\\\": \\\"energy-prices\\\",\\n    \\\"commodity\\\": \\\"crude_oil\\\",\\n    \\\"date\\\": \\\"'$(date +%Y-%m-%d)'\\\"\\n  }'\\necho \\\"Crude oil prices ingested successfully\\\"\"\n      },\n      \"timeout\": 1800,\n      \"retryTimes\": 3,\n      \"retryInterval\": 300\n    },\n    {\n      \"name\": \"ingest_natural_gas_prices\",\n      \"type\": \"SHELL\",\n      \"params\": {\n        \"rawScript\": \"#!/bin/bash\\nset -e\\n# Run SeaTunnel connector for natural gas prices\\ncurl -X POST http://seatunnel-service:8080/execute \\\\\\n  -H 'Content-Type: application/json' \\\\\\n  -d '{\\n    \\\"connector\\\": \\\"energy-prices\\\",\\n    \\\"commodity\\\": \\\"natural_gas\\\",\\n    \\\"date\\\": \\\"'$(date +%Y-%m-%d)'\\\"\\n  }'\\necho \\\"Natural gas prices ingested successfully\\\"\"\n      },\n      \"timeout\": 1800,\n      \"retryTimes\": 3,\n      \"retryInterval\": 300,\n      \"preTasks\": [\"ingest_crude_oil_prices\"]\n    },\n    {\n      \"name\": \"ingest_electricity_prices\",\n      \"type\": \"SHELL\",\n      \"params\": {\n        \"rawScript\": \"#!/bin/bash\\nset -e\\n# Run SeaTunnel connector for electricity prices\\ncurl -X POST http://seatunnel-service:8080/execute \\\\\\n  -H 'Content-Type: application/json' \\\\\\n  -d '{\\n    \\\"connector\\\": \\\"energy-prices\\\",\\n    \\\"commodity\\\": \\\"electricity\\\",\\n    \\\"date\\\": \\\"'$(date +%Y-%m-%d)'\\\"\\n  }'\\necho \\\"Electricity prices ingested successfully\\\"\"\n      },\n      \"timeout\": 1800,\n      \"retryTimes\": 3,\n      \"retryInterval\": 300,\n      \"preTasks\": [\"ingest_natural_gas_prices\"]\n    },\n    {\n      \"name\": \"ingest_lng_prices\",\n      \"type\": \"SHELL\",\n      \"params\": {\n        \"rawScript\": \"#!/bin/bash\\nset -e\\n# Run SeaTunnel connector for LNG prices\\ncurl -X POST http://seatunnel-service:8080/execute \\\\\\n  -H 'Content-Type: application/json' \\\\\\n  -d '{\\n    \\\"connector\\\": \\\"energy-prices\\\",\\n    \\\"commodity\\\": \\\"lng\\\",\\n    \\\"date\\\": \\\"'$(date +%Y-%m-%d)'\\\"\\n  }'\\necho \\\"LNG prices ingested successfully\\\"\"\n      },\n      \"timeout\": 1800,\n      \"retryTimes\": 3,\n      \"retryInterval\": 300,\n      \"preTasks\": [\"ingest_electricity_prices\"]\n    },\n    {\n      \"name\": \"validate_market_data\",\n      \"type\": \"SQL\",\n      \"params\": {\n        \"type\": \"TRINO\",\n        \"datasource\": \"trino-coordinator:8080\",\n        \"sql\": \"SELECT COUNT(*) as record_count, MAX(price_date) as latest_date FROM commodity_data.energy_prices WHERE price_date = CURRENT_DATE - INTERVAL '1' DAY\",\n        \"sqlType\": \"QUERY\"\n      },\n      \"timeout\": 600,\n      \"preTasks\": [\"ingest_lng_prices\"]\n    },\n    {\n      \"name\": \"send_success_notification\",\n      \"type\": \"HTTP\",\n      \"params\": {\n        \"url\": \"http://dolphinscheduler-alert:50053/alert\",\n        \"httpMethod\": \"POST\",\n        \"httpParams\": [\n          {\n            \"prop\": \"message\",\n            \"value\": \"Market data ingestion completed successfully for $(date +%Y-%m-%d)\"\n          }\n        ]\n      },\n      \"timeout\": 300,\n      \"preTasks\": [\"validate_market_data\"]\n    }\n  ]\n}\n","weather-data-hourly.json":"{\n  \"name\": \"Hourly Weather Data Collection\",\n  \"description\": \"Collect weather forecasts affecting commodity production and transportation\",\n  \"scheduleStartTime\": \"2025-01-01 00:00:00\",\n  \"scheduleEndTime\": \"2030-12-31 23:59:59\",\n  \"crontab\": \"0 */4 * * *\",\n  \"scheduleWarningType\": \"NONE\",\n  \"timeout\": 1800,\n  \"tenantCode\": \"default\",\n  \"processType\": \"DAG\",\n  \"tasks\": [\n    {\n      \"name\": \"ingest_us_weather_forecast\",\n      \"type\": \"SHELL\",\n      \"params\": {\n        \"rawScript\": \"#!/bin/bash\\nset -e\\n# Collect US weather forecasts for key commodity regions\\nregions=(\\\"houston:LZK:48,65\\\" \\\"chicago:LOT:31,69\\\" \\\"newyork:OKX:33,37\\\")\\nfor region in \\\"${regions[@]}\\\"; do\\n  IFS=':' read -r city office grid \u003c\u003c\u003c \\\"$region\\\"\\n  echo \\\"Collecting weather for $city...\\\"\\n  curl -X POST http://seatunnel-service:8080/execute \\\\\\n    -H 'Content-Type: application/json' \\\\\\n    -d \\\"{\\n      \\\\\\\"connector\\\\\\\": \\\\\\\"weather-data\\\\\\\",\\n      \\\\\\\"location\\\\\\\": \\\\\\\"$city\\\\\\\",\\n      \\\\\\\"office\\\\\\\": \\\\\\\"$office\\\\\\\",\\n      \\\\\\\"grid\\\\\\\": \\\\\\\"$grid\\\\\\\"\\n    }\\\"\\ndone\\necho \\\"Weather data collected successfully\\\"\"\n      },\n      \"timeout\": 1200,\n      \"retryTimes\": 2,\n      \"retryInterval\": 180\n    },\n    {\n      \"name\": \"analyze_weather_impact\",\n      \"type\": \"SQL\",\n      \"params\": {\n        \"type\": \"TRINO\",\n        \"datasource\": \"trino-coordinator:8080\",\n        \"sql\": \"INSERT INTO commodity_data.weather_impact_analysis SELECT location, AVG(temperature) as avg_temp, AVG(precipitation_probability) as avg_precip_prob, forecast_time, 'COMPUTED' as analysis_type FROM commodity_data.weather_forecasts WHERE ingestion_date = CURRENT_DATE GROUP BY location, forecast_time\",\n        \"sqlType\": \"NON_QUERY\"\n      },\n      \"timeout\": 600,\n      \"preTasks\": [\"ingest_us_weather_forecast\"]\n    }\n  ]\n}\n"},"kind":"ConfigMap","metadata":{"annotations":{},"labels":{"app":"dolphinscheduler","component":"workflow-templates"},"name":"dolphinscheduler-commodity-workflows","namespace":"data-platform"}}
+  creationTimestamp: "2025-10-21T20:06:36Z"
+  labels:
+    app: dolphinscheduler
+    component: workflow-templates
+  name: dolphinscheduler-commodity-workflows
+  namespace: data-platform
+  resourceVersion: "435604"
+  uid: 741688c1-7e00-470a-b7e6-e5e6ab7d968a

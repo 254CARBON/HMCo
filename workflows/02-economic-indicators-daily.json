@@ -1,0 +1,46 @@
+{
+  "name": "Daily Economic Indicators Collection",
+  "description": "Collect economic indicators from FRED, World Bank, and other sources",
+  "scheduleStartTime": "2025-01-01 03:00:00",
+  "scheduleEndTime": "2030-12-31 23:59:59",
+  "crontab": "0 3 * * *",
+  "scheduleWarningType": "FAILURE",
+  "timeout": 3600,
+  "tenantCode": "default",
+  "processType": "DAG",
+  "tasks": [
+    {
+      "name": "ingest_fred_indicators",
+      "type": "SHELL",
+      "params": {
+        "rawScript": "#!/bin/bash\nset -e\n# Collect FRED economic indicators\nindicators=(\"DCOILWTICO\" \"DHHNGSP\" \"DPROPANEMBTX\" \"GASREGW\" \"ELECPRICE\")\nfor indicator in \"${indicators[@]}\"; do\n  echo \"Collecting $indicator from FRED...\"\n  curl -X POST http://seatunnel-service:8080/execute \\\n    -H 'Content-Type: application/json' \\\n    -d \"{\n      \\\"connector\\\": \\\"economic-data\\\",\n      \\\"source\\\": \\\"FRED\\\",\n      \\\"series_id\\\": \\\"$indicator\\\",\n      \\\"date\\\": \\\"$(date +%Y-%m-%d)\\\"\n    }\"\ndone\necho \"FRED indicators collected successfully\""
+      },
+      "timeout": 1800,
+      "retryTimes": 3,
+      "retryInterval": 300
+    },
+    {
+      "name": "ingest_world_bank_data",
+      "type": "SHELL",
+      "params": {
+        "rawScript": "#!/bin/bash\nset -e\n# Collect World Bank commodity price indicators\necho \"Collecting World Bank commodity prices...\"\ncurl -X POST http://seatunnel-service:8080/execute \\\n  -H 'Content-Type: application/json' \\\n  -d '{\n    \"connector\": \"economic-data\",\n    \"source\": \"WORLD_BANK\",\n    \"dataset\": \"commodity_prices\",\n    \"date\": \"'$(date +%Y-%m-%d)'\"\n  }'\necho \"World Bank data collected successfully\""
+      },
+      "timeout": 1800,
+      "retryTimes": 3,
+      "retryInterval": 300,
+      "preTasks": ["ingest_fred_indicators"]
+    },
+    {
+      "name": "aggregate_economic_data",
+      "type": "SQL",
+      "params": {
+        "type": "TRINO",
+        "datasource": "trino-coordinator:8080",
+        "sql": "INSERT INTO commodity_data.economic_summary SELECT indicator_code, observation_date, AVG(value) as avg_value, source, CURRENT_TIMESTAMP as computed_at FROM commodity_data.economic_indicators WHERE observation_date = CURRENT_DATE - INTERVAL '1' DAY GROUP BY indicator_code, observation_date, source",
+        "sqlType": "NON_QUERY"
+      },
+      "timeout": 600,
+      "preTasks": ["ingest_world_bank_data"]
+    }
+  ]
+}

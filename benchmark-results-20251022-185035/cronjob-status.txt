@@ -1,0 +1,3 @@
+datahub-kafka-ingestion         30 */4 * * *   <none>     False     0        140m            23h
+datahub-postgres-ingestion      0 4 * * *      <none>     False     0        14h             23h
+datahub-trino-ingestion         0 */6 * * *    <none>     False     0        50m             23h

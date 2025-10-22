@@ -1,0 +1,7 @@
+Oct 22, 2025 6:50:39 PM org.jline.utils.Log logr
+WARNING: Unable to create a system terminal, creating a dumb terminal (enable debug logging for more information)
+Query 20251022_185039_00908_ii5j7 failed: line 1:48: Catalog 'iceberg_catalog' does not exist
+LINE 1: SELECT commodity, AVG(price) as avg_price FROM iceberg_catalog.commodity_data.energy_prices GROUP BY commodity
+                                                       ^
+
+command terminated with exit code 1

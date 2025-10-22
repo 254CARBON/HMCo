@@ -1,0 +1,501 @@
+#!/bin/bash
+#
+# Cloudflare Access Application Creator
+# Automates creation (or update) of the 10 Phase 2 self-hosted applications
+# for the 254Carbon SSO rollout.
+#
+# Usage:
+#   ./create-cloudflare-access-apps.sh [-t TOKEN] [-a ACCOUNT_ID] [--force]
+#
+# Environment Variables:
+#   CLOUDFLARE_API_TOKEN   - API token with Access:Apps write scope
+#   CLOUDFLARE_ACCOUNT_ID  - Cloudflare account identifier (32 chars)
+#
+
+set -euo pipefail
+
+API_TOKEN="${CLOUDFLARE_API_TOKEN:-}"
+ACCOUNT_ID="${CLOUDFLARE_ACCOUNT_ID:-}"
+
+# Domain mode: "team" (use <sub>.<TEAM_NAME>.cloudflareaccess.com) or "zone" (use <sub>.<ZONE_DOMAIN>)
+CLOUDFLARE_ACCESS_MODE="${CLOUDFLARE_ACCESS_MODE:-team}"
+TEAM_NAME="${CLOUDFLARE_TEAM_NAME:-}"              # e.g. qagi
+TEAM_DOMAIN="${CLOUDFLARE_TEAM_DOMAIN:-}"          # e.g. qagi.cloudflareaccess.com
+ZONE_DOMAIN="${CLOUDFLARE_ZONE_DOMAIN:-}"          # e.g. 254carbon.com
+
+# Policy inputs
+ALLOWED_EMAIL_DOMAINS="${CLOUDFLARE_ACCESS_ALLOWED_EMAIL_DOMAINS:-254carbon.com}" # comma-separated
+ALLOWED_EMAILS="${CLOUDFLARE_ACCESS_ALLOWED_EMAILS:-}"                              # comma-separated
+EXCLUDED_EMAILS="${CLOUDFLARE_ACCESS_EXCLUDED_EMAILS:-}"                            # comma-separated
+COUNTRIES="${CLOUDFLARE_ACCESS_ALLOWED_COUNTRIES:-}"                                # comma-separated ISO codes
+IDP_ID="${CLOUDFLARE_ACCESS_IDP_ID:-}"                                               # optional IdP (login method) UUID
+
+FORCE_UPDATE=false
+DRY_RUN=false
+
+API_BASE="https://api.cloudflare.com/client/v4"
+
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m'
+
+log_info() {
+    echo -e "${BLUE}[INFO]${NC} $1"
+}
+
+log_success() {
+    echo -e "${GREEN}[SUCCESS]${NC} $1"
+}
+
+log_warning() {
+    echo -e "${YELLOW}[WARN]${NC} $1"
+}
+
+log_error() {
+    echo -e "${RED}[ERROR]${NC} $1" >&2
+}
+
+usage() {
+    cat <<EOF
+Usage: $0 [options]
+
+Create or refresh the 254Carbon Cloudflare Access applications required in Phase 2.
+
+Options:
+  -t, --token TOKEN         Cloudflare API token (overrides CLOUDFLARE_API_TOKEN)
+  -a, --account-id ID       Cloudflare account ID (overrides CLOUDFLARE_ACCOUNT_ID)
+      --mode MODE           Domain mode: team|zone (default: ${CLOUDFLARE_ACCESS_MODE})
+      --team-name NAME      Cloudflare Zero Trust team name (for team mode)
+      --team-domain NAME    Cloudflare Zero Trust team domain (e.g. qagi.cloudflareaccess.com)
+      --zone-domain NAME    Public DNS zone (e.g. 254carbon.com) for zone mode
+      --allowed-email-domains CSV  Allowed email domains (default: ${ALLOWED_EMAIL_DOMAINS})
+      --allowed-emails CSV  Allowed individual emails (optional)
+      --excluded-emails CSV Blocked individual emails (optional)
+      --countries CSV       Allowed ISO country codes (optional)
+      --idp-id UUID         Restrict login method to this IdP UUID (optional)
+      --force               Update apps/policies if they already exist
+      --dry-run             Print payloads without calling Cloudflare API
+  -h, --help                Show this help message
+
+Examples:
+  CLOUDFLARE_API_TOKEN=xxxxx CLOUDFLARE_ACCOUNT_ID=yyyy $0 \
+    --mode team --team-name qagi --allowed-email-domains 254carbon.com
+
+  $0 --token xxxxx --account-id yyyy --mode zone --zone-domain 254carbon.com --force
+EOF
+}
+
+# Parse CLI arguments
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        -t|--token)
+            API_TOKEN="$2"
+            shift 2
+            ;;
+        -a|--account-id)
+            ACCOUNT_ID="$2"
+            shift 2
+            ;;
+        --mode)
+            CLOUDFLARE_ACCESS_MODE="$2"
+            shift 2
+            ;;
+        --team-name)
+            TEAM_NAME="$2"
+            shift 2
+            ;;
+        --team-domain)
+            TEAM_DOMAIN="$2"
+            shift 2
+            ;;
+        --zone-domain)
+            ZONE_DOMAIN="$2"
+            shift 2
+            ;;
+        -d|--base-domain)
+            # Deprecated: treat as zone-domain for backward compatibility
+            ZONE_DOMAIN="$2"
+            shift 2
+            ;;
+        --allowed-email-domains)
+            ALLOWED_EMAIL_DOMAINS="$2"
+            shift 2
+            ;;
+        --allowed-emails)
+            ALLOWED_EMAILS="$2"
+            shift 2
+            ;;
+        --excluded-emails)
+            EXCLUDED_EMAILS="$2"
+            shift 2
+            ;;
+        --countries)
+            COUNTRIES="$2"
+            shift 2
+            ;;
+        --idp-id)
+            IDP_ID="$2"
+            shift 2
+            ;;
+        --force)
+            FORCE_UPDATE=true
+            shift
+            ;;
+        --dry-run)
+            DRY_RUN=true
+            shift
+            ;;
+        -h|--help)
+            usage
+            exit 0
+            ;;
+        *)
+            log_error "Unknown option: $1"
+            usage
+            exit 1
+            ;;
+    esac
+done
+
+if [[ -z "$API_TOKEN" ]]; then
+    log_error "Cloudflare API token not provided."
+    log_info "Export CLOUDFLARE_API_TOKEN or pass --token."
+    exit 1
+fi
+
+if [[ -z "$ACCOUNT_ID" ]]; then
+    log_error "Cloudflare account ID not provided."
+    log_info "Export CLOUDFLARE_ACCOUNT_ID or pass --account-id."
+    exit 1
+fi
+
+case "$CLOUDFLARE_ACCESS_MODE" in
+  team)
+    if [[ -z "$TEAM_NAME" && -z "$TEAM_DOMAIN" ]]; then
+        log_error "Team mode selected but neither team name nor team domain provided."
+        log_info "Set CLOUDFLARE_TEAM_NAME / CLOUDFLARE_TEAM_DOMAIN or pass --team-name / --team-domain."
+        exit 1
+    fi
+    if [[ -z "$TEAM_DOMAIN" ]]; then
+        TEAM_DOMAIN="${TEAM_NAME}.cloudflareaccess.com"
+    elif [[ -z "$TEAM_NAME" ]]; then
+        TEAM_NAME="${TEAM_DOMAIN%%.cloudflareaccess.com}"
+    fi
+    ;;
+  zone)
+    if [[ -z "$ZONE_DOMAIN" ]]; then
+        log_error "Zone mode selected but zone domain not provided."
+        log_info "Set CLOUDFLARE_ZONE_DOMAIN or pass --zone-domain."
+        exit 1
+    fi
+    ;;
+  *)
+    log_error "Unknown mode: $CLOUDFLARE_ACCESS_MODE (expected team|zone)"
+    exit 1
+    ;;
+esac
+
+if ! command -v jq >/dev/null 2>&1; then
+    log_error "jq is required but not installed."
+    exit 1
+fi
+
+api_request() {
+    local method=$1
+    local endpoint=$2
+    local data=${3:-}
+    local url="${API_BASE}/accounts/${ACCOUNT_ID}${endpoint}"
+    local response
+
+    if [[ "$DRY_RUN" == "true" ]]; then
+        echo "{"success":true,"result":{}}"
+        return 0
+    fi
+
+    if [[ -n "$data" ]]; then
+        response=$(curl -sS -X "$method" "$url" \
+            -H "Authorization: Bearer ${API_TOKEN}" \
+            -H "Content-Type: application/json" \
+            -d "$data")
+    else
+        response=$(curl -sS -X "$method" "$url" \
+            -H "Authorization: Bearer ${API_TOKEN}" \
+            -H "Content-Type: application/json")
+    fi
+
+    local success
+    success=$(echo "$response" | jq -r '.success // empty' 2>/dev/null || echo "false")
+    if [[ "$success" != "true" ]]; then
+        local message
+        message=$(echo "$response" | jq -r '[.errors[]?.message] | join("; ")' 2>/dev/null)
+        if [[ -z "$message" || "$message" == "null" ]]; then
+            message="Unknown error. Response: $response"
+        fi
+        log_error "$message"
+        exit 1
+    fi
+
+    echo "$response"
+}
+
+get_existing_app() {
+    local domain=$1
+    api_request "GET" "/access/apps?page=1&per_page=100" | \
+        jq -r --arg domain "$domain" '.result[] | select(.domain == $domain)'
+}
+
+build_app_payload() {
+    local name=$1
+    local domain=$2
+    local session=$3
+    cat <<EOF
+{
+  "name": "$name",
+  "domain": "$domain",
+  "type": "self_hosted",
+  "session_duration": "$session",
+  "app_launcher_visible": true,
+  "http_only_cookie": true,
+  "auto_redirect_to_identity": false
+}
+EOF
+}
+
+create_app() {
+    local name=$1
+    local domain=$2
+    local session=$3
+    local payload
+    payload=$(build_app_payload "$name" "$domain" "$session")
+    api_request "POST" "/access/apps" "$payload" | jq -r '.result.id'
+}
+
+update_app() {
+    local app_id=$1
+    local name=$2
+    local domain=$3
+    local session=$4
+    local payload
+    payload=$(build_app_payload "$name" "$domain" "$session")
+    api_request "PUT" "/access/apps/${app_id}" "$payload" >/dev/null
+}
+
+get_existing_policy() {
+    local app_id=$1
+    local policy_name=$2
+    api_request "GET" "/access/apps/${app_id}/policies?page=1&per_page=50" | \
+        jq -r --arg name "$policy_name" '.result[] | select(.name == $name)'
+}
+
+csv_to_json_rules() {
+    local type="$1"   # email_domain|email|ip|geo|login_method
+    local csv="$2"
+    local key="$3"    # key name inside object (domain/email/ip/country_code/id)
+    local IFS=','
+    local first=true
+    for item in $csv; do
+        local trimmed
+        trimmed=$(echo "$item" | xargs)
+        [[ -z "$trimmed" ]] && continue
+        if [[ "$first" == true ]]; then
+            first=false
+        else
+            echo -n ","
+        fi
+        if [[ "$type" == "login_method" ]]; then
+            # login_method only supports single id at a time; handled in require
+            echo -n "{\"login_method\":{\"id\":\"$trimmed\"}}"
+        else
+            echo -n "{\"$type\":{\"$key\":\"$trimmed\"}}"
+        fi
+    done
+}
+
+build_policy_payload() {
+    local name=$1
+
+    # Build include rules
+    local include_rules=""
+    if [[ -n "$ALLOWED_EMAIL_DOMAINS" ]]; then
+        include_rules+=$(csv_to_json_rules "email_domain" "$ALLOWED_EMAIL_DOMAINS" "domain")
+    fi
+    if [[ -n "$ALLOWED_EMAILS" ]]; then
+        [[ -n "$include_rules" ]] && include_rules+=" ,"
+        include_rules+=$(csv_to_json_rules "email" "$ALLOWED_EMAILS" "email")
+    fi
+    # Fallback to everyone if nothing specified
+    if [[ -z "$include_rules" ]]; then
+        include_rules='{ "everyone": {} }'
+    fi
+
+    # Build require rules
+    local require_rules=""
+    if [[ -n "$COUNTRIES" ]]; then
+        require_rules+=$(csv_to_json_rules "geo" "$COUNTRIES" "country_code")
+    fi
+    if [[ -n "$IDP_ID" ]]; then
+        [[ -n "$require_rules" ]] && require_rules+=" ,"
+        require_rules+=$(csv_to_json_rules "login_method" "$IDP_ID" "id")
+    fi
+
+    # Build exclude rules
+    local exclude_rules=""
+    if [[ -n "$EXCLUDED_EMAILS" ]]; then
+        exclude_rules+=$(csv_to_json_rules "email" "$EXCLUDED_EMAILS" "email")
+    fi
+
+    cat <<EOF
+{
+  "name": "$name",
+  "precedence": 1,
+  "decision": "allow",
+  "include": [ $include_rules ],
+  "require": [ $require_rules ],
+  "exclude": [ $exclude_rules ],
+  "approval_required": false
+}
+EOF
+}
+
+create_policy() {
+    local app_id=$1
+    local policy_name=$2
+    local payload
+    payload=$(build_policy_payload "$policy_name")
+    api_request "POST" "/access/apps/${app_id}/policies" "$payload" >/dev/null
+}
+
+update_policy() {
+    local app_id=$1
+    local policy_id=$2
+    local policy_name=$3
+    local payload
+    payload=$(build_policy_payload "$policy_name")
+    api_request "PUT" "/access/apps/${app_id}/policies/${policy_id}" "$payload" >/dev/null
+}
+
+declare -a APPLICATIONS=(
+    "254Carbon Portal|portal|24h|Allow Portal Access"
+    "Grafana.254Carbon|grafana|24h|Allow Grafana Access"
+    "Superset.254Carbon|superset|24h|Allow Superset Access"
+    "DataHub.254Carbon|datahub|12h|Allow DataHub Access"
+    "Trino.254Carbon|trino|8h|Allow Trino Access"
+    "Doris.254Carbon|doris|8h|Allow Doris Access"
+    "Vault.254Carbon|vault|2h|Allow Vault Access"
+    "MinIO.254Carbon|minio|8h|Allow MinIO Access"
+    "DolphinScheduler.254Carbon|dolphin|12h|Allow DolphinScheduler Access"
+    "LakeFS.254Carbon|lakefs|12h|Allow LakeFS Access"
+    "MLflow.254Carbon|mlflow|12h|Allow MLflow Access"
+    "Spark History.254Carbon|spark-history|12h|Allow Spark History Access"
+)
+
+# When using public zone domains, also protect the apex and www hostnames
+if [[ "$CLOUDFLARE_ACCESS_MODE" == "zone" ]]; then
+    APPLICATIONS+=(
+        "254Carbon Root|@|24h|Allow Portal Access"
+        "254Carbon WWW|www|24h|Allow Portal Access"
+    )
+fi
+
+log_info "Preparing to configure Cloudflare Access applications..."
+log_info "Account ID: ${ACCOUNT_ID}"
+
+# If dry-run, print planned payloads and exit without API calls
+if [[ "$DRY_RUN" == "true" ]]; then
+    for entry in "${APPLICATIONS[@]}"; do
+        IFS='|' read -r name subdomain session policy <<< "$entry"
+        case "$CLOUDFLARE_ACCESS_MODE" in
+          team)
+            if [[ "$subdomain" == "@" ]]; then
+                domain="${TEAM_DOMAIN}"
+            else
+                domain="${subdomain}.${TEAM_DOMAIN}"
+            fi
+            ;;
+          zone)
+            if [[ "$subdomain" == "@" ]]; then
+                domain="${ZONE_DOMAIN}"
+            else
+                domain="${subdomain}.${ZONE_DOMAIN}"
+            fi
+            ;;
+        esac
+
+        echo
+        log_info "[DRY-RUN] Application: $name"
+        echo "Domain: $domain"
+        echo "Session: $session"
+        echo "App payload:"
+        build_app_payload "$name" "$domain" "$session" | jq .
+        echo "Policy '$policy' payload:"
+        build_policy_payload "$policy" | jq .
+    done
+    echo
+    log_success "[DRY-RUN] Completed. No changes made."
+    exit 0
+fi
+
+for entry in "${APPLICATIONS[@]}"; do
+    IFS='|' read -r name subdomain session policy <<< "$entry"
+    case "$CLOUDFLARE_ACCESS_MODE" in
+      team)
+        if [[ "$subdomain" == "@" ]]; then
+            domain="${TEAM_DOMAIN}"
+        else
+            domain="${subdomain}.${TEAM_DOMAIN}"
+        fi
+        ;;
+      zone)
+        if [[ "$subdomain" == "@" ]]; then
+            domain="${ZONE_DOMAIN}"
+        else
+            domain="${subdomain}.${ZONE_DOMAIN}"
+        fi
+        ;;
+    esac
+
+    log_info "Processing ${name} (${domain})"
+
+    existing_app=$(get_existing_app "$domain" || echo "")
+    app_id=""
+
+    if [[ -n "$existing_app" ]]; then
+        app_id=$(echo "$existing_app" | jq -r '.id')
+        log_warning "Application already exists."
+        if [[ "$FORCE_UPDATE" == "true" ]]; then
+            log_info "Updating existing application settings..."
+            update_app "$app_id" "$name" "$domain" "$session"
+            log_success "Application updated."
+        fi
+    else
+        log_info "Creating new application..."
+        app_id=$(create_app "$name" "$domain" "$session")
+        log_success "Application created (ID: ${app_id})."
+    fi
+
+    if [[ -z "$app_id" || "$app_id" == "null" ]]; then
+        log_error "Unable to determine application ID for ${name}."
+        exit 1
+    fi
+
+    existing_policy=$(get_existing_policy "$app_id" "$policy" || echo "")
+
+    if [[ -n "$existing_policy" ]]; then
+        if [[ "$FORCE_UPDATE" == "true" ]]; then
+            policy_id=$(echo "$existing_policy" | jq -r '.id')
+            log_info "Refreshing policy ${policy}..."
+            update_policy "$app_id" "$policy_id" "$policy"
+            log_success "Policy updated."
+        else
+            log_success "Policy ${policy} already present."
+        fi
+    else
+        log_info "Creating policy ${policy}..."
+        create_policy "$app_id" "$policy"
+        log_success "Policy created."
+    fi
+done
+
+log_success "All Cloudflare Access application tasks complete."

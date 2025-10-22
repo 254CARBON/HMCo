@@ -1,0 +1,962 @@
+apiVersion: v1
+items:
+- apiVersion: networking.k8s.io/v1
+  kind: Ingress
+  metadata:
+    annotations:
+      kubernetes.io/ingress.class: nginx
+      nginx.ingress.kubernetes.io/whitelist-source-range: 0.0.0.0/0,::/0
+    creationTimestamp: "2025-10-20T21:04:29Z"
+    generateName: cm-acme-http-solver-
+    generation: 1
+    labels:
+      acme.cert-manager.io/http-domain: "899155473"
+      acme.cert-manager.io/http-token: "1033571882"
+      acme.cert-manager.io/http01-solver: "true"
+    name: cm-acme-http-solver-8xzb7
+    namespace: data-platform
+    ownerReferences:
+    - apiVersion: acme.cert-manager.io/v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: Challenge
+      name: portal-tls-1-165187994-3110156710
+      uid: d7b7fa50-48e2-401b-9438-58fb244c845a
+    resourceVersion: "114093"
+    uid: cd5ba740-bea6-4ffb-b60f-bb3b9428bf54
+  spec:
+    rules:
+    - host: www.254carbon.com
+      http:
+        paths:
+        - backend:
+            service:
+              name: cm-acme-http-solver-lwdd4
+              port:
+                number: 8089
+          path: /.well-known/acme-challenge/T5eznZv08DgvuJiTNeeNI1VEKV5-r_k3DDEUiN4UymI
+          pathType: Exact
+  status:
+    loadBalancer: {}
+- apiVersion: networking.k8s.io/v1
+  kind: Ingress
+  metadata:
+    annotations:
+      kubernetes.io/ingress.class: nginx
+      nginx.ingress.kubernetes.io/whitelist-source-range: 0.0.0.0/0,::/0
+    creationTimestamp: "2025-10-20T21:04:29Z"
+    generateName: cm-acme-http-solver-
+    generation: 1
+    labels:
+      acme.cert-manager.io/http-domain: "482346110"
+      acme.cert-manager.io/http-token: "1267666773"
+      acme.cert-manager.io/http01-solver: "true"
+    name: cm-acme-http-solver-97pqh
+    namespace: data-platform
+    ownerReferences:
+    - apiVersion: acme.cert-manager.io/v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: Challenge
+      name: portal-tls-1-165187994-279329570
+      uid: 508b34c2-61c1-4594-9a2f-f639739cc929
+    resourceVersion: "114080"
+    uid: dea97609-8249-4647-a382-7b3028bd5143
+  spec:
+    rules:
+    - host: 254carbon.com
+      http:
+        paths:
+        - backend:
+            service:
+              name: cm-acme-http-solver-mcx7n
+              port:
+                number: 8089
+          path: /.well-known/acme-challenge/jXGRFbWDTvSuR1QCyOMKjpbogzerOqyKf3m5V1z8cxw
+          pathType: Exact
+  status:
+    loadBalancer: {}
+- apiVersion: networking.k8s.io/v1
+  kind: Ingress
+  metadata:
+    annotations:
+      kubernetes.io/ingress.class: nginx
+      nginx.ingress.kubernetes.io/whitelist-source-range: 0.0.0.0/0,::/0
+    creationTimestamp: "2025-10-20T21:04:29Z"
+    generateName: cm-acme-http-solver-
+    generation: 1
+    labels:
+      acme.cert-manager.io/http-domain: "1281623870"
+      acme.cert-manager.io/http-token: "1077350049"
+      acme.cert-manager.io/http01-solver: "true"
+    name: cm-acme-http-solver-gmn98
+    namespace: data-platform
+    ownerReferences:
+    - apiVersion: acme.cert-manager.io/v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: Challenge
+      name: portal-tls-1-165187994-1454648612
+      uid: 9d1f6f6b-eac9-4d3a-81fa-ac917f2afb41
+    resourceVersion: "114075"
+    uid: fd61e7a6-ee92-44c3-8807-7400316509bf
+  spec:
+    rules:
+    - host: portal.254carbon.com
+      http:
+        paths:
+        - backend:
+            service:
+              name: cm-acme-http-solver-f7j4m
+              port:
+                number: 8089
+          path: /.well-known/acme-challenge/p5YAmWaPPSggMaXX2NqIynOY9qQ8e-9BiDoRzbSUgzA
+          pathType: Exact
+  status:
+    loadBalancer: {}
+- apiVersion: networking.k8s.io/v1
+  kind: Ingress
+  metadata:
+    annotations:
+      cert-manager.io/cluster-issuer: selfsigned
+      kubectl.kubernetes.io/last-applied-configuration: |
+        {"apiVersion":"networking.k8s.io/v1","kind":"Ingress","metadata":{"annotations":{"cert-manager.io/cluster-issuer":"selfsigned","nginx.ingress.kubernetes.io/auth-response-headers":"cf-access-jwt-assertion","nginx.ingress.kubernetes.io/auth-signin":"https://qagi.cloudflareaccess.com/cdn-cgi/access/login?redirect_url=$escaped_request_uri","nginx.ingress.kubernetes.io/auth-url":"https://qagi.cloudflareaccess.com/cdn-cgi/access/authorize","nginx.ingress.kubernetes.io/configuration-snippet":"auth_request_set $cf_email $upstream_http_cf_access_authenticated_user_email;\nauth_request_set $cf_groups $upstream_http_cf_access_groups;\nproxy_set_header X-WEBAUTH-USER $cf_email;\nproxy_set_header X-WEBAUTH-EMAIL $cf_email;\nproxy_set_header X-WEBAUTH-GROUPS $cf_groups;\n","nginx.ingress.kubernetes.io/force-ssl-redirect":"true","nginx.ingress.kubernetes.io/rewrite-target":"/","nginx.ingress.kubernetes.io/ssl-redirect":"true"},"name":"datahub-ingress","namespace":"data-platform"},"spec":{"ingressClassName":"nginx","rules":[{"host":"datahub.254carbon.com","http":{"paths":[{"backend":{"service":{"name":"datahub-frontend","port":{"number":9002}}},"path":"/","pathType":"Prefix"},{"backend":{"service":{"name":"datahub-gms","port":{"number":8080}}},"path":"/api","pathType":"Prefix"}]}},{"host":"datahub.local","http":{"paths":[{"backend":{"service":{"name":"datahub-frontend","port":{"number":9002}}},"path":"/","pathType":"Prefix"}]}}],"tls":[{"hosts":["datahub.254carbon.com"],"secretName":"datahub-tls"}]}}
+      nginx.ingress.kubernetes.io/auth-response-headers: cf-access-jwt-assertion
+      nginx.ingress.kubernetes.io/auth-signin: https://qagi.cloudflareaccess.com/cdn-cgi/access/login?redirect_url=$escaped_request_uri
+      nginx.ingress.kubernetes.io/auth-url: https://qagi.cloudflareaccess.com/cdn-cgi/access/authorize
+      nginx.ingress.kubernetes.io/configuration-snippet: |
+        auth_request_set $cf_email $upstream_http_cf_access_authenticated_user_email;
+        auth_request_set $cf_groups $upstream_http_cf_access_groups;
+        proxy_set_header X-WEBAUTH-USER $cf_email;
+        proxy_set_header X-WEBAUTH-EMAIL $cf_email;
+        proxy_set_header X-WEBAUTH-GROUPS $cf_groups;
+      nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+      nginx.ingress.kubernetes.io/rewrite-target: /
+      nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    creationTimestamp: "2025-10-20T04:50:01Z"
+    generation: 10
+    name: datahub-ingress
+    namespace: data-platform
+    resourceVersion: "113606"
+    uid: fc8fe56d-0e33-47eb-930c-a595a064a57d
+  spec:
+    ingressClassName: nginx
+    rules:
+    - host: datahub.254carbon.com
+      http:
+        paths:
+        - backend:
+            service:
+              name: datahub-frontend
+              port:
+                number: 9002
+          path: /
+          pathType: Prefix
+        - backend:
+            service:
+              name: datahub-gms
+              port:
+                number: 8080
+          path: /api
+          pathType: Prefix
+    - host: datahub.local
+      http:
+        paths:
+        - backend:
+            service:
+              name: datahub-frontend
+              port:
+                number: 9002
+          path: /
+          pathType: Prefix
+    tls:
+    - hosts:
+      - datahub.254carbon.com
+      secretName: datahub-tls
+  status:
+    loadBalancer: {}
+- apiVersion: networking.k8s.io/v1
+  kind: Ingress
+  metadata:
+    annotations:
+      cert-manager.io/cluster-issuer: selfsigned
+      kubectl.kubernetes.io/last-applied-configuration: |
+        {"apiVersion":"networking.k8s.io/v1","kind":"Ingress","metadata":{"annotations":{"cert-manager.io/cluster-issuer":"selfsigned","nginx.ingress.kubernetes.io/auth-response-headers":"cf-access-jwt-assertion","nginx.ingress.kubernetes.io/auth-signin":"https://qagi.cloudflareaccess.com/cdn-cgi/access/login?redirect_url=$escaped_request_uri","nginx.ingress.kubernetes.io/auth-url":"https://qagi.cloudflareaccess.com/cdn-cgi/access/authorize","nginx.ingress.kubernetes.io/configuration-snippet":"auth_request_set $cf_email $upstream_http_cf_access_authenticated_user_email;\nauth_request_set $cf_groups $upstream_http_cf_access_groups;\nproxy_set_header X-WEBAUTH-USER $cf_email;\nproxy_set_header X-WEBAUTH-EMAIL $cf_email;\nproxy_set_header X-WEBAUTH-GROUPS $cf_groups;\n","nginx.ingress.kubernetes.io/force-ssl-redirect":"true","nginx.ingress.kubernetes.io/rewrite-target":"/","nginx.ingress.kubernetes.io/ssl-redirect":"true"},"name":"dolphinscheduler-ingress","namespace":"data-platform"},"spec":{"ingressClassName":"nginx","rules":[{"host":"dolphin.254carbon.com","http":{"paths":[{"backend":{"service":{"name":"dolphinscheduler-api","port":{"number":12345}}},"path":"/","pathType":"Prefix"}]}},{"host":"dolphinscheduler.local","http":{"paths":[{"backend":{"service":{"name":"dolphinscheduler-api","port":{"number":12345}}},"path":"/","pathType":"Prefix"}]}},{"host":"dolphinscheduler.127.0.0.1.nip.io","http":{"paths":[{"backend":{"service":{"name":"dolphinscheduler-api","port":{"number":12345}}},"path":"/","pathType":"Prefix"}]}}],"tls":[{"hosts":["dolphin.254carbon.com","dolphinscheduler.127.0.0.1.nip.io"],"secretName":"dolphinscheduler-tls"}]}}
+      nginx.ingress.kubernetes.io/auth-response-headers: cf-access-jwt-assertion
+      nginx.ingress.kubernetes.io/auth-signin: https://qagi.cloudflareaccess.com/cdn-cgi/access/login?redirect_url=$escaped_request_uri
+      nginx.ingress.kubernetes.io/auth-url: https://qagi.cloudflareaccess.com/cdn-cgi/access/authorize
+      nginx.ingress.kubernetes.io/configuration-snippet: |
+        auth_request_set $cf_email $upstream_http_cf_access_authenticated_user_email;
+        auth_request_set $cf_groups $upstream_http_cf_access_groups;
+        proxy_set_header X-WEBAUTH-USER $cf_email;
+        proxy_set_header X-WEBAUTH-EMAIL $cf_email;
+        proxy_set_header X-WEBAUTH-GROUPS $cf_groups;
+      nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+      nginx.ingress.kubernetes.io/rewrite-target: /
+      nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    creationTimestamp: "2025-10-20T04:50:01Z"
+    generation: 2
+    name: dolphinscheduler-ingress
+    namespace: data-platform
+    resourceVersion: "113612"
+    uid: 595f467c-75ba-45d5-94e4-bb81cbea438c
+  spec:
+    ingressClassName: nginx
+    rules:
+    - host: dolphin.254carbon.com
+      http:
+        paths:
+        - backend:
+            service:
+              name: dolphinscheduler-api
+              port:
+                number: 12345
+          path: /
+          pathType: Prefix
+    - host: dolphinscheduler.local
+      http:
+        paths:
+        - backend:
+            service:
+              name: dolphinscheduler-api
+              port:
+                number: 12345
+          path: /
+          pathType: Prefix
+    - host: dolphinscheduler.127.0.0.1.nip.io
+      http:
+        paths:
+        - backend:
+            service:
+              name: dolphinscheduler-api
+              port:
+                number: 12345
+          path: /
+          pathType: Prefix
+    tls:
+    - hosts:
+      - dolphin.254carbon.com
+      - dolphinscheduler.127.0.0.1.nip.io
+      secretName: dolphinscheduler-tls
+  status:
+    loadBalancer: {}
+- apiVersion: networking.k8s.io/v1
+  kind: Ingress
+  metadata:
+    annotations:
+      cert-manager.io/cluster-issuer: selfsigned
+      kubectl.kubernetes.io/last-applied-configuration: |
+        {"apiVersion":"networking.k8s.io/v1","kind":"Ingress","metadata":{"annotations":{"cert-manager.io/cluster-issuer":"selfsigned","nginx.ingress.kubernetes.io/auth-response-headers":"cf-access-jwt-assertion","nginx.ingress.kubernetes.io/auth-signin":"https://qagi.cloudflareaccess.com/cdn-cgi/access/login?redirect_url=$escaped_request_uri","nginx.ingress.kubernetes.io/auth-url":"https://qagi.cloudflareaccess.com/cdn-cgi/access/authorize","nginx.ingress.kubernetes.io/configuration-snippet":"auth_request_set $cf_email $upstream_http_cf_access_authenticated_user_email;\nauth_request_set $cf_groups $upstream_http_cf_access_groups;\nproxy_set_header X-WEBAUTH-USER $cf_email;\nproxy_set_header X-WEBAUTH-EMAIL $cf_email;\nproxy_set_header X-WEBAUTH-GROUPS $cf_groups;\n","nginx.ingress.kubernetes.io/force-ssl-redirect":"true","nginx.ingress.kubernetes.io/rewrite-target":"/","nginx.ingress.kubernetes.io/ssl-redirect":"true"},"name":"doris-ingress","namespace":"data-platform"},"spec":{"ingressClassName":"nginx","rules":[{"host":"doris.254carbon.com","http":{"paths":[{"backend":{"service":{"name":"doris-fe-service","port":{"number":8030}}},"path":"/","pathType":"Prefix"}]}},{"host":"doris.local","http":{"paths":[{"backend":{"service":{"name":"doris-fe-service","port":{"number":8030}}},"path":"/","pathType":"Prefix"}]}}],"tls":[{"hosts":["doris.254carbon.com"],"secretName":"doris-tls"}]}}
+      nginx.ingress.kubernetes.io/auth-response-headers: cf-access-jwt-assertion
+      nginx.ingress.kubernetes.io/auth-signin: https://qagi.cloudflareaccess.com/cdn-cgi/access/login?redirect_url=$escaped_request_uri
+      nginx.ingress.kubernetes.io/auth-url: https://qagi.cloudflareaccess.com/cdn-cgi/access/authorize
+      nginx.ingress.kubernetes.io/configuration-snippet: |
+        auth_request_set $cf_email $upstream_http_cf_access_authenticated_user_email;
+        auth_request_set $cf_groups $upstream_http_cf_access_groups;
+        proxy_set_header X-WEBAUTH-USER $cf_email;
+        proxy_set_header X-WEBAUTH-EMAIL $cf_email;
+        proxy_set_header X-WEBAUTH-GROUPS $cf_groups;
+      nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+      nginx.ingress.kubernetes.io/rewrite-target: /
+      nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    creationTimestamp: "2025-10-20T04:50:01Z"
+    generation: 2
+    name: doris-ingress
+    namespace: data-platform
+    resourceVersion: "113609"
+    uid: ba8074c4-ff2f-4f4e-85b9-bae5459ce7f5
+  spec:
+    ingressClassName: nginx
+    rules:
+    - host: doris.254carbon.com
+      http:
+        paths:
+        - backend:
+            service:
+              name: doris-fe-service
+              port:
+                number: 8030
+          path: /
+          pathType: Prefix
+    - host: doris.local
+      http:
+        paths:
+        - backend:
+            service:
+              name: doris-fe-service
+              port:
+                number: 8030
+          path: /
+          pathType: Prefix
+    tls:
+    - hosts:
+      - doris.254carbon.com
+      secretName: doris-tls
+  status:
+    loadBalancer: {}
+- apiVersion: networking.k8s.io/v1
+  kind: Ingress
+  metadata:
+    annotations:
+      cert-manager.io/cluster-issuer: selfsigned
+      kubectl.kubernetes.io/last-applied-configuration: |
+        {"apiVersion":"networking.k8s.io/v1","kind":"Ingress","metadata":{"annotations":{"cert-manager.io/cluster-issuer":"selfsigned","nginx.ingress.kubernetes.io/auth-response-headers":"cf-access-jwt-assertion","nginx.ingress.kubernetes.io/auth-signin":"https://qagi.cloudflareaccess.com/cdn-cgi/access/login?redirect_url=$escaped_request_uri","nginx.ingress.kubernetes.io/auth-url":"https://qagi.cloudflareaccess.com/cdn-cgi/access/authorize","nginx.ingress.kubernetes.io/configuration-snippet":"auth_request_set $cf_user $upstream_http_cf_access_user;\nauth_request_set $cf_groups $upstream_http_cf_access_groups;\nproxy_set_header CF_Access-User $cf_user;\nproxy_set_header CF_Access-Groups $cf_groups;\n","nginx.ingress.kubernetes.io/force-ssl-redirect":"true","nginx.ingress.kubernetes.io/rewrite-target":"/","nginx.ingress.kubernetes.io/ssl-redirect":"true"},"name":"lakefs-ingress","namespace":"data-platform"},"spec":{"ingressClassName":"nginx","rules":[{"host":"lakefs.254carbon.com","http":{"paths":[{"backend":{"service":{"name":"lakefs","port":{"number":8000}}},"path":"/","pathType":"Prefix"}]}},{"host":"lakefs.local","http":{"paths":[{"backend":{"service":{"name":"lakefs","port":{"number":8000}}},"path":"/","pathType":"Prefix"}]}}],"tls":[{"hosts":["lakefs.254carbon.com"],"secretName":"lakefs-tls"}]}}
+      nginx.ingress.kubernetes.io/auth-response-headers: cf-access-jwt-assertion
+      nginx.ingress.kubernetes.io/auth-signin: https://qagi.cloudflareaccess.com/cdn-cgi/access/login?redirect_url=$escaped_request_uri
+      nginx.ingress.kubernetes.io/auth-url: https://qagi.cloudflareaccess.com/cdn-cgi/access/authorize
+      nginx.ingress.kubernetes.io/configuration-snippet: |
+        auth_request_set $cf_user $upstream_http_cf_access_user;
+        auth_request_set $cf_groups $upstream_http_cf_access_groups;
+        proxy_set_header CF_Access-User $cf_user;
+        proxy_set_header CF_Access-Groups $cf_groups;
+      nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+      nginx.ingress.kubernetes.io/rewrite-target: /
+      nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    creationTimestamp: "2025-10-20T04:50:01Z"
+    generation: 2
+    name: lakefs-ingress
+    namespace: data-platform
+    resourceVersion: "113613"
+    uid: 9bbaae33-b8a6-43f9-9dc0-fa8085706a37
+  spec:
+    ingressClassName: nginx
+    rules:
+    - host: lakefs.254carbon.com
+      http:
+        paths:
+        - backend:
+            service:
+              name: lakefs
+              port:
+                number: 8000
+          path: /
+          pathType: Prefix
+    - host: lakefs.local
+      http:
+        paths:
+        - backend:
+            service:
+              name: lakefs
+              port:
+                number: 8000
+          path: /
+          pathType: Prefix
+    tls:
+    - hosts:
+      - lakefs.254carbon.com
+      secretName: lakefs-tls
+  status:
+    loadBalancer: {}
+- apiVersion: networking.k8s.io/v1
+  kind: Ingress
+  metadata:
+    annotations:
+      cert-manager.io/cluster-issuer: selfsigned
+      kubectl.kubernetes.io/last-applied-configuration: |
+        {"apiVersion":"networking.k8s.io/v1","kind":"Ingress","metadata":{"annotations":{"cert-manager.io/cluster-issuer":"selfsigned","nginx.ingress.kubernetes.io/auth-response-headers":"cf-access-jwt-assertion","nginx.ingress.kubernetes.io/auth-signin":"https://qagi.cloudflareaccess.com/cdn-cgi/access/login?redirect_url=$escaped_request_uri","nginx.ingress.kubernetes.io/auth-url":"https://qagi.cloudflareaccess.com/cdn-cgi/access/authorize","nginx.ingress.kubernetes.io/configuration-snippet":"auth_request_set $cf_email $upstream_http_cf_access_authenticated_user_email;\nauth_request_set $cf_groups $upstream_http_cf_access_groups;\nproxy_set_header X-WEBAUTH-USER $cf_email;\nproxy_set_header X-WEBAUTH-EMAIL $cf_email;\nproxy_set_header X-WEBAUTH-GROUPS $cf_groups;\n","nginx.ingress.kubernetes.io/force-ssl-redirect":"true","nginx.ingress.kubernetes.io/rewrite-target":"/","nginx.ingress.kubernetes.io/ssl-redirect":"true"},"name":"minio-console-ingress","namespace":"data-platform"},"spec":{"ingressClassName":"nginx","rules":[{"host":"minio.254carbon.com","http":{"paths":[{"backend":{"service":{"name":"minio-console","port":{"number":9001}}},"path":"/","pathType":"Prefix"}]}},{"host":"minio.local","http":{"paths":[{"backend":{"service":{"name":"minio-console","port":{"number":9001}}},"path":"/","pathType":"Prefix"}]}}],"tls":[{"hosts":["minio.254carbon.com"],"secretName":"minio-tls"}]}}
+      nginx.ingress.kubernetes.io/auth-response-headers: cf-access-jwt-assertion
+      nginx.ingress.kubernetes.io/auth-signin: https://qagi.cloudflareaccess.com/cdn-cgi/access/login?redirect_url=$escaped_request_uri
+      nginx.ingress.kubernetes.io/auth-url: https://qagi.cloudflareaccess.com/cdn-cgi/access/authorize
+      nginx.ingress.kubernetes.io/configuration-snippet: |
+        auth_request_set $cf_email $upstream_http_cf_access_authenticated_user_email;
+        auth_request_set $cf_groups $upstream_http_cf_access_groups;
+        proxy_set_header X-WEBAUTH-USER $cf_email;
+        proxy_set_header X-WEBAUTH-EMAIL $cf_email;
+        proxy_set_header X-WEBAUTH-GROUPS $cf_groups;
+      nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+      nginx.ingress.kubernetes.io/rewrite-target: /
+      nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    creationTimestamp: "2025-10-20T04:50:01Z"
+    generation: 2
+    name: minio-console-ingress
+    namespace: data-platform
+    resourceVersion: "113611"
+    uid: 04634235-ba37-4a23-89ac-89e5013b55bc
+  spec:
+    ingressClassName: nginx
+    rules:
+    - host: minio.254carbon.com
+      http:
+        paths:
+        - backend:
+            service:
+              name: minio-console
+              port:
+                number: 9001
+          path: /
+          pathType: Prefix
+    - host: minio.local
+      http:
+        paths:
+        - backend:
+            service:
+              name: minio-console
+              port:
+                number: 9001
+          path: /
+          pathType: Prefix
+    tls:
+    - hosts:
+      - minio.254carbon.com
+      secretName: minio-tls
+  status:
+    loadBalancer: {}
+- apiVersion: networking.k8s.io/v1
+  kind: Ingress
+  metadata:
+    annotations:
+      cert-manager.io/cluster-issuer: selfsigned
+      kubectl.kubernetes.io/last-applied-configuration: |
+        {"apiVersion":"networking.k8s.io/v1","kind":"Ingress","metadata":{"annotations":{"cert-manager.io/cluster-issuer":"selfsigned","nginx.ingress.kubernetes.io/auth-response-headers":"cf-access-jwt-assertion","nginx.ingress.kubernetes.io/auth-signin":"https://qagi.cloudflareaccess.com/cdn-cgi/access/login?redirect_url=$escaped_request_uri","nginx.ingress.kubernetes.io/auth-url":"https://qagi.cloudflareaccess.com/cdn-cgi/access/authorize","nginx.ingress.kubernetes.io/configuration-snippet":"auth_request_set $cf_user $upstream_http_cf_access_user;\nauth_request_set $cf_groups $upstream_http_cf_access_groups;\nproxy_set_header CF_Access-User $cf_user;\nproxy_set_header CF_Access-Groups $cf_groups;\n","nginx.ingress.kubernetes.io/force-ssl-redirect":"true","nginx.ingress.kubernetes.io/rewrite-target":"/","nginx.ingress.kubernetes.io/ssl-redirect":"true"},"name":"mlflow-ingress","namespace":"data-platform"},"spec":{"ingressClassName":"nginx","rules":[{"host":"mlflow.254carbon.com","http":{"paths":[{"backend":{"service":{"name":"mlflow","port":{"number":5000}}},"path":"/","pathType":"Prefix"}]}},{"host":"mlflow.local","http":{"paths":[{"backend":{"service":{"name":"mlflow","port":{"number":5000}}},"path":"/","pathType":"Prefix"}]}}],"tls":[{"hosts":["mlflow.254carbon.com"],"secretName":"mlflow-tls"}]}}
+      nginx.ingress.kubernetes.io/auth-response-headers: cf-access-jwt-assertion
+      nginx.ingress.kubernetes.io/auth-signin: https://qagi.cloudflareaccess.com/cdn-cgi/access/login?redirect_url=$escaped_request_uri
+      nginx.ingress.kubernetes.io/auth-url: https://qagi.cloudflareaccess.com/cdn-cgi/access/authorize
+      nginx.ingress.kubernetes.io/configuration-snippet: |
+        auth_request_set $cf_user $upstream_http_cf_access_user;
+        auth_request_set $cf_groups $upstream_http_cf_access_groups;
+        proxy_set_header CF_Access-User $cf_user;
+        proxy_set_header CF_Access-Groups $cf_groups;
+      nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+      nginx.ingress.kubernetes.io/rewrite-target: /
+      nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    creationTimestamp: "2025-10-20T04:50:01Z"
+    generation: 2
+    name: mlflow-ingress
+    namespace: data-platform
+    resourceVersion: "99696"
+    uid: 4d60e0c8-c60e-4e29-bd6a-a380fa71d98b
+  spec:
+    ingressClassName: nginx
+    rules:
+    - host: mlflow.254carbon.com
+      http:
+        paths:
+        - backend:
+            service:
+              name: mlflow
+              port:
+                number: 5000
+          path: /
+          pathType: Prefix
+    - host: mlflow.local
+      http:
+        paths:
+        - backend:
+            service:
+              name: mlflow
+              port:
+                number: 5000
+          path: /
+          pathType: Prefix
+    tls:
+    - hosts:
+      - mlflow.254carbon.com
+      secretName: mlflow-tls
+  status:
+    loadBalancer: {}
+- apiVersion: networking.k8s.io/v1
+  kind: Ingress
+  metadata:
+    annotations:
+      cert-manager.io/cluster-issuer: letsencrypt-prod
+      kubectl.kubernetes.io/last-applied-configuration: |
+        {"apiVersion":"networking.k8s.io/v1","kind":"Ingress","metadata":{"annotations":{"cert-manager.io/cluster-issuer":"selfsigned","nginx.ingress.kubernetes.io/force-ssl-redirect":"true","nginx.ingress.kubernetes.io/rewrite-target":"/","nginx.ingress.kubernetes.io/ssl-redirect":"true"},"name":"portal-ingress","namespace":"data-platform"},"spec":{"ingressClassName":"nginx","rules":[{"host":"254carbon.com","http":{"paths":[{"backend":{"service":{"name":"portal-services","port":{"number":8080}}},"path":"/api/services","pathType":"Prefix"},{"backend":{"service":{"name":"portal","port":{"number":8080}}},"path":"/","pathType":"Prefix"}]}},{"host":"www.254carbon.com","http":{"paths":[{"backend":{"service":{"name":"portal-services","port":{"number":8080}}},"path":"/api/services","pathType":"Prefix"},{"backend":{"service":{"name":"portal","port":{"number":8080}}},"path":"/","pathType":"Prefix"}]}},{"host":"portal.254carbon.com","http":{"paths":[{"backend":{"service":{"name":"portal-services","port":{"number":8080}}},"path":"/api/services","pathType":"Prefix"},{"backend":{"service":{"name":"portal","port":{"number":8080}}},"path":"/","pathType":"Prefix"}]}}],"tls":[{"hosts":["254carbon.com","www.254carbon.com","portal.254carbon.com"],"secretName":"portal-tls"}]}}
+      nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+      nginx.ingress.kubernetes.io/proxy-connect-timeout: "120"
+      nginx.ingress.kubernetes.io/proxy-read-timeout: "120"
+      nginx.ingress.kubernetes.io/proxy-send-timeout: "120"
+      nginx.ingress.kubernetes.io/rewrite-target: /
+      nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    creationTimestamp: "2025-10-20T04:50:01Z"
+    generation: 9
+    name: portal-ingress
+    namespace: data-platform
+    resourceVersion: "113906"
+    uid: c332834d-4342-4646-998c-4a8e88806bba
+  spec:
+    ingressClassName: nginx
+    rules:
+    - host: 254carbon.com
+      http:
+        paths:
+        - backend:
+            service:
+              name: portal-services
+              port:
+                number: 8080
+          path: /api/services
+          pathType: Prefix
+        - backend:
+            service:
+              name: portal
+              port:
+                number: 8080
+          path: /
+          pathType: Prefix
+    - host: www.254carbon.com
+      http:
+        paths:
+        - backend:
+            service:
+              name: portal-services
+              port:
+                number: 8080
+          path: /api/services
+          pathType: Prefix
+        - backend:
+            service:
+              name: portal
+              port:
+                number: 8080
+          path: /
+          pathType: Prefix
+    - host: portal.254carbon.com
+      http:
+        paths:
+        - backend:
+            service:
+              name: portal-services
+              port:
+                number: 8080
+          path: /api/services
+          pathType: Prefix
+        - backend:
+            service:
+              name: portal
+              port:
+                number: 8080
+          path: /
+          pathType: Prefix
+    tls:
+    - hosts:
+      - 254carbon.com
+      - www.254carbon.com
+      - portal.254carbon.com
+      secretName: portal-tls
+  status:
+    loadBalancer: {}
+- apiVersion: networking.k8s.io/v1
+  kind: Ingress
+  metadata:
+    annotations:
+      cert-manager.io/cluster-issuer: selfsigned
+      kubectl.kubernetes.io/last-applied-configuration: |
+        {"apiVersion":"networking.k8s.io/v1","kind":"Ingress","metadata":{"annotations":{"cert-manager.io/cluster-issuer":"selfsigned","nginx.ingress.kubernetes.io/auth-response-headers":"cf-access-jwt-assertion","nginx.ingress.kubernetes.io/auth-signin":"https://qagi.cloudflareaccess.com/cdn-cgi/access/login?redirect_url=$escaped_request_uri","nginx.ingress.kubernetes.io/auth-url":"https://qagi.cloudflareaccess.com/cdn-cgi/access/authorize","nginx.ingress.kubernetes.io/configuration-snippet":"auth_request_set $cf_email $upstream_http_cf_access_authenticated_user_email;\nauth_request_set $cf_groups $upstream_http_cf_access_groups;\nproxy_set_header X-WEBAUTH-USER $cf_email;\nproxy_set_header X-WEBAUTH-EMAIL $cf_email;\nproxy_set_header X-WEBAUTH-GROUPS $cf_groups;\n","nginx.ingress.kubernetes.io/force-ssl-redirect":"true","nginx.ingress.kubernetes.io/rewrite-target":"/","nginx.ingress.kubernetes.io/ssl-redirect":"true"},"name":"spark-history-ingress","namespace":"data-platform"},"spec":{"ingressClassName":"nginx","rules":[{"host":"spark-history.254carbon.com","http":{"paths":[{"backend":{"service":{"name":"spark-history-server","port":{"number":18080}}},"path":"/","pathType":"Prefix"}]}},{"host":"spark-history.local","http":{"paths":[{"backend":{"service":{"name":"spark-history-server","port":{"number":18080}}},"path":"/","pathType":"Prefix"}]}}],"tls":[{"hosts":["spark-history.254carbon.com"],"secretName":"spark-history-tls"}]}}
+      nginx.ingress.kubernetes.io/auth-response-headers: cf-access-jwt-assertion
+      nginx.ingress.kubernetes.io/auth-signin: https://qagi.cloudflareaccess.com/cdn-cgi/access/login?redirect_url=$escaped_request_uri
+      nginx.ingress.kubernetes.io/auth-url: https://qagi.cloudflareaccess.com/cdn-cgi/access/authorize
+      nginx.ingress.kubernetes.io/configuration-snippet: |
+        auth_request_set $cf_email $upstream_http_cf_access_authenticated_user_email;
+        auth_request_set $cf_groups $upstream_http_cf_access_groups;
+        proxy_set_header X-WEBAUTH-USER $cf_email;
+        proxy_set_header X-WEBAUTH-EMAIL $cf_email;
+        proxy_set_header X-WEBAUTH-GROUPS $cf_groups;
+      nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+      nginx.ingress.kubernetes.io/rewrite-target: /
+      nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    creationTimestamp: "2025-10-20T04:50:01Z"
+    generation: 2
+    name: spark-history-ingress
+    namespace: data-platform
+    resourceVersion: "99697"
+    uid: cb371fc9-0fb2-4c0c-b845-2508d83cdfac
+  spec:
+    ingressClassName: nginx
+    rules:
+    - host: spark-history.254carbon.com
+      http:
+        paths:
+        - backend:
+            service:
+              name: spark-history-server
+              port:
+                number: 18080
+          path: /
+          pathType: Prefix
+    - host: spark-history.local
+      http:
+        paths:
+        - backend:
+            service:
+              name: spark-history-server
+              port:
+                number: 18080
+          path: /
+          pathType: Prefix
+    tls:
+    - hosts:
+      - spark-history.254carbon.com
+      secretName: spark-history-tls
+  status:
+    loadBalancer: {}
+- apiVersion: networking.k8s.io/v1
+  kind: Ingress
+  metadata:
+    annotations:
+      cert-manager.io/cluster-issuer: selfsigned
+      kubectl.kubernetes.io/last-applied-configuration: |
+        {"apiVersion":"networking.k8s.io/v1","kind":"Ingress","metadata":{"annotations":{"cert-manager.io/cluster-issuer":"selfsigned","nginx.ingress.kubernetes.io/auth-response-headers":"cf-access-jwt-assertion","nginx.ingress.kubernetes.io/auth-signin":"https://qagi.cloudflareaccess.com/cdn-cgi/access/login?redirect_url=$escaped_request_uri","nginx.ingress.kubernetes.io/auth-url":"https://qagi.cloudflareaccess.com/cdn-cgi/access/authorize","nginx.ingress.kubernetes.io/configuration-snippet":"auth_request_set $cf_user $upstream_http_cf_access_user;\nauth_request_set $cf_groups $upstream_http_cf_access_groups;\nproxy_set_header CF_Access-User $cf_user;\nproxy_set_header CF_Access-Groups $cf_groups;\n","nginx.ingress.kubernetes.io/force-ssl-redirect":"true","nginx.ingress.kubernetes.io/rewrite-target":"/","nginx.ingress.kubernetes.io/ssl-redirect":"true"},"name":"superset-ingress","namespace":"data-platform"},"spec":{"ingressClassName":"nginx","rules":[{"host":"superset.254carbon.com","http":{"paths":[{"backend":{"service":{"name":"superset","port":{"number":8088}}},"path":"/","pathType":"Prefix"}]}},{"host":"superset.local","http":{"paths":[{"backend":{"service":{"name":"superset","port":{"number":8088}}},"path":"/","pathType":"Prefix"}]}}],"tls":[{"hosts":["superset.254carbon.com"],"secretName":"superset-tls"}]}}
+      nginx.ingress.kubernetes.io/auth-response-headers: cf-access-jwt-assertion
+      nginx.ingress.kubernetes.io/auth-signin: https://qagi.cloudflareaccess.com/cdn-cgi/access/login?redirect_url=$escaped_request_uri
+      nginx.ingress.kubernetes.io/auth-url: https://qagi.cloudflareaccess.com/cdn-cgi/access/authorize
+      nginx.ingress.kubernetes.io/configuration-snippet: |
+        auth_request_set $cf_user $upstream_http_cf_access_user;
+        auth_request_set $cf_groups $upstream_http_cf_access_groups;
+        proxy_set_header CF_Access-User $cf_user;
+        proxy_set_header CF_Access-Groups $cf_groups;
+      nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+      nginx.ingress.kubernetes.io/rewrite-target: /
+      nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    creationTimestamp: "2025-10-20T04:50:01Z"
+    generation: 2
+    name: superset-ingress
+    namespace: data-platform
+    resourceVersion: "113614"
+    uid: cc0a4826-567d-4807-a4c1-3a7e5cba8af8
+  spec:
+    ingressClassName: nginx
+    rules:
+    - host: superset.254carbon.com
+      http:
+        paths:
+        - backend:
+            service:
+              name: superset
+              port:
+                number: 8088
+          path: /
+          pathType: Prefix
+    - host: superset.local
+      http:
+        paths:
+        - backend:
+            service:
+              name: superset
+              port:
+                number: 8088
+          path: /
+          pathType: Prefix
+    tls:
+    - hosts:
+      - superset.254carbon.com
+      secretName: superset-tls
+  status:
+    loadBalancer: {}
+- apiVersion: networking.k8s.io/v1
+  kind: Ingress
+  metadata:
+    annotations:
+      cert-manager.io/cluster-issuer: selfsigned
+      kubectl.kubernetes.io/last-applied-configuration: |
+        {"apiVersion":"networking.k8s.io/v1","kind":"Ingress","metadata":{"annotations":{"cert-manager.io/cluster-issuer":"selfsigned","nginx.ingress.kubernetes.io/auth-response-headers":"cf-access-jwt-assertion","nginx.ingress.kubernetes.io/auth-signin":"https://qagi.cloudflareaccess.com/cdn-cgi/access/login?redirect_url=$escaped_request_uri","nginx.ingress.kubernetes.io/auth-url":"https://qagi.cloudflareaccess.com/cdn-cgi/access/authorize","nginx.ingress.kubernetes.io/configuration-snippet":"auth_request_set $cf_email $upstream_http_cf_access_authenticated_user_email;\nauth_request_set $cf_groups $upstream_http_cf_access_groups;\nproxy_set_header X-WEBAUTH-USER $cf_email;\nproxy_set_header X-WEBAUTH-EMAIL $cf_email;\nproxy_set_header X-WEBAUTH-GROUPS $cf_groups;\n","nginx.ingress.kubernetes.io/force-ssl-redirect":"true","nginx.ingress.kubernetes.io/rewrite-target":"/","nginx.ingress.kubernetes.io/ssl-redirect":"true"},"name":"trino-ingress","namespace":"data-platform"},"spec":{"ingressClassName":"nginx","rules":[{"host":"trino.254carbon.com","http":{"paths":[{"backend":{"service":{"name":"trino","port":{"number":8080}}},"path":"/","pathType":"Prefix"}]}},{"host":"trino.local","http":{"paths":[{"backend":{"service":{"name":"trino","port":{"number":8080}}},"path":"/","pathType":"Prefix"}]}}],"tls":[{"hosts":["trino.254carbon.com"],"secretName":"trino-tls"}]}}
+      nginx.ingress.kubernetes.io/auth-response-headers: cf-access-jwt-assertion
+      nginx.ingress.kubernetes.io/auth-signin: https://qagi.cloudflareaccess.com/cdn-cgi/access/login?redirect_url=$escaped_request_uri
+      nginx.ingress.kubernetes.io/auth-url: https://qagi.cloudflareaccess.com/cdn-cgi/access/authorize
+      nginx.ingress.kubernetes.io/configuration-snippet: |
+        auth_request_set $cf_email $upstream_http_cf_access_authenticated_user_email;
+        auth_request_set $cf_groups $upstream_http_cf_access_groups;
+        proxy_set_header X-WEBAUTH-USER $cf_email;
+        proxy_set_header X-WEBAUTH-EMAIL $cf_email;
+        proxy_set_header X-WEBAUTH-GROUPS $cf_groups;
+      nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+      nginx.ingress.kubernetes.io/rewrite-target: /
+      nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    creationTimestamp: "2025-10-20T04:50:01Z"
+    generation: 10
+    name: trino-ingress
+    namespace: data-platform
+    resourceVersion: "113608"
+    uid: aa2fa0ee-3a62-4ed3-af35-bc88cfceb597
+  spec:
+    ingressClassName: nginx
+    rules:
+    - host: trino.254carbon.com
+      http:
+        paths:
+        - backend:
+            service:
+              name: trino
+              port:
+                number: 8080
+          path: /
+          pathType: Prefix
+    - host: trino.local
+      http:
+        paths:
+        - backend:
+            service:
+              name: trino
+              port:
+                number: 8080
+          path: /
+          pathType: Prefix
+    tls:
+    - hosts:
+      - trino.254carbon.com
+      secretName: trino-tls
+  status:
+    loadBalancer: {}
+- apiVersion: networking.k8s.io/v1
+  kind: Ingress
+  metadata:
+    annotations:
+      cert-manager.io/cluster-issuer: selfsigned
+      kubectl.kubernetes.io/last-applied-configuration: |
+        {"apiVersion":"networking.k8s.io/v1","kind":"Ingress","metadata":{"annotations":{"cert-manager.io/cluster-issuer":"selfsigned","nginx.ingress.kubernetes.io/auth-response-headers":"cf-access-jwt-assertion","nginx.ingress.kubernetes.io/auth-signin":"https://qagi.cloudflareaccess.com/cdn-cgi/access/login?redirect_url=$escaped_request_uri","nginx.ingress.kubernetes.io/auth-url":"https://qagi.cloudflareaccess.com/cdn-cgi/access/authorize","nginx.ingress.kubernetes.io/configuration-snippet":"auth_request_set $cf_email $upstream_http_cf_access_authenticated_user_email;\nauth_request_set $cf_groups $upstream_http_cf_access_groups;\nproxy_set_header X-WEBAUTH-USER $cf_email;\nproxy_set_header X-WEBAUTH-EMAIL $cf_email;\nproxy_set_header X-WEBAUTH-GROUPS $cf_groups;\n","nginx.ingress.kubernetes.io/force-ssl-redirect":"true","nginx.ingress.kubernetes.io/rewrite-target":"/","nginx.ingress.kubernetes.io/ssl-redirect":"true"},"name":"vault-ingress","namespace":"data-platform"},"spec":{"ingressClassName":"nginx","rules":[{"host":"vault.254carbon.com","http":{"paths":[{"backend":{"service":{"name":"vault","port":{"number":8200}}},"path":"/","pathType":"Prefix"}]}},{"host":"vault.local","http":{"paths":[{"backend":{"service":{"name":"vault","port":{"number":8200}}},"path":"/","pathType":"Prefix"}]}}],"tls":[{"hosts":["vault.254carbon.com"],"secretName":"vault-tls"}]}}
+      nginx.ingress.kubernetes.io/auth-response-headers: cf-access-jwt-assertion
+      nginx.ingress.kubernetes.io/auth-signin: https://qagi.cloudflareaccess.com/cdn-cgi/access/login?redirect_url=$escaped_request_uri
+      nginx.ingress.kubernetes.io/auth-url: https://qagi.cloudflareaccess.com/cdn-cgi/access/authorize
+      nginx.ingress.kubernetes.io/configuration-snippet: |
+        auth_request_set $cf_email $upstream_http_cf_access_authenticated_user_email;
+        auth_request_set $cf_groups $upstream_http_cf_access_groups;
+        proxy_set_header X-WEBAUTH-USER $cf_email;
+        proxy_set_header X-WEBAUTH-EMAIL $cf_email;
+        proxy_set_header X-WEBAUTH-GROUPS $cf_groups;
+      nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+      nginx.ingress.kubernetes.io/rewrite-target: /
+      nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    creationTimestamp: "2025-10-20T04:50:01Z"
+    generation: 2
+    name: vault-ingress
+    namespace: data-platform
+    resourceVersion: "113610"
+    uid: 0bbd5fe0-41ed-4538-b1cb-f7b101790a9b
+  spec:
+    ingressClassName: nginx
+    rules:
+    - host: vault.254carbon.com
+      http:
+        paths:
+        - backend:
+            service:
+              name: vault
+              port:
+                number: 8200
+          path: /
+          pathType: Prefix
+    - host: vault.local
+      http:
+        paths:
+        - backend:
+            service:
+              name: vault
+              port:
+                number: 8200
+          path: /
+          pathType: Prefix
+    tls:
+    - hosts:
+      - vault.254carbon.com
+      secretName: vault-tls
+  status:
+    loadBalancer: {}
+- apiVersion: networking.k8s.io/v1
+  kind: Ingress
+  metadata:
+    annotations:
+      cert-manager.io/cluster-issuer: selfsigned
+      kubectl.kubernetes.io/last-applied-configuration: "{\"apiVersion\":\"networking.k8s.io/v1\",\"kind\":\"Ingress\",\"metadata\":{\"annotations\":{\"cert-manager.io/cluster-issuer\":\"selfsigned\",\"nginx.ingress.kubernetes.io/auth-response-headers\":\"cf-access-jwt-assertion\",\"nginx.ingress.kubernetes.io/auth-signin\":\"https://qagi.cloudflareaccess.com/cdn-cgi/access/login?redirect_url=$escaped_request_uri\",\"nginx.ingress.kubernetes.io/auth-url\":\"https://qagi.cloudflareaccess.com/cdn-cgi/access/authorize\",\"nginx.ingress.kubernetes.io/configuration-snippet\":\"auth_request_set
+        $cf_email $upstream_http_cf_access_authenticated_user_email;\\nauth_request_set
+        $cf_groups $upstream_http_cf_access_groups;\\nproxy_set_header X-WEBAUTH-USER
+        $cf_email;\\nproxy_set_header X-WEBAUTH-EMAIL $cf_email;\\nproxy_set_header
+        X-WEBAUTH-GROUPS $cf_groups;\\n\",\"nginx.ingress.kubernetes.io/force-ssl-redirect\":\"true\",\"nginx.ingress.kubernetes.io/rewrite-target\":\"/\",\"nginx.ingress.kubernetes.io/ssl-redirect\":\"true\",\"portal.254carbon.com/cf-access-client-id-key\":\"client_id\",\"portal.254carbon.com/cf-access-client-secret-key\":\"client_secret\",\"portal.254carbon.com/cf-access-secret-name\":\"cf-access-grafana\",\"portal.254carbon.com/cf-access-secret-namespace\":\"monitoring\",\"portal.254carbon.com/service-category\":\"Monitoring\",\"portal.254carbon.com/service-description\":\"Observability
+        dashboards and alerts.\",\"portal.254carbon.com/service-health-path\":\"/api/health\",\"portal.254carbon.com/service-icon\":\"\U0001F4C8\",\"portal.254carbon.com/service-id\":\"grafana\",\"portal.254carbon.com/service-name\":\"Grafana\",\"portal.254carbon.com/use-cloudflare-access\":\"true\"},\"name\":\"grafana-ingress\",\"namespace\":\"monitoring\"},\"spec\":{\"ingressClassName\":\"nginx\",\"rules\":[{\"host\":\"grafana.254carbon.com\",\"http\":{\"paths\":[{\"backend\":{\"service\":{\"name\":\"grafana\",\"port\":{\"number\":3000}}},\"path\":\"/\",\"pathType\":\"Prefix\"}]}},{\"host\":\"grafana.local\",\"http\":{\"paths\":[{\"backend\":{\"service\":{\"name\":\"grafana\",\"port\":{\"number\":3000}}},\"path\":\"/\",\"pathType\":\"Prefix\"}]}}],\"tls\":[{\"hosts\":[\"grafana.254carbon.com\"],\"secretName\":\"grafana-tls\"}]}}\n"
+      nginx.ingress.kubernetes.io/auth-response-headers: cf-access-jwt-assertion
+      nginx.ingress.kubernetes.io/auth-signin: https://qagi.cloudflareaccess.com/cdn-cgi/access/login?redirect_url=$escaped_request_uri
+      nginx.ingress.kubernetes.io/auth-url: https://qagi.cloudflareaccess.com/cdn-cgi/access/authorize
+      nginx.ingress.kubernetes.io/configuration-snippet: |
+        auth_request_set $cf_email $upstream_http_cf_access_authenticated_user_email;
+        auth_request_set $cf_groups $upstream_http_cf_access_groups;
+        proxy_set_header X-WEBAUTH-USER $cf_email;
+        proxy_set_header X-WEBAUTH-EMAIL $cf_email;
+        proxy_set_header X-WEBAUTH-GROUPS $cf_groups;
+      nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+      nginx.ingress.kubernetes.io/rewrite-target: /
+      nginx.ingress.kubernetes.io/ssl-redirect: "true"
+      portal.254carbon.com/cf-access-client-id-key: client_id
+      portal.254carbon.com/cf-access-client-secret-key: client_secret
+      portal.254carbon.com/cf-access-secret-name: cf-access-grafana
+      portal.254carbon.com/cf-access-secret-namespace: monitoring
+      portal.254carbon.com/service-category: Monitoring
+      portal.254carbon.com/service-description: Observability dashboards and alerts.
+      portal.254carbon.com/service-health-path: /api/health
+      portal.254carbon.com/service-icon: "\U0001F4C8"
+      portal.254carbon.com/service-id: grafana
+      portal.254carbon.com/service-name: Grafana
+      portal.254carbon.com/use-cloudflare-access: "true"
+    creationTimestamp: "2025-10-20T04:50:01Z"
+    generation: 2
+    name: grafana-ingress
+    namespace: monitoring
+    resourceVersion: "113607"
+    uid: c57dd0e7-6c82-470e-b3e5-1e1df44be2a1
+  spec:
+    ingressClassName: nginx
+    rules:
+    - host: grafana.254carbon.com
+      http:
+        paths:
+        - backend:
+            service:
+              name: grafana
+              port:
+                number: 3000
+          path: /
+          pathType: Prefix
+    - host: grafana.local
+      http:
+        paths:
+        - backend:
+            service:
+              name: grafana
+              port:
+                number: 3000
+          path: /
+          pathType: Prefix
+    tls:
+    - hosts:
+      - grafana.254carbon.com
+      secretName: grafana-tls
+  status:
+    loadBalancer: {}
+- apiVersion: networking.k8s.io/v1
+  kind: Ingress
+  metadata:
+    annotations:
+      cert-manager.io/cluster-issuer: letsencrypt-prod
+      ingress.kubernetes.io/proxy-body-size: "0"
+      ingress.kubernetes.io/ssl-redirect: "true"
+      kubectl.kubernetes.io/last-applied-configuration: |
+        {"apiVersion":"networking.k8s.io/v1","kind":"Ingress","metadata":{"annotations":{"nginx.ingress.kubernetes.io/backend-protocol":"HTTP","nginx.ingress.kubernetes.io/configuration-snippet":"proxy_set_header X-Forwarded-Proto https;\n","nginx.ingress.kubernetes.io/proxy-body-size":"0","nginx.ingress.kubernetes.io/proxy-read-timeout":"900","nginx.ingress.kubernetes.io/proxy-request-buffering":"off","nginx.ingress.kubernetes.io/proxy-send-timeout":"900","nginx.ingress.kubernetes.io/ssl-redirect":"false"},"name":"harbor-ingress","namespace":"registry"},"spec":{"ingressClassName":"nginx","rules":[{"host":"harbor.254carbon.com","http":{"paths":[{"backend":{"service":{"name":"harbor-registry","port":{"number":5000}}},"path":"/v2/","pathType":"Prefix"},{"backend":{"service":{"name":"harbor-core","port":{"number":80}}},"path":"/api/","pathType":"Prefix"},{"backend":{"service":{"name":"harbor-core","port":{"number":80}}},"path":"/service/","pathType":"Prefix"},{"backend":{"service":{"name":"harbor-core","port":{"number":80}}},"path":"/v2.0/","pathType":"Prefix"},{"backend":{"service":{"name":"harbor-core","port":{"number":80}}},"path":"/c/","pathType":"Prefix"},{"backend":{"service":{"name":"harbor-portal","port":{"number":80}}},"path":"/","pathType":"Prefix"}]}}]}}
+      meta.helm.sh/release-name: harbor
+      meta.helm.sh/release-namespace: registry
+      nginx.ingress.kubernetes.io/backend-protocol: HTTP
+      nginx.ingress.kubernetes.io/configuration-snippet: |
+        proxy_set_header X-Forwarded-Proto https;
+      nginx.ingress.kubernetes.io/proxy-body-size: "0"
+      nginx.ingress.kubernetes.io/proxy-read-timeout: "900"
+      nginx.ingress.kubernetes.io/proxy-request-buffering: "off"
+      nginx.ingress.kubernetes.io/proxy-send-timeout: "900"
+      nginx.ingress.kubernetes.io/ssl-redirect: "false"
+    creationTimestamp: "2025-10-20T04:28:33Z"
+    generation: 3
+    labels:
+      app: harbor
+      app.kubernetes.io/instance: harbor
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/name: harbor
+      app.kubernetes.io/part-of: harbor
+      app.kubernetes.io/version: 2.14.0
+      chart: harbor
+      heritage: Helm
+      release: harbor
+    name: harbor-ingress
+    namespace: registry
+    resourceVersion: "86937"
+    uid: 5d4b8a4e-c721-4cde-9d0f-b48ae0cc3cb5
+  spec:
+    ingressClassName: nginx
+    rules:
+    - host: harbor.254carbon.com
+      http:
+        paths:
+        - backend:
+            service:
+              name: harbor-registry
+              port:
+                number: 5000
+          path: /v2/
+          pathType: Prefix
+        - backend:
+            service:
+              name: harbor-core
+              port:
+                number: 80
+          path: /api/
+          pathType: Prefix
+        - backend:
+            service:
+              name: harbor-core
+              port:
+                number: 80
+          path: /service/
+          pathType: Prefix
+        - backend:
+            service:
+              name: harbor-core
+              port:
+                number: 80
+          path: /v2.0/
+          pathType: Prefix
+        - backend:
+            service:
+              name: harbor-core
+              port:
+                number: 80
+          path: /c/
+          pathType: Prefix
+        - backend:
+            service:
+              name: harbor-portal
+              port:
+                number: 80
+          path: /
+          pathType: Prefix
+    tls:
+    - hosts:
+      - harbor.254carbon.com
+      secretName: harbor-ui-tls
+  status:
+    loadBalancer: {}
+- apiVersion: networking.k8s.io/v1
+  kind: Ingress
+  metadata:
+    annotations:
+      cert-manager.io/cluster-issuer: selfsigned
+      kubectl.kubernetes.io/last-applied-configuration: |
+        {"apiVersion":"networking.k8s.io/v1","kind":"Ingress","metadata":{"annotations":{"cert-manager.io/cluster-issuer":"selfsigned","nginx.ingress.kubernetes.io/auth-response-headers":"cf-access-jwt-assertion","nginx.ingress.kubernetes.io/auth-signin":"https://qagi.cloudflareaccess.com/cdn-cgi/access/login?redirect_url=$escaped_request_uri","nginx.ingress.kubernetes.io/auth-url":"https://qagi.cloudflareaccess.com/cdn-cgi/access/authorize","nginx.ingress.kubernetes.io/backend-protocol":"HTTP","nginx.ingress.kubernetes.io/force-ssl-redirect":"true","nginx.ingress.kubernetes.io/rewrite-target":"/","nginx.ingress.kubernetes.io/ssl-redirect":"true"},"name":"vault-ingress","namespace":"vault-prod"},"spec":{"ingressClassName":"nginx","rules":[{"host":"vault.254carbon.com","http":{"paths":[{"backend":{"service":{"name":"vault","port":{"number":8200}}},"path":"/","pathType":"Prefix"}]}},{"host":"vault.local","http":{"paths":[{"backend":{"service":{"name":"vault","port":{"number":8200}}},"path":"/","pathType":"Prefix"}]}}],"tls":[{"hosts":["vault.254carbon.com"],"secretName":"vault-tls"}]}}
+      nginx.ingress.kubernetes.io/auth-response-headers: cf-access-jwt-assertion
+      nginx.ingress.kubernetes.io/auth-signin: https://qagi.cloudflareaccess.com/cdn-cgi/access/login?redirect_url=$escaped_request_uri
+      nginx.ingress.kubernetes.io/auth-url: https://qagi.cloudflareaccess.com/cdn-cgi/access/authorize
+      nginx.ingress.kubernetes.io/backend-protocol: HTTP
+      nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+      nginx.ingress.kubernetes.io/rewrite-target: /
+      nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    creationTimestamp: "2025-10-20T19:10:47Z"
+    generation: 1
+    name: vault-ingress
+    namespace: vault-prod
+    resourceVersion: "99671"
+    uid: 06dce899-9c6d-4227-a1ac-9ba9096a2057
+  spec:
+    ingressClassName: nginx
+    rules:
+    - host: vault.254carbon.com
+      http:
+        paths:
+        - backend:
+            service:
+              name: vault
+              port:
+                number: 8200
+          path: /
+          pathType: Prefix
+    - host: vault.local
+      http:
+        paths:
+        - backend:
+            service:
+              name: vault
+              port:
+                number: 8200
+          path: /
+          pathType: Prefix
+    tls:
+    - hosts:
+      - vault.254carbon.com
+      secretName: vault-tls
+  status:
+    loadBalancer: {}
+kind: List
+metadata:
+  resourceVersion: ""

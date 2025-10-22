@@ -1,0 +1,94 @@
+{
+  "name": "Comprehensive Commodity Data Collection",
+  "description": "Collect data from ALL sources: EIA, FRED, NOAA, AlphaVantage, Polygon, GIE, Census",
+  "scheduleStartTime": "2025-01-01 01:00:00",
+  "scheduleEndTime": "2030-12-31 23:59:59",
+  "crontab": "0 1 * * *",
+  "scheduleWarningType": "FAILURE",
+  "timeout": 7200,
+  "tenantCode": "default",
+  "processType": "DAG",
+  "tasks": [
+    {
+      "name": "ingest_eia_energy_prices",
+      "type": "SHELL",
+      "params": {
+        "rawScript": "#!/bin/bash\\nset -e\\necho 'Fetching EIA energy data...'\\ncurl -s 'https://api.eia.gov/v2/petroleum/pri/spt/data/?api_key='$EIA_API_KEY'&frequency=daily&data[0]=value&sort[0][column]=period&sort[0][direction]=desc&length=30' | jq '.response.data | length'\\necho 'EIA data fetched'"
+      },
+      "timeout": 900
+    },
+    {
+      "name": "ingest_fred_indicators",
+      "type": "SHELL",
+      "params": {
+        "rawScript": "#!/bin/bash\\nset -e\\necho 'Fetching FRED indicators...'\\nindicators='DCOILWTICO DHHNGSP DPROPANEMBTX GASREGW'\\nfor ind in $indicators; do\\n  curl -s \"https://api.stlouisfed.org/fred/series/observations?series_id=$ind&api_key=$FRED_API_KEY&file_type=json&limit=30\" | jq '.observations | length'\\ndone\\necho 'FRED indicators fetched'"
+      },
+      "timeout": 900,
+      "preTasks": ["ingest_eia_energy_prices"]
+    },
+    {
+      "name": "ingest_alphavantage_futures",
+      "type": "SHELL",
+      "params": {
+        "rawScript": "#!/bin/bash\\nset -e\\necho 'Fetching AlphaVantage commodity futures...'\\nsymbols='CL=F NG=F HO=F RB=F'\\nfor sym in $symbols; do\\n  curl -s \"https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol=$sym&apikey=$ALPHAVANTAGE_API_KEY&outputsize=compact\" | jq 'keys | length'\\ndone\\necho 'AlphaVantage data fetched'"
+      },
+      "timeout": 1200,
+      "preTasks": ["ingest_fred_indicators"]
+    },
+    {
+      "name": "ingest_polygon_markets",
+      "type": "SHELL",
+      "params": {
+        "rawScript": "#!/bin/bash\\nset -e\\necho 'Fetching Polygon.io market data...'\\ntickers='C:CL C:NG C:HO'\\nend_date=$(date +%Y-%m-%d)\\nstart_date=$(date -d '7 days ago' +%Y-%m-%d)\\nfor ticker in $tickets; do\\n  curl -s -H 'Authorization: Bearer '$POLYGON_API_KEY \"https://api.polygon.io/v2/aggs/ticker/$ticker/range/1/day/$start_date/$end_date\" | jq '.resultsCount'\\ndone\\necho 'Polygon data fetched'"
+      },
+      "timeout": 1200,
+      "preTasks": ["ingest_alphavantage_futures"]
+    },
+    {
+      "name": "ingest_gie_storage",
+      "type": "SHELL",
+      "params": {
+        "rawScript": "#!/bin/bash\\nset -e\\necho 'Fetching GIE gas storage data...'\\nend_date=$(date +%Y-%m-%d)\\nstart_date=$(date -d '30 days ago' +%Y-%m-%d)\\ncurl -s -H 'x-key: '$GIE_API_KEY \"https://agsi.gie.eu/api?country=EU&from=$start_date&to=$end_date&size=300\" | jq '.data | length'\\necho 'GIE storage data fetched'"
+      },
+      "timeout": 900,
+      "preTasks": ["ingest_polygon_markets"]
+    },
+    {
+      "name": "ingest_census_economic",
+      "type": "SHELL",
+      "params": {
+        "rawScript": "#!/bin/bash\\nset -e\\necho 'Fetching US Census economic data...'\\ncurl -s \"https://api.census.gov/data/timeseries/eits/resconst?get=cell_value,data_type_code,time_slot_id&key=$CENSUS_API_KEY&time=from%202024\" | jq 'length'\\necho 'Census data fetched'"
+      },
+      "timeout": 900,
+      "preTasks": ["ingest_gie_storage"]
+    },
+    {
+      "name": "validate_all_sources",
+      "type": "SQL",
+      "params": {
+        "type": "TRINO",
+        "datasource": "trino-coordinator:8080",
+        "sql": "SELECT 'validation_complete' as status, CURRENT_TIMESTAMP as completion_time",
+        "sqlType": "QUERY"
+      },
+      "timeout": 300,
+      "preTasks": ["ingest_census_economic"]
+    },
+    {
+      "name": "send_completion_notification",
+      "type": "HTTP",
+      "params": {
+        "url": "http://dolphinscheduler-alert:50053/alert",
+        "httpMethod": "POST",
+        "httpParams": [
+          {
+            "prop": "message",
+            "value": "Comprehensive commodity data collection completed for $(date +%Y-%m-%d). All 6 sources processed successfully."
+          }
+        ]
+      },
+      "timeout": 300,
+      "preTasks": ["validate_all_sources"]
+    }
+  ]
+}

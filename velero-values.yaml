@@ -1,0 +1,53 @@
+# Velero Helm values for the 254Carbon platform
+# These values assume MinIO is available at http://minio.data-platform:9000
+
+image:
+  repository: velero/velero
+  tag: v1.17.0
+  pullPolicy: IfNotPresent
+
+configuration:
+  backupStorageLocation:
+    - name: default
+      provider: aws
+      bucket: 254carbon-backups
+      prefix: cluster-backups
+      config:
+        region: us-east-1
+        s3ForcePathStyle: "true"
+        s3Url: http://minio-service.data-platform.svc.cluster.local:9000
+        publicUrl: http://minio-service.data-platform.svc.cluster.local:9000
+        insecureSkipTLSVerify: "true"
+      credential:
+        name: minio-backup-credentials
+        key: cloud
+  volumeSnapshotLocation:
+    - name: default
+      provider: aws
+      config:
+        region: us-east-1
+  defaultVolumesToFsBackup: true
+  backupSyncPeriod: 5m
+  restoreOnlyMode: false
+
+credentials:
+  existingSecret: minio-backup-credentials
+
+deployNodeAgent: true
+
+initContainers:
+  - name: velero-plugin-for-aws
+    image: velero/velero-plugin-for-aws:v1.7.1
+    imagePullPolicy: IfNotPresent
+    volumeMounts:
+      - mountPath: /target
+        name: plugins
+
+volumes:
+  - name: plugins
+    emptyDir: {}
+
+metrics:
+  enabled: true
+  serviceMonitor:
+    enabled: true

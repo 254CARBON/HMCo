@@ -1,0 +1,122 @@
+[
+  {
+    "id": "portal",
+    "name": "254Carbon Portal",
+    "url": "https://254carbon.com",
+    "category": "Portal",
+    "description": "Main entry point and service catalog for the 254Carbon data platform.",
+    "icon": "🏠"
+  },
+  {
+    "id": "grafana",
+    "name": "Grafana",
+    "url": "https://grafana.254carbon.com",
+    "category": "Monitoring",
+    "description": "Real-time monitoring dashboards and observability platform.",
+    "icon": "📈"
+  },
+  {
+    "id": "datahub",
+    "name": "DataHub",
+    "url": "https://datahub.254carbon.com",
+    "category": "Catalog",
+    "description": "Data catalog and lineage platform for data discovery and governance.",
+    "icon": "📚"
+  },
+  {
+    "id": "superset",
+    "name": "Apache Superset",
+    "url": "https://superset.254carbon.com",
+    "category": "BI",
+    "description": "Business intelligence dashboards and data exploration platform.",
+    "icon": "📊"
+  },
+  {
+    "id": "trino",
+    "name": "Trino",
+    "url": "https://trino.254carbon.com",
+    "category": "SQL",
+    "description": "Distributed SQL query engine for interactive analytics.",
+    "icon": "🧠"
+  },
+  {
+    "id": "doris",
+    "name": "Apache Doris",
+    "url": "https://doris.254carbon.com",
+    "category": "OLAP",
+    "description": "MPP analytics database for real-time data warehousing.",
+    "icon": "🧮"
+  },
+  {
+    "id": "vault",
+    "name": "Vault",
+    "url": "https://vault.254carbon.com",
+    "category": "Security",
+    "description": "Secrets management and encryption platform.",
+    "icon": "🔐"
+  },
+  {
+    "id": "minio",
+    "name": "MinIO Console",
+    "url": "https://minio.254carbon.com",
+    "category": "Storage",
+    "description": "S3-compatible object storage management console.",
+    "icon": "🗄️"
+  },
+  {
+    "id": "dolphinscheduler",
+    "name": "DolphinScheduler",
+    "url": "https://dolphin.254carbon.com",
+    "category": "Orchestration",
+    "description": "Workflow orchestration and job scheduling platform.",
+    "icon": "🐬"
+  },
+  {
+    "id": "lakefs",
+    "name": "lakeFS",
+    "url": "https://lakefs.254carbon.com",
+    "category": "Data Lake",
+    "description": "Git-like data lake management and versioning platform.",
+    "icon": "🌊"
+  },
+  {
+    "id": "mlflow",
+    "name": "MLFlow",
+    "url": "https://mlflow.254carbon.com",
+    "category": "ML",
+    "description": "ML experiment tracking, model registry, and workflow orchestration platform.",
+    "icon": "🧪"
+  },
+  {
+    "id": "spark-history",
+    "name": "Spark History Server",
+    "url": "https://spark-history.254carbon.com",
+    "category": "Compute",
+    "description": "Spark application history and performance monitoring dashboard.",
+    "icon": "⚡"
+  },
+  {
+    "id": "kiali",
+    "name": "Kiali",
+    "url": "https://kiali.254carbon.com",
+    "category": "Monitoring",
+    "description": "Service mesh visualization and management for Istio.",
+    "icon": "🕸️"
+  },
+  {
+    "id": "jaeger",
+    "name": "Jaeger",
+    "url": "https://jaeger.254carbon.com",
+    "category": "Monitoring",
+    "description": "Distributed tracing for microservices debugging and performance analysis.",
+    "icon": "🔍"
+  },
+  {
+    "id": "kong",
+    "name": "Kong Admin",
+    "url": "https://kong.254carbon.com",
+    "category": "API Gateway",
+    "description": "API gateway administration and management interface.",
+    "icon": "🦍"
+  }
+]

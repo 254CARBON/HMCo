@@ -1,0 +1,173 @@
+# Spark Integration End-to-End Test
+# This test validates the complete Spark integration pipeline
+# from job submission to results verification
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: spark-integration-test
+  namespace: data-platform
+  labels:
+    app: spark
+    component: test
+data:
+  spark-integration-test.sh: |
+    #!/bin/bash
+    # Spark Integration Test Script
+
+    set -e
+
+    echo "Starting Spark Integration Test..."
+
+    # Colors for output
+    GREEN='\033[0;32m'
+    RED='\033[0;31m'
+    YELLOW='\033[1;33m'
+    NC='\033[0m' # No Color
+
+    # Test counters
+    TESTS_RUN=0
+    TESTS_PASSED=0
+    TESTS_FAILED=0
+
+    test_pass() {
+        echo -e "${GREEN}✓${NC} $1"
+        ((TESTS_PASSED++))
+        ((TESTS_RUN++))
+    }
+
+    test_fail() {
+        echo -e "${RED}✗${NC} $1"
+        ((TESTS_FAILED++))
+        ((TESTS_RUN++))
+    }
+
+    test_warn() {
+        echo -e "${YELLOW}⚠${NC} $1"
+    }
+
+    # Test 1: Check Spark Operator Health
+    echo "Test 1: Checking Spark Operator Health..."
+    if kubectl get pods -n data-platform -l app=spark-operator -o jsonpath='{.items[0].status.phase}' | grep -q Running; then
+        test_pass "Spark Operator is running"
+    else
+        test_fail "Spark Operator is not running"
+    fi
+
+    # Test 2: Submit Spark Job
+    echo "Test 2: Submitting Test Spark Job..."
+    cat <<EOF | kubectl apply -f -
+    apiVersion: sparkoperator.k8s.io/v1beta2
+    kind: SparkApplication
+    metadata:
+      name: integration-test-spark-job
+      namespace: data-platform
+    spec:
+      type: Python
+      mode: cluster
+      image: apache/spark:3.5.0
+      pythonVersion: "3"
+      mainApplicationFile: s3a://spark-code/test/integration_test.py
+      sparkVersion: "3.5.0"
+      restartPolicy:
+        type: Never
+      driver:
+        cores: 1
+        memory: "1g"
+        serviceAccount: spark-app
+      executor:
+        cores: 1
+        instances: 1
+        memory: "1g"
+    EOF
+
+    if [ $? -eq 0 ]; then
+        test_pass "Spark job submitted successfully"
+    else
+        test_fail "Failed to submit Spark job"
+    fi
+
+    # Test 3: Wait for Job Completion
+    echo "Test 3: Waiting for Job Completion..."
+    if kubectl wait --for=condition=Succeeded sparkapplication/integration-test-spark-job -n data-platform --timeout=300s; then
+        test_pass "Spark job completed successfully"
+    else
+        test_fail "Spark job did not complete within timeout"
+    fi
+
+    # Test 4: Verify Spark History Server
+    echo "Test 4: Checking Spark History Server..."
+    if kubectl get pods -n data-platform -l app=spark-history-server -o jsonpath='{.items[0].status.phase}' | grep -q Running; then
+        test_pass "Spark History Server is running"
+    else
+        test_fail "Spark History Server is not running"
+    fi
+
+    # Test 5: Check Iceberg Integration
+    echo "Test 5: Verifying Iceberg Integration..."
+    if kubectl exec -n data-platform $(kubectl get pods -n data-platform -l app=trino-coordinator -o jsonpath='{.items[0].metadata.name}') -- \
+         trino --execute "SHOW TABLES IN iceberg.raw" | grep -q "integration_test"; then
+        test_pass "Spark job created Iceberg table"
+    else
+        test_warn "Iceberg table not found (may be expected if test job doesn't create tables)"
+    fi
+
+    # Test 6: Check MLFlow Integration
+    echo "Test 6: Verifying MLFlow Integration..."
+    if kubectl exec -n data-platform $(kubectl get pods -n data-platform -l app=mlflow -o jsonpath='{.items[0].metadata.name}') -- \
+         curl -s http://localhost:5000/api/2.0/mlflow/experiments/search | grep -q "spark-jobs"; then
+        test_pass "MLFlow experiment exists"
+    else
+        test_warn "MLFlow experiment not found (may need MLFlow initialization)"
+    fi
+
+    # Test 7: Check Network Policies
+    echo "Test 7: Verifying Network Policies..."
+    if kubectl get networkpolicy -n data-platform -l app=spark | grep -q spark; then
+        test_pass "Spark network policies are configured"
+    else
+        test_fail "Spark network policies not found"
+    fi
+
+    # Test 8: Check RBAC
+    echo "Test 8: Verifying RBAC Configuration..."
+    if kubectl get serviceaccount -n data-platform spark-app spark-runner | grep -q "spark"; then
+        test_pass "Spark service accounts exist"
+    else
+        test_fail "Spark service accounts not found"
+    fi
+
+    # Test 9: Check Configuration
+    echo "Test 9: Verifying Configuration..."
+    if kubectl get configmap -n data-platform spark-defaults spark-mlflow spark-deequ | grep -q "spark"; then
+        test_pass "Spark ConfigMaps exist"
+    else
+        test_fail "Spark ConfigMaps not found"
+    fi
+
+    # Test 10: Check Ingress
+    echo "Test 10: Verifying Ingress Configuration..."
+    if kubectl get ingress -n data-platform spark-history-ingress | grep -q "spark-history"; then
+        test_pass "Spark History Server ingress exists"
+    else
+        test_fail "Spark History Server ingress not found"
+    fi
+
+    # Cleanup
+    echo "Cleaning up test resources..."
+    kubectl delete sparkapplication integration-test-spark-job -n data-platform --ignore-not-found=true
+
+    # Summary
+    echo ""
+    echo "Spark Integration Test Summary:"
+    echo "Total Tests: $TESTS_RUN"
+    echo "Passed: $TESTS_PASSED"
+    echo "Failed: $TESTS_FAILED"
+
+    if [ $TESTS_FAILED -eq 0 ]; then
+        echo -e "${GREEN}All tests passed!${NC}"
+        exit 0
+    else
+        echo -e "${RED}Some tests failed. Check the output above.${NC}"
+        exit 1
+    fi

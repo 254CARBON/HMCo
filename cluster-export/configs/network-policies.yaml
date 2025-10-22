@@ -1,0 +1,333 @@
+apiVersion: v1
+items:
+- apiVersion: networking.k8s.io/v1
+  kind: NetworkPolicy
+  metadata:
+    annotations:
+      kubectl.kubernetes.io/last-applied-configuration: |
+        {"apiVersion":"networking.k8s.io/v1","kind":"NetworkPolicy","metadata":{"annotations":{},"name":"allow-data-platform-internal","namespace":"data-platform"},"spec":{"ingress":[{"from":[{"namespaceSelector":{"matchLabels":{"name":"data-platform"}}}]}],"podSelector":{},"policyTypes":["Ingress"]}}
+    creationTimestamp: "2025-10-20T04:33:28Z"
+    generation: 1
+    name: allow-data-platform-internal
+    namespace: data-platform
+    resourceVersion: "1379"
+    uid: 7785259a-45cb-4cc0-88fa-928371f7a6a0
+  spec:
+    ingress:
+    - from:
+      - namespaceSelector:
+          matchLabels:
+            name: data-platform
+    podSelector: {}
+    policyTypes:
+    - Ingress
+- apiVersion: networking.k8s.io/v1
+  kind: NetworkPolicy
+  metadata:
+    annotations:
+      kubectl.kubernetes.io/last-applied-configuration: |
+        {"apiVersion":"networking.k8s.io/v1","kind":"NetworkPolicy","metadata":{"annotations":{},"name":"allow-dns-egress","namespace":"data-platform"},"spec":{"egress":[{"ports":[{"port":53,"protocol":"UDP"},{"port":53,"protocol":"TCP"}],"to":[{"namespaceSelector":{"matchLabels":{"name":"kube-system"}}}]}],"podSelector":{},"policyTypes":["Egress"]}}
+    creationTimestamp: "2025-10-20T04:33:28Z"
+    generation: 1
+    name: allow-dns-egress
+    namespace: data-platform
+    resourceVersion: "1386"
+    uid: 906708f4-ba58-4ffb-9e7e-9b46404a60e0
+  spec:
+    egress:
+    - ports:
+      - port: 53
+        protocol: UDP
+      - port: 53
+        protocol: TCP
+      to:
+      - namespaceSelector:
+          matchLabels:
+            name: kube-system
+    podSelector: {}
+    policyTypes:
+    - Egress
+- apiVersion: networking.k8s.io/v1
+  kind: NetworkPolicy
+  metadata:
+    annotations:
+      kubectl.kubernetes.io/last-applied-configuration: |
+        {"apiVersion":"networking.k8s.io/v1","kind":"NetworkPolicy","metadata":{"annotations":{},"name":"allow-prometheus-scrape","namespace":"data-platform"},"spec":{"ingress":[{"from":[{"namespaceSelector":{"matchLabels":{"name":"monitoring"}}},{"podSelector":{"matchLabels":{"app":"prometheus"}}}],"ports":[{"port":9090,"protocol":"TCP"},{"port":8080,"protocol":"TCP"},{"port":8081,"protocol":"TCP"},{"port":9200,"protocol":"TCP"},{"port":5432,"protocol":"TCP"},{"port":3306,"protocol":"TCP"},{"port":6379,"protocol":"TCP"},{"port":9092,"protocol":"TCP"}]}],"podSelector":{},"policyTypes":["Ingress"]}}
+    creationTimestamp: "2025-10-20T04:33:28Z"
+    generation: 1
+    name: allow-prometheus-scrape
+    namespace: data-platform
+    resourceVersion: "1380"
+    uid: 1a26a2a4-0c36-4dae-a6e8-a05d78865ed9
+  spec:
+    ingress:
+    - from:
+      - namespaceSelector:
+          matchLabels:
+            name: monitoring
+      - podSelector:
+          matchLabels:
+            app: prometheus
+      ports:
+      - port: 9090
+        protocol: TCP
+      - port: 8080
+        protocol: TCP
+      - port: 8081
+        protocol: TCP
+      - port: 9200
+        protocol: TCP
+      - port: 5432
+        protocol: TCP
+      - port: 3306
+        protocol: TCP
+      - port: 6379
+        protocol: TCP
+      - port: 9092
+        protocol: TCP
+    podSelector: {}
+    policyTypes:
+    - Ingress
+- apiVersion: networking.k8s.io/v1
+  kind: NetworkPolicy
+  metadata:
+    annotations:
+      kubectl.kubernetes.io/last-applied-configuration: |
+        {"apiVersion":"networking.k8s.io/v1","kind":"NetworkPolicy","metadata":{"annotations":{},"name":"allow-service-dependencies","namespace":"data-platform"},"spec":{"egress":[{"to":[{"namespaceSelector":{"matchLabels":{"name":"data-platform"}}}]},{"ports":[{"port":8200,"protocol":"TCP"}],"to":[{"namespaceSelector":{"matchLabels":{"name":"vault-prod"}}}]},{"ports":[{"port":53,"protocol":"TCP"},{"port":53,"protocol":"UDP"}],"to":[{"namespaceSelector":{"matchLabels":{"name":"kube-system"}},"podSelector":{}}]}],"ingress":[{"from":[{"namespaceSelector":{"matchLabels":{"name":"data-platform"}}}]}],"podSelector":{},"policyTypes":["Ingress","Egress"]}}
+    creationTimestamp: "2025-10-20T04:33:28Z"
+    generation: 1
+    name: allow-service-dependencies
+    namespace: data-platform
+    resourceVersion: "1381"
+    uid: 0a5718a9-773e-4ae2-a14b-02a35e6aa507
+  spec:
+    egress:
+    - to:
+      - namespaceSelector:
+          matchLabels:
+            name: data-platform
+    - ports:
+      - port: 8200
+        protocol: TCP
+      to:
+      - namespaceSelector:
+          matchLabels:
+            name: vault-prod
+    - ports:
+      - port: 53
+        protocol: TCP
+      - port: 53
+        protocol: UDP
+      to:
+      - namespaceSelector:
+          matchLabels:
+            name: kube-system
+        podSelector: {}
+    ingress:
+    - from:
+      - namespaceSelector:
+          matchLabels:
+            name: data-platform
+    podSelector: {}
+    policyTypes:
+    - Ingress
+    - Egress
+- apiVersion: networking.k8s.io/v1
+  kind: NetworkPolicy
+  metadata:
+    annotations:
+      kubectl.kubernetes.io/last-applied-configuration: |
+        {"apiVersion":"networking.k8s.io/v1","kind":"NetworkPolicy","metadata":{"annotations":{},"name":"allow-velero-backup","namespace":"data-platform"},"spec":{"egress":[{"ports":[{"port":9000,"protocol":"TCP"},{"port":9001,"protocol":"TCP"}],"to":[{"namespaceSelector":{"matchLabels":{"name":"velero"}}}]}],"ingress":[{"from":[{"namespaceSelector":{"matchLabels":{"name":"velero"}}}],"ports":[{"port":9000,"protocol":"TCP"},{"port":9001,"protocol":"TCP"}]}],"podSelector":{"matchLabels":{"app":"minio"}},"policyTypes":["Ingress","Egress"]}}
+    creationTimestamp: "2025-10-20T04:33:28Z"
+    generation: 1
+    name: allow-velero-backup
+    namespace: data-platform
+    resourceVersion: "1382"
+    uid: a708b8d3-43e1-4392-a6ed-0e5e34df8929
+  spec:
+    egress:
+    - ports:
+      - port: 9000
+        protocol: TCP
+      - port: 9001
+        protocol: TCP
+      to:
+      - namespaceSelector:
+          matchLabels:
+            name: velero
+    ingress:
+    - from:
+      - namespaceSelector:
+          matchLabels:
+            name: velero
+      ports:
+      - port: 9000
+        protocol: TCP
+      - port: 9001
+        protocol: TCP
+    podSelector:
+      matchLabels:
+        app: minio
+    policyTypes:
+    - Ingress
+    - Egress
+- apiVersion: networking.k8s.io/v1
+  kind: NetworkPolicy
+  metadata:
+    annotations:
+      kubectl.kubernetes.io/last-applied-configuration: |
+        {"apiVersion":"networking.k8s.io/v1","kind":"NetworkPolicy","metadata":{"annotations":{},"name":"default-deny-ingress","namespace":"data-platform"},"spec":{"podSelector":{},"policyTypes":["Ingress"]}}
+    creationTimestamp: "2025-10-20T04:33:28Z"
+    generation: 1
+    name: default-deny-ingress
+    namespace: data-platform
+    resourceVersion: "1385"
+    uid: 40898046-e0b6-46cc-a53e-742e20b4574b
+  spec:
+    podSelector: {}
+    policyTypes:
+    - Ingress
+- apiVersion: networking.k8s.io/v1
+  kind: NetworkPolicy
+  metadata:
+    annotations:
+      kubectl.kubernetes.io/last-applied-configuration: |
+        {"apiVersion":"networking.k8s.io/v1","kind":"NetworkPolicy","metadata":{"annotations":{},"name":"deny-default-serviceaccount","namespace":"data-platform"},"spec":{"podSelector":{"matchLabels":{"serviceaccount":"default"}},"policyTypes":["Ingress","Egress"]}}
+    creationTimestamp: "2025-10-20T04:33:18Z"
+    generation: 1
+    name: deny-default-serviceaccount
+    namespace: data-platform
+    resourceVersion: "1356"
+    uid: 87927f9f-8b2a-4ffa-a830-7286aaf44ddc
+  spec:
+    podSelector:
+      matchLabels:
+        serviceaccount: default
+    policyTypes:
+    - Ingress
+    - Egress
+- apiVersion: networking.k8s.io/v1
+  kind: NetworkPolicy
+  metadata:
+    annotations:
+      kubectl.kubernetes.io/last-applied-configuration: |
+        {"apiVersion":"networking.k8s.io/v1","kind":"NetworkPolicy","metadata":{"annotations":{},"name":"ingress-to-platform","namespace":"data-platform"},"spec":{"ingress":[{"from":[{"namespaceSelector":{"matchLabels":{"name":"ingress-nginx"}}},{"podSelector":{"matchLabels":{"app.kubernetes.io/name":"ingress-nginx"}}}]}],"podSelector":{},"policyTypes":["Ingress"]}}
+    creationTimestamp: "2025-10-20T04:33:28Z"
+    generation: 1
+    name: ingress-to-platform
+    namespace: data-platform
+    resourceVersion: "1378"
+    uid: a710de41-6bfd-4d49-9575-c3ca4c3d931c
+  spec:
+    ingress:
+    - from:
+      - namespaceSelector:
+          matchLabels:
+            name: ingress-nginx
+      - podSelector:
+          matchLabels:
+            app.kubernetes.io/name: ingress-nginx
+    podSelector: {}
+    policyTypes:
+    - Ingress
+- apiVersion: networking.k8s.io/v1
+  kind: NetworkPolicy
+  metadata:
+    annotations:
+      kubectl.kubernetes.io/last-applied-configuration: |
+        {"apiVersion":"networking.k8s.io/v1","kind":"NetworkPolicy","metadata":{"annotations":{},"name":"monitoring-egress-policy","namespace":"monitoring"},"spec":{"egress":[{"ports":[{"port":9090,"protocol":"TCP"},{"port":8080,"protocol":"TCP"},{"port":8081,"protocol":"TCP"},{"port":9200,"protocol":"TCP"},{"port":5432,"protocol":"TCP"},{"port":3306,"protocol":"TCP"},{"port":6379,"protocol":"TCP"},{"port":9092,"protocol":"TCP"}],"to":[{"namespaceSelector":{"matchLabels":{"name":"data-platform"}}}]},{"ports":[{"port":53,"protocol":"TCP"},{"port":53,"protocol":"UDP"}],"to":[{"namespaceSelector":{"matchLabels":{"name":"kube-system"}},"podSelector":{}}]}],"podSelector":{},"policyTypes":["Egress"]}}
+    creationTimestamp: "2025-10-20T04:33:28Z"
+    generation: 1
+    name: monitoring-egress-policy
+    namespace: monitoring
+    resourceVersion: "1384"
+    uid: c0774584-5d33-49f4-8eed-56a8cad78da8
+  spec:
+    egress:
+    - ports:
+      - port: 9090
+        protocol: TCP
+      - port: 8080
+        protocol: TCP
+      - port: 8081
+        protocol: TCP
+      - port: 9200
+        protocol: TCP
+      - port: 5432
+        protocol: TCP
+      - port: 3306
+        protocol: TCP
+      - port: 6379
+        protocol: TCP
+      - port: 9092
+        protocol: TCP
+      to:
+      - namespaceSelector:
+          matchLabels:
+            name: data-platform
+    - ports:
+      - port: 53
+        protocol: TCP
+      - port: 53
+        protocol: UDP
+      to:
+      - namespaceSelector:
+          matchLabels:
+            name: kube-system
+        podSelector: {}
+    podSelector: {}
+    policyTypes:
+    - Egress
+- apiVersion: networking.k8s.io/v1
+  kind: NetworkPolicy
+  metadata:
+    annotations:
+      kubectl.kubernetes.io/last-applied-configuration: |
+        {"apiVersion":"networking.k8s.io/v1","kind":"NetworkPolicy","metadata":{"annotations":{},"name":"vault-access-control","namespace":"vault-prod"},"spec":{"egress":[{"ports":[{"port":5432,"protocol":"TCP"}],"to":[{"namespaceSelector":{"matchLabels":{"name":"data-platform"}}}]},{"ports":[{"port":53,"protocol":"TCP"},{"port":53,"protocol":"UDP"}],"to":[{"namespaceSelector":{"matchLabels":{"name":"kube-system"}},"podSelector":{}}]}],"ingress":[{"from":[{"namespaceSelector":{"matchLabels":{"name":"data-platform"}}},{"namespaceSelector":{"matchLabels":{"name":"vault-prod"}}}],"ports":[{"port":8200,"protocol":"TCP"},{"port":8201,"protocol":"TCP"}]}],"podSelector":{"matchLabels":{"app":"vault"}},"policyTypes":["Ingress","Egress"]}}
+    creationTimestamp: "2025-10-20T04:33:28Z"
+    generation: 1
+    name: vault-access-control
+    namespace: vault-prod
+    resourceVersion: "1383"
+    uid: 383eaa21-5554-4c52-aa82-7f9490c3879b
+  spec:
+    egress:
+    - ports:
+      - port: 5432
+        protocol: TCP
+      to:
+      - namespaceSelector:
+          matchLabels:
+            name: data-platform
+    - ports:
+      - port: 53
+        protocol: TCP
+      - port: 53
+        protocol: UDP
+      to:
+      - namespaceSelector:
+          matchLabels:
+            name: kube-system
+        podSelector: {}
+    ingress:
+    - from:
+      - namespaceSelector:
+          matchLabels:
+            name: data-platform
+      - namespaceSelector:
+          matchLabels:
+            name: vault-prod
+      ports:
+      - port: 8200
+        protocol: TCP
+      - port: 8201
+        protocol: TCP
+    podSelector:
+      matchLabels:
+        app: vault
+    policyTypes:
+    - Ingress
+    - Egress
+kind: List
+metadata:
+  resourceVersion: ""

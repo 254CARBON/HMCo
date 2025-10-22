@@ -1,0 +1,9 @@
+index, name, utilization.gpu [%], utilization.memory [%], memory.used [MiB], memory.total [MiB]
+0, Tesla K80, 0 %, 0 %, 0 MiB, 11441 MiB
+1, Tesla K80, 0 %, 0 %, 0 MiB, 11441 MiB
+2, Tesla K80, 0 %, 0 %, 0 MiB, 11441 MiB
+3, Tesla K80, 0 %, 0 %, 0 MiB, 11441 MiB
+4, Tesla K80, 0 %, 0 %, 0 MiB, 11441 MiB
+5, Tesla K80, 0 %, 0 %, 0 MiB, 11441 MiB
+6, Tesla K80, 0 %, 0 %, 0 MiB, 11441 MiB
+7, Tesla K80, 0 %, 0 %, 0 MiB, 11441 MiB

@@ -1,0 +1,23 @@
+{
+  "name": "Polygon.io Market Data Ingestion",
+  "description": "High-frequency commodity market data from Polygon.io",
+  "scheduleStartTime": "2025-01-01 05:00:00",
+  "scheduleEndTime": "2030-12-31 23:59:59",
+  "crontab": "0 5 * * *",
+  "scheduleWarningType": "FAILURE",
+  "timeout": 1800,
+  "tenantCode": "default",
+  "processType": "DAG",
+  "tasks": [
+    {
+      "name": "ingest_polygon_commodities",
+      "type": "PYTHON",
+      "params": {
+        "rawScript": "import requests\nimport os\nfrom datetime import datetime, timedelta\n\nAPI_KEY = os.getenv('POLYGON_API_KEY')\nTICKERS = ['C:CL', 'C:NG', 'C:HO', 'C:RB']\n\nend_date = datetime.now().date()\nstart_date = end_date - timedelta(days=7)\n\nfor ticker in TICKERS:\n    url = f'https://api.polygon.io/v2/aggs/ticker/{ticker}/range/1/day/{start_date}/{end_date}'\n    headers = {'Authorization': f'Bearer {API_KEY}'}\n    response = requests.get(url, headers=headers)\n    print(f'{ticker}: {response.status_code}')\n    if response.status_code == 200:\n        data = response.json()\n        results = data.get('results', [])\n        print(f'  Records: {len(results)} days')\n\nprint('Polygon.io ingestion complete')"
+      },
+      "timeout": 1200,
+      "retryTimes": 3,
+      "retryInterval": 300
+    }
+  ]
+}

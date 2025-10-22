@@ -1,0 +1,49 @@
+                    nvidia.com/gpu-driver-upgrade-state=upgrade-done
+                    nvidia.com/gpu.compute.major=3
+                    nvidia.com/gpu.compute.minor=7
+                    nvidia.com/gpu.count=16
+                    nvidia.com/gpu.deploy.container-toolkit=true
+                    nvidia.com/gpu.deploy.dcgm=true
+                    nvidia.com/gpu.deploy.dcgm-exporter=true
+                    nvidia.com/gpu.deploy.device-plugin=true
+                    nvidia.com/gpu.deploy.driver=true
+                    nvidia.com/gpu.deploy.gpu-feature-discovery=true
+                    nvidia.com/gpu.deploy.node-status-exporter=true
+                    nvidia.com/gpu.deploy.operator-validator=true
+                    nvidia.com/gpu.family=kepler
+                    nvidia.com/gpu.machine=G250-G51-XX
+                    nvidia.com/gpu.memory=11441
+                    nvidia.com/gpu.mode=compute
+                    nvidia.com/gpu.present=true
+                    nvidia.com/gpu.product=Tesla-K80
+                    nvidia.com/gpu.replicas=1
+                    nvidia.com/gpu.sharing-strategy=none
+                    nvidia.com/mig.capable=false
+                    nvidia.com/mig.strategy=single
+                    nvidia.com/mps.capable=false
+                    nvidia.com/vgpu.present=false
+Annotations:        flannel.alpha.coreos.com/backend-data: {"VNI":1,"VtepMAC":"d2:d2:2e:c8:0d:e0"}
+--
+                    nvidia.com/gpu-driver-upgrade-enabled: true
+                    volumes.kubernetes.io/controller-managed-attach-detach: true
+CreationTimestamp:  Mon, 20 Oct 2025 23:17:01 +0000
+Taints:             <none>
+Unschedulable:      false
+Lease:
+--
+  nvidia.com/gpu:     16
+  pods:               110
+Allocatable:
+  cpu:                72
+  ephemeral-storage:  3062299715020
+  hugepages-1Gi:      0
+--
+  nvidia.com/gpu:     16
+  pods:               110
+System Info:
+  Machine ID:                 5de10ba92d0948ba85529f7f75af654a
+  System UUID:                00000000-0000-0040-8000-1c1b0dbe0509
+  Boot ID:                    f1b14118-609d-4e67-aedf-98306fc39970
+--
+  nvidia.com/gpu     8              8
+Events:              <none>

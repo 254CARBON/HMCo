@@ -1,0 +1,48 @@
+{
+  "name": "Data Quality Validation",
+  "description": "Validate data quality across all commodity datasets",
+  "scheduleStartTime": "2025-01-01 06:00:00",
+  "scheduleEndTime": "2030-12-31 23:59:59",
+  "crontab": "0 6 * * *",
+  "scheduleWarningType": "FAILURE",
+  "timeout": 1800,
+  "tenantCode": "default",
+  "processType": "DAG",
+  "tasks": [
+    {
+      "name": "check_data_freshness",
+      "type": "SQL",
+      "params": {
+        "type": "TRINO",
+        "datasource": "trino-coordinator:8080",
+        "sql": "SELECT table_name, MAX(ingestion_time) as latest_ingestion, CURRENT_TIMESTAMP - MAX(ingestion_time) as age_hours FROM (SELECT 'energy_prices' as table_name, MAX(ingestion_time) as ingestion_time FROM commodity_data.energy_prices UNION ALL SELECT 'economic_indicators', MAX(ingestion_time) FROM commodity_data.economic_indicators UNION ALL SELECT 'weather_forecasts', MAX(ingestion_time) FROM commodity_data.weather_forecasts) t GROUP BY table_name",
+        "sqlType": "QUERY"
+      },
+      "timeout": 300
+    },
+    {
+      "name": "check_data_completeness",
+      "type": "SQL",
+      "params": {
+        "type": "TRINO",
+        "datasource": "trino-coordinator:8080",
+        "sql": "SELECT 'energy_prices' as table_name, COUNT(*) as row_count, COUNT(DISTINCT price_date) as date_count FROM commodity_data.energy_prices WHERE price_date >= CURRENT_DATE - INTERVAL '7' DAY",
+        "sqlType": "QUERY"
+      },
+      "timeout": 300,
+      "preTasks": ["check_data_freshness"]
+    },
+    {
+      "name": "check_data_validity",
+      "type": "SQL",
+      "params": {
+        "type": "TRINO",
+        "datasource": "trino-coordinator:8080",
+        "sql": "SELECT COUNT(*) as invalid_records FROM commodity_data.energy_prices WHERE price IS NULL OR price < 0 OR price > 10000",
+        "sqlType": "QUERY"
+      },
+      "timeout": 300,
+      "preTasks": ["check_data_completeness"]
+    }
+  ]
+}

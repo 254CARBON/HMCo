@@ -1,0 +1,31 @@
+{
+  "name": "@254carbon/event-producer",
+  "version": "1.0.0",
+  "description": "Event producer library for 254Carbon platform services",
+  "main": "event-producer.js",
+  "scripts": {
+    "test": "jest",
+    "example": "node event-producer.js"
+  },
+  "keywords": [
+    "kafka",
+    "events",
+    "254carbon",
+    "microservices"
+  ],
+  "author": "254Carbon Platform Team",
+  "license": "MIT",
+  "dependencies": {
+    "kafkajs": "^2.2.4",
+    "uuid": "^9.0.1"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  }
+}
+
+
+

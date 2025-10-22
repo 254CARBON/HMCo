@@ -1,0 +1,31 @@
+{
+  "name": "Weekly Alternative Data Integration",
+  "description": "Process and integrate alternative data sources for commodity insights",
+  "scheduleStartTime": "2025-01-01 04:00:00",
+  "scheduleEndTime": "2030-12-31 23:59:59",
+  "crontab": "0 4 * * 0",
+  "scheduleWarningType": "FAILURE",
+  "timeout": 7200,
+  "tenantCode": "default",
+  "processType": "DAG",
+  "tasks": [
+    {
+      "name": "scan_alternative_data_sources",
+      "type": "SHELL",
+      "params": {
+        "rawScript": "#!/bin/bash\nset -e\n# Scan MinIO for new alternative data files\necho \"Scanning for new alternative data...\"\nmc alias set minio http://minio-service:9000 $MINIO_ACCESS_KEY $MINIO_SECRET_KEY\nmc ls --recursive minio/commodity-data/alternative/ | grep -E '\\.parquet$|\\.csv$' > /tmp/new_files.txt\ncat /tmp/new_files.txt\necho \"Found $(wc -l < /tmp/new_files.txt) files to process\""
+      },
+      "timeout": 600
+    },
+    {
+      "name": "ingest_alternative_data",
+      "type": "SHELL",
+      "params": {
+        "rawScript": "#!/bin/bash\nset -e\n# Ingest alternative data using SeaTunnel\necho \"Processing alternative data files...\"\ncurl -X POST http://seatunnel-service:8080/execute \\\n  -H 'Content-Type: application/json' \\\n  -d '{\n    \"connector\": \"alternative-data\",\n    \"process_date\": \"'$(date +%Y-%m-%d)'\"\n  }'\necho \"Alternative data ingestion completed\""
+      },
+      "timeout": 3600,
+      "retryTimes": 2,
+      "preTasks": ["scan_alternative_data_sources"]
+    }
+  ]
+}

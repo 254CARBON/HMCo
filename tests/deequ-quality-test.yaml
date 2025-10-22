@@ -1,0 +1,243 @@
+# Deequ Quality Check Test
+# This test validates Deequ quality check execution
+# and constraint validation functionality
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: deequ-quality-test
+  namespace: data-platform
+  labels:
+    app: deequ
+    component: test
+data:
+  deequ-quality-test.sh: |
+    #!/bin/bash
+    # Deequ Quality Check Test Script
+
+    set -e
+
+    echo "Starting Deequ Quality Check Test..."
+
+    # Colors for output
+    GREEN='\033[0;32m'
+    RED='\033[0;31m'
+    YELLOW='\033[1;33m'
+    NC='\033[0m' # No Color
+
+    # Test counters
+    TESTS_RUN=0
+    TESTS_PASSED=0
+    TESTS_FAILED=0
+
+    test_pass() {
+        echo -e "${GREEN}✓${NC} $1"
+        ((TESTS_PASSED++))
+        ((TESTS_RUN++))
+    }
+
+    test_fail() {
+        echo -e "${RED}✗${NC} $1"
+        ((TESTS_FAILED++))
+        ((TESTS_RUN++))
+    }
+
+    test_warn() {
+        echo -e "${YELLOW}⚠${NC} $1"
+    }
+
+    # Test 1: Check Deequ Configuration
+    echo "Test 1: Checking Deequ Configuration..."
+    if kubectl get configmap -n data-platform deequ-config | grep -q "deequ-config"; then
+        test_pass "Deequ configuration ConfigMap exists"
+    else
+        test_fail "Deequ configuration ConfigMap not found"
+    fi
+
+    # Test 2: Check Deequ RBAC
+    echo "Test 2: Checking Deequ RBAC..."
+    if kubectl get serviceaccount -n data-platform deequ | grep -q "deequ"; then
+        test_pass "Deequ service account exists"
+    else
+        test_fail "Deequ service account not found"
+    fi
+
+    # Test 3: Check Quality Check CronJobs
+    echo "Test 3: Checking Quality Check CronJobs..."
+    if kubectl get cronjob -n data-platform -l app=deequ | grep -q "deequ"; then
+        test_pass "Deequ CronJobs are configured"
+    else
+        test_fail "Deequ CronJobs not found"
+    fi
+
+    # Test 4: Create Test Iceberg Table
+    echo "Test 4: Creating Test Iceberg Table..."
+    kubectl exec -n data-platform $(kubectl get pods -n data-platform -l app=trino-coordinator -o jsonpath='{.items[0].metadata.name}') -- \
+      trino --execute "
+      CREATE TABLE IF NOT EXISTS iceberg.test.deequ_test_table (
+        id BIGINT,
+        name STRING,
+        email STRING,
+        created_at TIMESTAMP
+      ) USING iceberg
+      PARTITIONED BY (day(created_at))
+      TBLPROPERTIES (
+        'write.parquet.compression-codec' = 'snappy'
+      );
+    "
+
+    if [ $? -eq 0 ]; then
+        test_pass "Test Iceberg table created successfully"
+    else
+        test_fail "Failed to create test Iceberg table"
+    fi
+
+    # Test 5: Insert Test Data
+    echo "Test 5: Inserting Test Data..."
+    kubectl exec -n data-platform $(kubectl get pods -n data-platform -l app=trino-coordinator -o jsonpath='{.items[0].metadata.name}') -- \
+      trino --execute "
+      INSERT INTO iceberg.test.deequ_test_table VALUES
+      (1, 'John Doe', 'john@example.com', CURRENT_TIMESTAMP),
+      (2, 'Jane Smith', 'jane@example.com', CURRENT_TIMESTAMP),
+      (3, 'Bob Johnson', 'bob@example.com', CURRENT_TIMESTAMP),
+      (4, 'Alice Brown', 'alice@example.com', CURRENT_TIMESTAMP),
+      (5, 'Charlie Wilson', 'charlie@example.com', CURRENT_TIMESTAMP);
+    "
+
+    if [ $? -eq 0 ]; then
+        test_pass "Test data inserted successfully"
+    else
+        test_fail "Failed to insert test data"
+    fi
+
+    # Test 6: Submit Quality Check Job
+    echo "Test 6: Submitting Quality Check Job..."
+    cat <<EOF | kubectl apply -f -
+    apiVersion: sparkoperator.k8s.io/v1beta2
+    kind: SparkApplication
+metadata:
+  name: deequ-test-quality-check
+  namespace: data-platform
+spec:
+  type: Python
+  mode: cluster
+  image: apache/spark:3.5.0
+  pythonVersion: "3"
+  mainApplicationFile: s3a://spark-code/quality/deequ_quality_check.py
+  arguments:
+  - "--table"
+  - "test.deequ_test_table"
+  - "--catalog"
+  - "iceberg"
+  - "--output-table"
+  - "monitoring.deequ_quality_checks"
+  - "--constraint-file"
+  - "s3a://deequ-config/constraints.json"
+  sparkVersion: "3.5.0"
+  restartPolicy:
+    type: Never
+  driver:
+    cores: 1
+    memory: "1g"
+    serviceAccount: spark-app
+    env:
+    - name: AWS_ACCESS_KEY_ID
+      valueFrom:
+        secretKeyRef:
+          name: minio-secret
+          key: access-key
+    - name: AWS_SECRET_ACCESS_KEY
+      valueFrom:
+        secretKeyRef:
+          name: minio-secret
+          key: secret-key
+  executor:
+    cores: 1
+    instances: 1
+    memory: "1g"
+    env:
+    - name: AWS_ACCESS_KEY_ID
+      valueFrom:
+        secretKeyRef:
+          name: minio-secret
+          key: access-key
+    - name: AWS_SECRET_ACCESS_KEY
+      valueFrom:
+        secretKeyRef:
+          name: minio-secret
+          key: secret-key
+EOF
+
+    if [ $? -eq 0 ]; then
+        test_pass "Quality check job submitted successfully"
+    else
+        test_fail "Failed to submit quality check job"
+    fi
+
+    # Test 7: Wait for Quality Check Completion
+    echo "Test 7: Waiting for Quality Check Completion..."
+    if kubectl wait --for=condition=Succeeded sparkapplication/deequ-test-quality-check -n data-platform --timeout=300s; then
+        test_pass "Quality check job completed successfully"
+    else
+        test_fail "Quality check job did not complete within timeout"
+    fi
+
+    # Test 8: Verify Quality Results
+    echo "Test 8: Verifying Quality Check Results..."
+    kubectl exec -n data-platform $(kubectl get pods -n data-platform -l app=trino-coordinator -o jsonpath='{.items[0].metadata.name}') -- \
+      trino --execute "
+      SELECT
+        table_name,
+        check_name,
+        status,
+        actual_value,
+        threshold_value
+      FROM monitoring.deequ_quality_checks
+      WHERE table_name = 'test.deequ_test_table'
+        AND check_date = CURRENT_DATE
+      ORDER BY check_timestamp DESC
+      LIMIT 5;
+    " > /tmp/quality_results.txt
+
+    if grep -q "PASSED\|WARNING\|FAILED" /tmp/quality_results.txt; then
+        test_pass "Quality check results found in monitoring table"
+    else
+        test_warn "No quality check results found (may need longer wait time)"
+    fi
+
+    # Test 9: Check Kafka Alerts
+    echo "Test 9: Checking Kafka Alert Integration..."
+    if kubectl get pods -n data-platform -l app=kafka | grep -q "kafka"; then
+        test_pass "Kafka is running for alert integration"
+    else
+        test_warn "Kafka not found for alert integration"
+    fi
+
+    # Test 10: Check Prometheus Metrics
+    echo "Test 10: Checking Prometheus Integration..."
+    if kubectl get servicemonitor -n data-platform -l app=deequ | grep -q "deequ"; then
+        test_pass "Deequ ServiceMonitor configured for Prometheus"
+    else
+        test_fail "Deequ ServiceMonitor not found"
+    fi
+
+    # Cleanup
+    echo "Cleaning up test resources..."
+    kubectl delete sparkapplication deequ-test-quality-check -n data-platform --ignore-not-found=true
+    kubectl exec -n data-platform $(kubectl get pods -n data-platform -l app=trino-coordinator -o jsonpath='{.items[0].metadata.name}') -- \
+      trino --execute "DROP TABLE IF EXISTS iceberg.test.deequ_test_table;"
+
+    # Summary
+    echo ""
+    echo "Deequ Quality Check Test Summary:"
+    echo "Total Tests: $TESTS_RUN"
+    echo "Passed: $TESTS_PASSED"
+    echo "Failed: $TESTS_FAILED"
+
+    if [ $TESTS_FAILED -eq 0 ]; then
+        echo -e "${GREEN}All tests passed!${NC}"
+        exit 0
+    else
+        echo -e "${RED}Some tests failed. Check the output above.${NC}"
+        exit 1
+    fi

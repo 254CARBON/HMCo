@@ -1,0 +1,71 @@
+name: Performance Testing
+
+on:
+  schedule:
+    - cron: '0 2 * * 1'  # Weekly on Monday at 2 AM
+  workflow_dispatch:  # Manual trigger
+
+jobs:
+  benchmark:
+    name: Platform Benchmark
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+    
+    - name: Install dependencies
+      run: |
+        pip install pytest pytest-benchmark
+    
+    - name: Run benchmark tests
+      run: |
+        pytest tests/performance/ \
+          --benchmark-only \
+          --benchmark-json=benchmark-results.json
+    
+    - name: Upload benchmark results
+      uses: actions/upload-artifact@v3
+      with:
+        name: benchmark-results
+        path: benchmark-results.json
+    
+    - name: Compare with baseline
+      run: |
+        # Compare with previous run
+        # Alert if >10% regression
+        python scripts/compare-benchmarks.py
+
+  load-test:
+    name: Load Testing
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch'
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Install Locust
+      run: pip install locust
+    
+    - name: Run load test
+      run: |
+        cd tests/performance/load-tests
+        locust -f locustfile.py \
+          --headless \
+          --users 100 \
+          --spawn-rate 10 \
+          --run-time 5m \
+          --host=http://test-endpoint \
+          --html=load-test-report.html
+    
+    - name: Upload load test results
+      uses: actions/upload-artifact@v3
+      with:
+        name: load-test-report
+        path: tests/performance/load-tests/load-test-report.html
+
+

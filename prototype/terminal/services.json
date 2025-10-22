@@ -1,0 +1,75 @@
+[
+  {
+    "id": "datahub",
+    "name": "DataHub",
+    "url": "https://datahub.254carbon.com/",
+    "category": "Catalog",
+    "description": "Data catalog and lineage platform.",
+    "icon": "📚"
+  },
+  {
+    "id": "superset",
+    "name": "Apache Superset",
+    "url": "https://superset.254carbon.com/",
+    "category": "BI",
+    "description": "Dashboards and data exploration.",
+    "icon": "📊"
+  },
+  {
+    "id": "grafana",
+    "name": "Grafana",
+    "url": "https://grafana.254carbon.com/",
+    "category": "Monitoring",
+    "description": "Observability dashboards and alerts.",
+    "icon": "📈"
+  },
+  {
+    "id": "doris",
+    "name": "Apache Doris",
+    "url": "https://doris.254carbon.com/",
+    "category": "OLAP",
+    "description": "MPP analytics database frontend.",
+    "icon": "🧮"
+  },
+  {
+    "id": "trino",
+    "name": "Trino",
+    "url": "https://trino.254carbon.com/",
+    "category": "SQL",
+    "description": "SQL query engine coordinator UI.",
+    "icon": "🧠"
+  },
+  {
+    "id": "vault",
+    "name": "Vault",
+    "url": "https://vault.254carbon.com/",
+    "category": "Security",
+    "description": "Secrets management console.",
+    "icon": "🔐"
+  },
+  {
+    "id": "lakefs",
+    "name": "lakeFS",
+    "url": "https://lakefs.254carbon.com/",
+    "category": "Data Lake",
+    "description": "Git-like data lake management.",
+    "icon": "🌊"
+  },
+  {
+    "id": "dolphinscheduler",
+    "name": "DolphinScheduler",
+    "url": "https://dolphin.254carbon.com/",
+    "category": "Orchestration",
+    "description": "Workflow and job scheduler.",
+    "icon": "🐬"
+  },
+  {
+    "id": "minio",
+    "name": "MinIO Console",
+    "url": "https://minio.254carbon.com/",
+    "category": "Storage",
+    "description": "Object storage management console.",
+    "icon": "🗄️"
+  }
+]
+

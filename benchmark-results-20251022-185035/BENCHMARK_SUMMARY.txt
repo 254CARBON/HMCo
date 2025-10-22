@@ -1,0 +1,58 @@
+================================================================================
+                Platform Performance Benchmark Results
+================================================================================
+
+Timestamp: 2025-10-22T18:50:44+00:00
+Results Directory: ./benchmark-results-20251022-185035
+
+================================================================================
+QUERY PERFORMANCE
+================================================================================
+
+Simple Query Time: 1s
+Aggregate Query Time: 2s
+
+Target: <5s for simple queries, <10s for aggregates
+Status: ✅ PASSED
+
+================================================================================
+GPU UTILIZATION
+================================================================================
+
+See: gpu-utilization.csv
+Expected: 8 GPUs allocated (increased from 4)
+
+================================================================================
+RESOURCE UTILIZATION
+================================================================================
+
+See: node-resources.txt, top-pods-*.txt
+
+================================================================================
+AUTOSCALING STATUS
+================================================================================
+
+See: hpa-status.txt
+Expected: 11 HPAs active with appropriate replica counts
+
+================================================================================
+HIGH AVAILABILITY
+================================================================================
+
+See: pdb-status.txt
+Expected: 15 PDBs with appropriate disruption budgets
+
+================================================================================
+FILES GENERATED
+================================================================================
+
+- gpu-utilization.csv: GPU usage stats
+- trino-query-*.log: Query execution logs
+- node-resources.txt: Node CPU/memory usage
+- top-pods-*.txt: Pod resource consumption
+- hpa-status.txt: Autoscaler status
+- pdb-status.txt: Pod disruption budgets
+- gpu-allocation.txt: GPU allocation details
+- platform-health.txt: Overall health summary
+
+================================================================================
