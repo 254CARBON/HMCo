@@ -1,0 +1,99 @@
+# HTTP Source Connector for Real-time API Polling
+# Polls commodity price APIs and publishes to Kafka
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: http-source-connector-config
+  namespace: data-platform
+  labels:
+    app: kafka-connect
+    connector-type: source
+data:
+  eia-prices-connector.json: |
+    {
+      "name": "eia-prices-http-source",
+      "config": {
+        "connector.class": "com.github.castorm.kafka.connect.http.HttpSourceConnector",
+        "tasks.max": "1",
+        "http.request.url": "https://api.eia.gov/v2/petroleum/pri/spt/data/",
+        "http.request.method": "GET",
+        "http.request.headers": "api_key:${env:EIA_API_KEY}",
+        "http.request.params": "frequency=daily&data[0]=value&facets[product][]=EPMR&facets[product][]=EPLLPA&sort[0][column]=period&sort[0][direction]=desc&offset=0&length=5000",
+        "http.timer.interval.millis": "60000",
+        "http.timer.catchup.interval.millis": "1000",
+        "kafka.topic": "commodity-prices-raw",
+        "key.converter": "org.apache.kafka.connect.storage.StringConverter",
+        "value.converter": "org.apache.kafka.connect.json.JsonConverter",
+        "value.converter.schemas.enable": "false"
+      }
+    }
+  
+  fred-economic-connector.json: |
+    {
+      "name": "fred-economic-http-source",
+      "config": {
+        "connector.class": "com.github.castorm.kafka.connect.http.HttpSourceConnector",
+        "tasks.max": "1",
+        "http.request.url": "https://api.stlouisfed.org/fred/series/observations",
+        "http.request.method": "GET",
+        "http.request.params": "series_id=DCOILWTICO&api_key=${env:FRED_API_KEY}&file_type=json&observation_start=2025-01-01",
+        "http.timer.interval.millis": "300000",
+        "kafka.topic": "economic-indicators-raw",
+        "key.converter": "org.apache.kafka.connect.storage.StringConverter",
+        "value.converter": "org.apache.kafka.connect.json.JsonConverter",
+        "value.converter.schemas.enable": "false"
+      }
+    }
+  
+  weather-api-connector.json: |
+    {
+      "name": "weather-api-http-source",
+      "config": {
+        "connector.class": "com.github.castorm.kafka.connect.http.HttpSourceConnector",
+        "tasks.max": "1",
+        "http.request.url": "https://api.weather.gov/alerts/active",
+        "http.request.method": "GET",
+        "http.request.headers": "User-Agent:254Carbon-Platform",
+        "http.timer.interval.millis": "120000",
+        "kafka.topic": "weather-events-raw",
+        "key.converter": "org.apache.kafka.connect.storage.StringConverter",
+        "value.converter": "org.apache.kafka.connect.json.JsonConverter",
+        "value.converter.schemas.enable": "false"
+      }
+    }
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cdc-source-connector-config
+  namespace: data-platform
+  labels:
+    app: kafka-connect
+    connector-type: source
+data:
+  postgres-cdc-connector.json: |
+    {
+      "name": "postgres-cdc-source",
+      "config": {
+        "connector.class": "io.debezium.connector.postgresql.PostgresConnector",
+        "tasks.max": "1",
+        "database.hostname": "postgres-shared-service",
+        "database.port": "5432",
+        "database.user": "postgres",
+        "database.password": "${env:POSTGRES_PASSWORD}",
+        "database.dbname": "datahub",
+        "database.server.name": "datahub-postgres",
+        "table.include.list": "public.metadata_*",
+        "plugin.name": "pgoutput",
+        "publication.autocreate.mode": "filtered",
+        "slot.name": "debezium_slot",
+        "topic.prefix": "cdc-datahub",
+        "key.converter": "io.confluent.connect.avro.AvroConverter",
+        "key.converter.schema.registry.url": "http://schema-registry-service:8081",
+        "value.converter": "io.confluent.connect.avro.AvroConverter",
+        "value.converter.schema.registry.url": "http://schema-registry-service:8081"
+      }
+    }
+
+

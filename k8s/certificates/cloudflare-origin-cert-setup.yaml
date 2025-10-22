@@ -1,0 +1,141 @@
+# Cloudflare Origin Certificate Setup
+# This creates secrets for Cloudflare Origin Certificates
+# 
+# PREREQUISITES:
+# 1. Generate Origin Certificate in Cloudflare Dashboard
+# 2. Save certificate and key to files
+# 3. Run this script with certificate files
+#
+# Usage:
+#   kubectl create secret tls <secret-name> \
+#     --cert=path/to/cert.pem \
+#     --key=path/to/key.pem \
+#     -n <namespace>
+
+---
+# Script to create all necessary secrets
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: create-origin-certs
+  namespace: data-platform
+data:
+  create-certs.sh: |
+    #!/bin/bash
+    set -e
+    
+    echo "Cloudflare Origin Certificate Setup"
+    echo "===================================="
+    echo ""
+    echo "This script creates Kubernetes secrets for Cloudflare Origin Certificates"
+    echo ""
+    
+    # Check if certificate files exist
+    if [ ! -f "/certs/origin-cert.pem" ] || [ ! -f "/certs/origin-key.pem" ]; then
+      echo "ERROR: Certificate files not found!"
+      echo "Please mount certificate files at /certs/origin-cert.pem and /certs/origin-key.pem"
+      exit 1
+    fi
+    
+    echo "Creating secrets in data-platform namespace..."
+    
+    # Create secrets for each service
+    for service in portal datahub superset trino; do
+      echo "Creating secret for $service..."
+      kubectl create secret tls ${service}-tls \
+        --cert=/certs/origin-cert.pem \
+        --key=/certs/origin-key.pem \
+        -n data-platform \
+        --dry-run=client -o yaml | kubectl apply -f -
+    done
+    
+    echo "Creating secret in monitoring namespace..."
+    kubectl create secret tls grafana-tls \
+      --cert=/certs/origin-cert.pem \
+      --key=/certs/origin-key.pem \
+      -n monitoring \
+      --dry-run=client -o yaml | kubectl apply -f -
+    
+    echo "Creating secret in registry namespace..."
+    kubectl create secret tls harbor-tls \
+      --cert=/certs/origin-cert.pem \
+      --key=/certs/origin-key.pem \
+      -n registry \
+      --dry-run=client -o yaml | kubectl apply -f -
+    
+    echo ""
+    echo "✓ All secrets created successfully!"
+    echo ""
+    echo "Next steps:"
+    echo "1. Update ingress resources to use these TLS secrets"
+    echo "2. Verify certificates are loaded: kubectl get secrets -A | grep tls"
+    echo "3. Test HTTPS access to services"
+
+---
+# Job to create certificates (requires manual cert files)
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: create-origin-certs-job
+  namespace: data-platform
+spec:
+  template:
+    spec:
+      serviceAccountName: cert-creator
+      restartPolicy: Never
+      containers:
+      - name: create-certs
+        image: bitnami/kubectl:latest
+        command: ["/bin/bash", "/scripts/create-certs.sh"]
+        volumeMounts:
+        - name: scripts
+          mountPath: /scripts
+        - name: certs
+          mountPath: /certs
+      volumes:
+      - name: scripts
+        configMap:
+          name: create-origin-certs
+          defaultMode: 0755
+      - name: certs
+        secret:
+          secretName: cloudflare-origin-certificate
+          optional: true
+
+---
+# ServiceAccount for cert creation job
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: cert-creator
+  namespace: data-platform
+
+---
+# ClusterRole for managing secrets across namespaces
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: cert-creator-role
+rules:
+- apiGroups: [""]
+  resources: ["secrets"]
+  verbs: ["get", "list", "create", "update", "patch"]
+
+---
+# ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: cert-creator-binding
+subjects:
+- kind: ServiceAccount
+  name: cert-creator
+  namespace: data-platform
+roleRef:
+  kind: ClusterRole
+  name: cert-creator-role
+  apiGroup: rbac.authorization.k8s.io
+
+
+
+

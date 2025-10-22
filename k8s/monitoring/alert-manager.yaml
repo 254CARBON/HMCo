@@ -203,17 +203,43 @@ metadata:
   namespace: monitoring
   annotations:
     nginx.ingress.kubernetes.io/rewrite-target: /
-    nginx.ingress.kubernetes.io/ssl-redirect: "false"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    cert-manager.io/cluster-issuer: "selfsigned"
+    # Cloudflare Access SSO
+    nginx.ingress.kubernetes.io/auth-url: "https://qagi.cloudflareaccess.com/cdn-cgi/access/authorize"
+    nginx.ingress.kubernetes.io/auth-signin: "https://qagi.cloudflareaccess.com/cdn-cgi/access/login?redirect_url=$escaped_request_uri"
+    nginx.ingress.kubernetes.io/auth-response-headers: "cf-access-jwt-assertion"
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      auth_request_set $cf_email $upstream_http_cf_access_authenticated_user_email;
+      auth_request_set $cf_groups $upstream_http_cf_access_groups;
+      proxy_set_header X-WEBAUTH-USER $cf_email;
+      proxy_set_header X-WEBAUTH-EMAIL $cf_email;
+      proxy_set_header X-WEBAUTH-GROUPS $cf_groups;
 spec:
   ingressClassName: nginx
+  tls:
+    - hosts:
+        - alertmanager.254carbon.com
+        - alertmanager.local
+      secretName: alertmanager-tls
   rules:
-  - host: alertmanager.local
-    http:
-      paths:
-      - path: /
-        pathType: Prefix
-        backend:
-          service:
-            name: alertmanager
-            port:
-              number: 9093
+    - host: alertmanager.254carbon.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: alertmanager
+                port:
+                  number: 9093
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: alertmanager
+                port:
+                  number: 9093

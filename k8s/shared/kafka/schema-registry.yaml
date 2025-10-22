@@ -19,13 +19,37 @@ spec:
         component: schema-registry
     spec:
       imagePullSecrets: []
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
       initContainers:
       - name: wait-for-kafka
         image: busybox:1.35
-        command: ['sh', '-c', "echo 'Waiting for Kafka...' && for i in {1..60}; do nc -z kafka-service 9092 && echo 'Kafka is ready!' && exit 0; sleep 2; done; echo 'Kafka startup timeout'; exit 1"]
+        command: ['sh', '-c', "echo 'Waiting for Kafka...' && for i in {1..60}; do nc -z kafka-service.data-platform.svc.cluster.local 9092 && echo 'Kafka is ready!' && exit 0; sleep 2; done; echo 'Kafka startup timeout'; exit 1"]
+        securityContext:
+          allowPrivilegeEscalation: false
+          runAsNonRoot: true
+          runAsUser: 1000
+          capabilities:
+            drop:
+            - ALL
+          seccompProfile:
+            type: RuntimeDefault
       containers:
       - name: schema-registry
         image: confluentinc/cp-schema-registry:7.4.0
+        securityContext:
+          allowPrivilegeEscalation: false
+          runAsNonRoot: true
+          runAsUser: 1000
+          capabilities:
+            drop:
+            - ALL
+          seccompProfile:
+            type: RuntimeDefault
         ports:
         - containerPort: 8081
           name: schema-registry
@@ -35,7 +59,7 @@ spec:
             fieldRef:
               fieldPath: status.podIP
         - name: SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS
-          value: "kafka-service:9092"
+          value: "kafka-service.data-platform.svc.cluster.local:9092"
         - name: SCHEMA_REGISTRY_KAFKASTORE_TOPIC
           value: "_schemas"
         - name: SCHEMA_REGISTRY_KAFKASTORE_TOPIC_REPLICATION_FACTOR

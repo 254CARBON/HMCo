@@ -131,6 +131,7 @@ metadata:
     app: hudi
     component: data-lake
 spec:
+  ttlSecondsAfterFinished: 600
   template:
     metadata:
       labels:

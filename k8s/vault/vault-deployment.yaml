@@ -1,0 +1,217 @@
+---
+# HashiCorp Vault Deployment for Secret Management
+# Standalone deployment with file storage backend
+
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: vault
+  namespace: vault-prod
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: vault-auth
+rules:
+- apiGroups: [""]
+  resources: ["serviceaccounts", "serviceaccounts/token"]
+  verbs: ["get", "create"]
+- apiGroups: [""]
+  resources: ["pods"]
+  verbs: ["get", "list"]
+- apiGroups: ["authentication.k8s.io"]
+  resources: ["tokenreviews"]
+  verbs: ["create"]
+- apiGroups: ["authorization.k8s.io"]
+  resources: ["subjectaccessreviews"]
+  verbs: ["create"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: vault-auth
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: vault-auth
+subjects:
+- kind: ServiceAccount
+  name: vault
+  namespace: vault-prod
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: vault-config
+  namespace: vault-prod
+data:
+  vault.hcl: |
+    ui = true
+    
+    listener "tcp" {
+      address = "0.0.0.0:8200"
+      tls_disable = 1
+    }
+    
+    storage "file" {
+      path = "/vault/data"
+    }
+    
+    api_addr = "http://vault:8200"
+    cluster_addr = "http://vault:8201"
+    
+    disable_mlock = true
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: vault-data
+  namespace: vault-prod
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+  storageClassName: local-path
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vault
+  namespace: vault-prod
+  labels:
+    app: vault
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: vault
+  template:
+    metadata:
+      labels:
+        app: vault
+    spec:
+      serviceAccountName: vault
+      containers:
+      - name: vault
+        image: hashicorp/vault:1.15.0
+        args:
+        - server
+        - -config=/vault/config/vault.hcl
+        ports:
+        - containerPort: 8200
+          name: http
+        - containerPort: 8201
+          name: cluster
+        env:
+        - name: VAULT_ADDR
+          value: "http://localhost:8200"
+        - name: SKIP_SETCAP
+          value: "true"
+        resources:
+          requests:
+            cpu: 500m
+            memory: 1Gi
+          limits:
+            cpu: 1000m
+            memory: 2Gi
+        volumeMounts:
+        - name: vault-config
+          mountPath: /vault/config
+        - name: vault-data
+          mountPath: /vault/data
+        livenessProbe:
+          httpGet:
+            path: /v1/sys/health?standbyok=true
+            port: 8200
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /v1/sys/health?standbyok=true&sealedcode=204&uninitcode=204
+            port: 8200
+          initialDelaySeconds: 10
+          periodSeconds: 5
+      volumes:
+      - name: vault-config
+        configMap:
+          name: vault-config
+      - name: vault-data
+        persistentVolumeClaim:
+          claimName: vault-data
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: vault
+  namespace: vault-prod
+  labels:
+    app: vault
+spec:
+  type: ClusterIP
+  ports:
+  - name: http
+    port: 8200
+    targetPort: 8200
+  - name: cluster
+    port: 8201
+    targetPort: 8201
+  selector:
+    app: vault
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: vault-internal
+  namespace: vault-prod
+  labels:
+    app: vault
+spec:
+  type: ClusterIP
+  clusterIP: None
+  ports:
+  - name: http
+    port: 8200
+    targetPort: 8200
+  - name: cluster
+    port: 8201
+    targetPort: 8201
+  selector:
+    app: vault
+
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: vault-ingress
+  namespace: vault-prod
+  annotations:
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    nginx.ingress.kubernetes.io/backend-protocol: "HTTP"
+spec:
+  ingressClassName: nginx
+  tls:
+  - hosts:
+    - vault.254carbon.com
+    secretName: vault-tls
+  rules:
+  - host: vault.254carbon.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: vault
+            port:
+              number: 8200
+
+

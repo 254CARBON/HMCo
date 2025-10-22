@@ -1,0 +1,153 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mlflow
+  namespace: data-platform
+  labels:
+    app: mlflow
+    component: tracking-server
+spec:
+  replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: mlflow
+      component: tracking-server
+  template:
+    metadata:
+      labels:
+        app: mlflow
+        component: tracking-server
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "5000"
+        prometheus.io/path: "/metrics"
+    spec:
+      serviceAccountName: default
+      
+      # Pod anti-affinity for better HA distribution
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchExpressions:
+                    - key: app
+                      operator: In
+                      values:
+                        - mlflow
+                topologyKey: kubernetes.io/hostname
+      
+      containers:
+      - name: mlflow
+        image: python:3.10-slim
+        imagePullPolicy: IfNotPresent
+        
+        command:
+          - /bin/sh
+          - -c
+          - |
+            echo "Installing MLflow and dependencies..."
+            pip install --quiet --no-cache-dir mlflow==2.10.0 psycopg2-binary boto3 pymysql cryptography
+            echo "Starting MLflow server..."
+            mlflow server \
+              --backend-store-uri postgresql://mlflow:mlflow-secure-password-change-me@postgres-shared-service.data-platform.svc.cluster.local:5432/mlflow \
+              --default-artifact-root s3://mlflow-artifacts \
+              --host 0.0.0.0 \
+              --port 5000
+        
+        ports:
+        - containerPort: 5000
+          name: http
+          protocol: TCP
+        
+        env:
+        # PostgreSQL connection
+        - name: MLFLOW_BACKEND_STORE_URI
+          valueFrom:
+            secretKeyRef:
+              name: mlflow-backend-secret
+              key: backend_store_uri
+        
+        # MinIO S3 credentials and configuration
+        - name: AWS_ACCESS_KEY_ID
+          valueFrom:
+            secretKeyRef:
+              name: mlflow-artifact-secret
+              key: aws_access_key_id
+        - name: AWS_SECRET_ACCESS_KEY
+          valueFrom:
+            secretKeyRef:
+              name: mlflow-artifact-secret
+              key: aws_secret_access_key
+        - name: MLFLOW_S3_ENDPOINT_URL
+          valueFrom:
+            configMapKeyRef:
+              name: mlflow-config
+              key: mlflow_s3_endpoint_url
+        - name: AWS_S3_VERIFY
+          valueFrom:
+            configMapKeyRef:
+              name: mlflow-config
+              key: aws_s3_verify
+        
+        # Default artifact root for S3
+        - name: MLFLOW_DEFAULT_ARTIFACT_ROOT
+          value: "s3://mlflow-artifacts"
+        
+        # Logging
+        - name: PYTHONUNBUFFERED
+          value: "1"
+        
+        # Gunicorn configuration
+        - name: GUNICORN_CMD_ARGS
+          value: "--workers=4 --threads=2 --timeout=300 --access-logfile - --error-logfile -"
+        
+        resources:
+          requests:
+            cpu: 500m
+            memory: 1Gi
+          limits:
+            cpu: 1000m
+            memory: 2Gi
+        
+        # Liveness probe - checks if tracking server is responding
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 5000
+            scheme: HTTP
+          initialDelaySeconds: 120
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        
+        # Readiness probe - checks if server is ready to accept traffic
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 5000
+            scheme: HTTP
+          initialDelaySeconds: 100
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        
+        # Volume mounts
+        volumeMounts:
+        - name: tmp
+          mountPath: /tmp
+      
+      # Volumes
+      volumes:
+      - name: tmp
+        emptyDir: {}
+      
+      # Restart policy
+      restartPolicy: Always
+      terminationGracePeriodSeconds: 30

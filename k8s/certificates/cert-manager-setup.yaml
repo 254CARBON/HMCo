@@ -100,6 +100,47 @@ subjects:
   namespace: cert-manager
 
 ---
+# Role for leader election leases
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: cert-manager:leaderelection
+  namespace: cert-manager
+  labels:
+    app.kubernetes.io/name: cert-manager
+rules:
+- apiGroups:
+  - coordination.k8s.io
+  resources:
+  - leases
+  verbs:
+  - get
+  - watch
+  - list
+  - create
+  - update
+  - patch
+  - delete
+
+---
+# RoleBinding for leader election leases
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: cert-manager:leaderelection
+  namespace: cert-manager
+  labels:
+    app.kubernetes.io/name: cert-manager
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: cert-manager:leaderelection
+subjects:
+- kind: ServiceAccount
+  name: cert-manager
+  namespace: cert-manager
+
+---
 # cert-manager Deployment
 apiVersion: apps/v1
 kind: Deployment
@@ -155,20 +196,6 @@ spec:
           limits:
             cpu: 200m
             memory: 256Mi
-        livenessProbe:
-          httpGet:
-            path: /livez
-            port: 9402
-            scheme: HTTP
-          initialDelaySeconds: 10
-          periodSeconds: 10
-        readinessProbe:
-          httpGet:
-            path: /readyz
-            port: 9402
-            scheme: HTTP
-          initialDelaySeconds: 5
-          periodSeconds: 5
 
 ---
 # cert-manager webhook Deployment
@@ -196,7 +223,9 @@ spec:
         imagePullPolicy: IfNotPresent
         args:
         - --secure-port=10250
-        - --cert-dir=/tmp/certs
+        - --dynamic-serving-ca-secret-namespace=cert-manager
+        - --dynamic-serving-ca-secret-name=cert-manager-webhook-ca
+        - --dynamic-serving-dns-names=cert-manager-webhook,cert-manager-webhook.cert-manager,cert-manager-webhook.cert-manager.svc
         env:
         - name: POD_NAMESPACE
           valueFrom:
@@ -205,6 +234,8 @@ spec:
         ports:
         - containerPort: 10250
           name: https
+        - containerPort: 6060
+          name: healthz
         resources:
           requests:
             cpu: 50m
@@ -226,12 +257,6 @@ spec:
             scheme: HTTP
           initialDelaySeconds: 5
           periodSeconds: 5
-        volumeMounts:
-        - name: certs
-          mountPath: /tmp/certs
-      volumes:
-      - name: certs
-        emptyDir: {}
 
 ---
 # Service for cert-manager webhook
@@ -274,7 +299,7 @@ metadata:
 spec:
   acme:
     server: https://acme-v02.api.letsencrypt.org/directory
-    email: admin@example.com
+    email: ops@254carbon.com
     privateKeySecretRef:
       name: letsencrypt-prod-key
     solvers:
@@ -293,7 +318,7 @@ metadata:
 spec:
   acme:
     server: https://acme-staging-v02.api.letsencrypt.org/directory
-    email: admin@example.com
+    email: ops@254carbon.com
     privateKeySecretRef:
       name: letsencrypt-staging-key
     solvers:

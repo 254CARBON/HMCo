@@ -1,0 +1,266 @@
+# Deequ Configuration ConfigMap
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: deequ-config
+  namespace: data-platform
+  labels:
+    app: deequ
+    component: configuration
+data:
+  # Quality constraint definitions for various tables
+  constraints.json: |
+    {
+      "tables": {
+        "raw.customers": {
+          "checks": [
+            {
+              "name": "completeness_id",
+              "type": "Completeness",
+              "column": "id",
+              "threshold": 1.0,
+              "description": "All customer IDs must be non-null"
+            },
+            {
+              "name": "uniqueness_id",
+              "type": "Uniqueness",
+              "column": "id",
+              "threshold": 1.0,
+              "description": "All customer IDs must be unique"
+            },
+            {
+              "name": "completeness_email",
+              "type": "Completeness",
+              "column": "email",
+              "threshold": 0.95,
+              "description": "At least 95% of emails must be non-null"
+            },
+            {
+              "name": "pattern_email",
+              "type": "PatternMatch",
+              "column": "email",
+              "pattern": "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$",
+              "threshold": 0.99,
+              "description": "Email addresses must match valid format"
+            },
+            {
+              "name": "range_created_at",
+              "type": "Freshness",
+              "column": "created_at",
+              "max_age_days": 10,
+              "threshold": 1.0,
+              "description": "Data must not be older than 10 days"
+            }
+          ]
+        },
+        "ods.orders": {
+          "checks": [
+            {
+              "name": "completeness_order_id",
+              "type": "Completeness",
+              "column": "order_id",
+              "threshold": 1.0,
+              "description": "All order IDs must be non-null"
+            },
+            {
+              "name": "uniqueness_order_id",
+              "type": "Uniqueness",
+              "column": "order_id",
+              "threshold": 1.0,
+              "description": "All order IDs must be unique"
+            },
+            {
+              "name": "range_amount",
+              "type": "Completeness",
+              "column": "order_amount",
+              "threshold": 1.0,
+              "description": "Order amounts must be non-null"
+            },
+            {
+              "name": "correlation_customer_order",
+              "type": "ReferentialIntegrity",
+              "column": "customer_id",
+              "reference_table": "raw.customers",
+              "reference_column": "id",
+              "threshold": 0.995,
+              "description": "Order customer IDs must reference existing customers"
+            }
+          ]
+        },
+        "raw.events": {
+          "checks": [
+            {
+              "name": "completeness_event_id",
+              "type": "Completeness",
+              "column": "event_id",
+              "threshold": 1.0,
+              "description": "All event IDs must be non-null"
+            },
+            {
+              "name": "uniqueness_event_id",
+              "type": "Uniqueness",
+              "column": "event_id",
+              "threshold": 1.0,
+              "description": "All event IDs must be unique"
+            },
+            {
+              "name": "completeness_timestamp",
+              "type": "Completeness",
+              "column": "event_timestamp",
+              "threshold": 1.0,
+              "description": "Event timestamps must not be null"
+            }
+          ]
+        }
+      }
+    }
+  
+  # Profiling configuration
+  profiling-config.yaml: |
+    # Deequ Profiling Configuration
+    profiling:
+      enabled: true
+      sample_size: 100000  # Sample size for profiling
+      cache_enabled: true
+      
+      # Column-level profiling
+      column_profiling:
+        enabled: true
+        statistics:
+          - completeness
+          - uniqueness
+          - data_type_distribution
+          - top_values
+          - histogram
+          - approximate_percentiles
+      
+      # Data distribution profiling
+      distribution_profiling:
+        enabled: true
+        num_buckets: 20
+        
+      # Missing value analysis
+      missing_value_analysis:
+        enabled: true
+        analyze_by_column: true
+  
+  # Anomaly detection configuration
+  anomaly-detection.yaml: |
+    # Deequ Anomaly Detection Configuration
+    anomaly_detection:
+      enabled: true
+      method: iqr  # IQR (Interquartile Range) or zscore
+      
+      # IQR Method Configuration
+      iqr:
+        lower_multiplier: 1.5
+        upper_multiplier: 1.5
+      
+      # Z-Score Method Configuration
+      zscore:
+        threshold: 3.0
+      
+      # Detection thresholds by metric type
+      metrics:
+        # Row Count Anomaly
+        row_count:
+          enabled: true
+          sensitivity: high  # high, medium, low
+          min_history: 7  # days of history to consider
+        
+        # Column-specific anomalies
+        column_completeness:
+          enabled: true
+          sensitivity: high
+          min_history: 7
+        
+        column_distinctness:
+          enabled: true
+          sensitivity: medium
+          min_history: 7
+        
+        # Statistical anomalies
+        mean_value:
+          enabled: true
+          sensitivity: medium
+          min_history: 14
+        
+        variance:
+          enabled: true
+          sensitivity: medium
+          min_history: 14
+  
+  # Metrics export configuration
+  export-config.yaml: |
+    # Deequ Metrics Export Configuration
+    export:
+      # Iceberg export
+      iceberg:
+        enabled: true
+        database: monitoring
+        table: deequ_quality_checks
+        partition_by: ["table_name", "check_date"]
+      
+      # Kafka export for alerts
+      kafka:
+        enabled: true
+        bootstrap_servers: kafka-service:9092
+        topic: data-quality-alerts
+        format: json
+        compression: snappy
+      
+      # PostgreSQL export for historical analysis
+      postgresql:
+        enabled: true
+        host: postgres-shared-service
+        port: 5432
+        database: datahub
+        table: deequ_metrics
+        mode: append  # append or replace
+---
+# Deequ Service ConfigMap
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: deequ-service-config
+  namespace: data-platform
+  labels:
+    app: deequ
+    component: service
+data:
+  service-config.yaml: |
+    # Deequ Quality Service Configuration
+    server:
+      port: 8080
+      workers: 4
+      
+    # Database connections
+    databases:
+      iceberg:
+        catalog_type: rest
+        uri: http://iceberg-rest-catalog:8181
+        warehouse: s3://iceberg-warehouse/
+      
+      minio:
+        endpoint: http://minio-service:9000
+        region: us-east-1
+        
+      postgresql:
+        host: postgres-shared-service
+        port: 5432
+        database: datahub
+        pool_size: 10
+      
+      kafka:
+        bootstrap_servers: kafka-service:9092
+        
+    # Logging configuration
+    logging:
+      level: INFO
+      format: json
+      
+    # Health checks
+    health:
+      enabled: true
+      interval_seconds: 30
+      check_databases: true

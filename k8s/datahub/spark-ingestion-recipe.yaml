@@ -1,0 +1,58 @@
+# DataHub Ingestion Recipe for Spark Jobs
+# This recipe automatically discovers and catalogs SparkApplication CRDs
+# and their data lineage to Iceberg tables
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: datahub-spark-ingestion
+  namespace: data-platform
+  labels:
+    app: datahub
+    component: ingestion
+data:
+  spark-lineage-recipe.json: |
+    {
+      "source": {
+        "type": "spark",
+        "config": {
+          "platform": "spark",
+          "spark_config": {
+            "master": "k8s://https://kubernetes.default",
+            "deploy_mode": "cluster",
+            "kubernetes_namespace": "data-platform"
+          },
+          "data_source": {
+            "type": "kubernetes",
+            "config": {
+              "kube_config_file": "/var/run/secrets/kubernetes.io/serviceaccount/token",
+              "cluster_name": "254carbon-cluster",
+              "namespace": "data-platform"
+            }
+          },
+          "data_sinks": [
+            {
+              "type": "iceberg",
+              "catalog_type": "rest",
+              "uri": "http://iceberg-rest-catalog:8181",
+              "warehouse": "s3://iceberg-warehouse/"
+            }
+          ],
+          "track_spark_applications": true,
+          "include_spark_application_logs": true,
+          "parse_spark_application_spec": true,
+          "extract_data_lineage": true,
+          "extract_data_quality": true,
+          "stateful_ingestion": {
+            "enabled": true,
+            "max_checkpoint_age_days": 7
+          }
+        }
+      },
+      "sink": {
+        "type": "datahub-rest",
+        "config": {
+          "server": "http://datahub-gms:8080"
+        }
+      }
+    }

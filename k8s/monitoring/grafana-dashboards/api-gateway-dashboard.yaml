@@ -1,0 +1,186 @@
+# Kong API Gateway Dashboard for Grafana
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboard-api-gateway
+  namespace: monitoring
+  labels:
+    grafana_dashboard: "1"
+data:
+  api-gateway-dashboard.json: |
+    {
+      "dashboard": {
+        "title": "254Carbon API Gateway (Kong)",
+        "tags": ["kong", "api-gateway", "254carbon"],
+        "timezone": "browser",
+        "refresh": "30s",
+        "time": {
+          "from": "now-1h",
+          "to": "now"
+        },
+        "panels": [
+          {
+            "id": 1,
+            "title": "Total API Requests",
+            "type": "graph",
+            "gridPos": {"x": 0, "y": 0, "w": 12, "h": 8},
+            "targets": [
+              {
+                "expr": "sum(rate(kong_http_status[5m])) by (service)",
+                "legendFormat": "{{service}}"
+              }
+            ],
+            "yaxes": [
+              {"format": "reqps", "label": "Requests/sec"},
+              {"format": "short"}
+            ]
+          },
+          {
+            "id": 2,
+            "title": "API Response Codes",
+            "type": "piechart",
+            "gridPos": {"x": 12, "y": 0, "w": 6, "h": 8},
+            "targets": [
+              {
+                "expr": "sum(rate(kong_http_status[5m])) by (code)",
+                "legendFormat": "{{code}}"
+              }
+            ]
+          },
+          {
+            "id": 3,
+            "title": "API Latency (P99)",
+            "type": "graph",
+            "gridPos": {"x": 0, "y": 8, "w": 12, "h": 8},
+            "targets": [
+              {
+                "expr": "histogram_quantile(0.99, sum(rate(kong_latency_bucket[5m])) by (service, le))",
+                "legendFormat": "{{service}}"
+              }
+            ],
+            "yaxes": [
+              {"format": "ms", "label": "Latency"},
+              {"format": "short"}
+            ]
+          },
+          {
+            "id": 4,
+            "title": "Rate Limiting - Requests Blocked",
+            "type": "graph",
+            "gridPos": {"x": 12, "y": 8, "w": 12, "h": 8},
+            "targets": [
+              {
+                "expr": "sum(rate(kong_http_status{code=\"429\"}[5m])) by (service)",
+                "legendFormat": "{{service}}"
+              }
+            ],
+            "yaxes": [
+              {"format": "reqps", "label": "Blocked/sec"},
+              {"format": "short"}
+            ]
+          },
+          {
+            "id": 5,
+            "title": "Top Consumers by Request Count",
+            "type": "table",
+            "gridPos": {"x": 0, "y": 16, "w": 12, "h": 8},
+            "targets": [
+              {
+                "expr": "topk(10, sum(rate(kong_http_status[5m])) by (consumer))",
+                "format": "table",
+                "instant": true
+              }
+            ]
+          },
+          {
+            "id": 6,
+            "title": "Bandwidth Usage",
+            "type": "graph",
+            "gridPos": {"x": 12, "y": 16, "w": 12, "h": 8},
+            "targets": [
+              {
+                "expr": "sum(rate(kong_bandwidth{type=\"egress\"}[5m])) by (service)",
+                "legendFormat": "{{service}} egress"
+              },
+              {
+                "expr": "sum(rate(kong_bandwidth{type=\"ingress\"}[5m])) by (service)",
+                "legendFormat": "{{service}} ingress"
+              }
+            ],
+            "yaxes": [
+              {"format": "Bps", "label": "Bandwidth"},
+              {"format": "short"}
+            ]
+          },
+          {
+            "id": 7,
+            "title": "Authentication Failures",
+            "type": "graph",
+            "gridPos": {"x": 0, "y": 24, "w": 12, "h": 8},
+            "targets": [
+              {
+                "expr": "sum(rate(kong_http_status{code=\"401\"}[5m])) by (service)",
+                "legendFormat": "{{service}}"
+              }
+            ],
+            "alert": {
+              "conditions": [
+                {
+                  "evaluator": {"params": [10], "type": "gt"},
+                  "query": {"params": ["A", "5m", "now"]},
+                  "type": "query"
+                }
+              ],
+              "name": "High Authentication Failure Rate"
+            }
+          },
+          {
+            "id": 8,
+            "title": "Kong Proxy Health",
+            "type": "stat",
+            "gridPos": {"x": 12, "y": 24, "w": 6, "h": 4},
+            "targets": [
+              {
+                "expr": "up{job=\"kong\"}"
+              }
+            ],
+            "options": {
+              "textMode": "value_and_name",
+              "colorMode": "background"
+            }
+          },
+          {
+            "id": 9,
+            "title": "Cache Hit Rate",
+            "type": "gauge",
+            "gridPos": {"x": 18, "y": 24, "w": 6, "h": 4},
+            "targets": [
+              {
+                "expr": "sum(rate(kong_cache_hit[5m])) / (sum(rate(kong_cache_hit[5m])) + sum(rate(kong_cache_miss[5m])))"
+              }
+            ],
+            "options": {
+              "showThresholdLabels": true,
+              "showThresholdMarkers": true
+            },
+            "fieldConfig": {
+              "defaults": {
+                "min": 0,
+                "max": 1,
+                "thresholds": {
+                  "steps": [
+                    {"color": "red", "value": 0},
+                    {"color": "yellow", "value": 0.5},
+                    {"color": "green", "value": 0.8}
+                  ]
+                }
+              }
+            }
+          }
+        ]
+      }
+    }
+
+
+

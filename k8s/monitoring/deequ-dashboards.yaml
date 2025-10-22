@@ -1,0 +1,183 @@
+# Grafana Dashboards for Deequ Data Quality Monitoring
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: deequ-grafana-dashboards
+  namespace: data-platform
+  labels:
+    app: grafana
+    component: dashboards
+data:
+  data-quality-overview.json: |
+    {
+      "dashboard": {
+        "title": "Data Quality Overview",
+        "panels": [
+          {
+            "id": 1,
+            "title": "Quality Score by Table (Last 24h)",
+            "type": "stat",
+            "targets": [
+              {
+                "expr": "deequ_quality_score",
+                "legendFormat": "{{table_name}}"
+              }
+            ],
+            "fieldConfig": {
+              "defaults": {
+                "color": {
+                  "mode": "thresholds"
+                },
+                "thresholds": {
+                  "steps": [
+                    { "color": "red", "value": 0 },
+                    { "color": "yellow", "value": 70 },
+                    { "color": "green", "value": 90 }
+                  ]
+                },
+                "unit": "percent"
+              }
+            }
+          },
+          {
+            "id": 2,
+            "title": "Failed Checks by Table (Last 24h)",
+            "type": "piechart",
+            "targets": [
+              {
+                "expr": "increase(deequ_check_failures_total[24h])",
+                "legendFormat": "{{table_name}}"
+              }
+            ]
+          },
+          {
+            "id": 3,
+            "title": "Quality Trend (Last 7 days)",
+            "type": "graph",
+            "targets": [
+              {
+                "expr": "deequ_quality_score",
+                "legendFormat": "{{table_name}}"
+              }
+            ],
+            "yAxes": [
+              { "label": "Quality Score (%)", "min": 0, "max": 100 }
+            ]
+          },
+          {
+            "id": 4,
+            "title": "Anomalies Detected (Last 7 days)",
+            "type": "table",
+            "targets": [
+              {
+                "expr": "deequ_anomaly_detected",
+                "legendFormat": "{{table_name}}.{{column_name}} - {{anomaly_type}}"
+              }
+            ]
+          }
+        ],
+        "time": {
+          "from": "now-7d",
+          "to": "now"
+        },
+        "refresh": "5m"
+      }
+    }
+  quality-trends.json: |
+    {
+      "dashboard": {
+        "title": "Quality Trends & History",
+        "panels": [
+          {
+            "id": 1,
+            "title": "Historical Quality Scores",
+            "type": "graph",
+            "targets": [
+              {
+                "expr": "deequ_quality_score",
+                "legendFormat": "{{table_name}}"
+              }
+            ],
+            "yAxes": [
+              { "label": "Quality Score (%)", "min": 0, "max": 100 }
+            ]
+          },
+          {
+            "id": 2,
+            "title": "Quality Check Pass Rate",
+            "type": "stat",
+            "targets": [
+              {
+                "expr": "rate(deequ_check_passed_total[7d]) / rate(deequ_check_total[7d]) * 100",
+                "legendFormat": "{{table_name}}"
+              }
+            ],
+            "fieldConfig": {
+              "defaults": {
+                "unit": "percent"
+              }
+            }
+          },
+          {
+            "id": 3,
+            "title": "Check Execution Duration",
+            "type": "graph",
+            "targets": [
+              {
+                "expr": "deequ_check_duration_seconds",
+                "legendFormat": "{{check_name}} on {{table_name}}"
+              }
+            ]
+          }
+        ],
+        "time": {
+          "from": "now-30d",
+          "to": "now"
+        }
+      }
+    }
+  anomaly-detection.json: |
+    {
+      "dashboard": {
+        "title": "Anomaly Detection",
+        "panels": [
+          {
+            "id": 1,
+            "title": "Recent Anomalies",
+            "type": "table",
+            "targets": [
+              {
+                "expr": "deequ_anomaly_detected",
+                "legendFormat": "{{table_name}}.{{column_name}} - {{anomaly_type}}"
+              }
+            ]
+          },
+          {
+            "id": 2,
+            "title": "Anomaly Severity Distribution",
+            "type": "piechart",
+            "targets": [
+              {
+                "expr": "deequ_anomaly_severity",
+                "legendFormat": "{{severity}}"
+              }
+            ]
+          },
+          {
+            "id": 3,
+            "title": "Anomaly Trends",
+            "type": "graph",
+            "targets": [
+              {
+                "expr": "increase(deequ_anomaly_detected[1h])",
+                "legendFormat": "{{table_name}}"
+              }
+            ]
+          }
+        ],
+        "time": {
+          "from": "now-7d",
+          "to": "now"
+        }
+      }
+    }

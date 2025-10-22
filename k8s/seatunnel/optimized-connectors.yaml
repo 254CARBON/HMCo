@@ -1,0 +1,159 @@
+---
+# Optimized SeaTunnel Connector Configuration
+# Parallel data ingestion with batching and retry logic
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: seatunnel-optimized-config
+  namespace: data-platform
+  labels:
+    app: seatunnel
+data:
+  # Optimized HTTP connector for API data sources
+  http-connector-optimized.conf: |
+    env {
+      execution.parallelism = 8  # Increased parallelism
+      execution.checkpoint.interval = 60000
+      execution.checkpoint.data-uri = "file:///tmp/seatunnel/checkpoint"
+    }
+    
+    source {
+      Http {
+        url = "https://api.example.com/data"
+        method = "GET"
+        format = "json"
+        schema = {
+          fields {
+            id = "string"
+            value = "double"
+            timestamp = "long"
+          }
+        }
+        
+        # Performance optimization
+        batch_size = 1000  # Increased batch size
+        retry = 5
+        retry_backoff_multiplier_ms = 1000
+        retry_backoff_max_ms = 60000
+        
+        # Parallel requests
+        parallelism = 8
+        poll_interval_ms = 1000
+      }
+    }
+    
+    transform {
+      # Optional transformations
+    }
+    
+    sink {
+      Iceberg {
+        catalog_name = "iceberg_catalog"
+        catalog_type = "rest"
+        catalog_uri = "http://iceberg-rest-catalog:8181"
+        namespace = "commodity_data"
+        table = "market_data"
+        
+        # Write optimization
+        write.format.default = "parquet"
+        write.target-file-size-bytes = 536870912  # 512MB
+        write.parquet.compression-codec = "zstd"
+        
+        # Batch writes
+        write.batch-size = 10000
+        write.buffer-size = 100MB
+      }
+    }
+
+  # Kafka connector with parallel consumption
+  kafka-connector-optimized.conf: |
+    env {
+      execution.parallelism = 16  # High parallelism for streaming
+      execution.checkpoint.interval = 30000  # 30 seconds
+    }
+    
+    source {
+      Kafka {
+        bootstrap.servers = "kafka-service:9092"
+        topics = ["commodity-prices", "market-data"]
+        consumer.group = "seatunnel-consumer"
+        
+        # Performance settings
+        fetch.min.bytes = 1048576  # 1MB
+        fetch.max.wait.ms = 500
+        max.poll.records = 5000  # Increased batch size
+        
+        # Parallel partitions
+        partition.discovery.interval.ms = 60000
+        
+        schema = {
+          fields {
+            commodity = "string"
+            price = "double"
+            volume = "long"
+            timestamp = "long"
+          }
+        }
+      }
+    }
+    
+    sink {
+      Iceberg {
+        catalog_name = "iceberg_catalog"
+        catalog_type = "rest"
+        catalog_uri = "http://iceberg-rest-catalog:8181"
+        namespace = "commodity_data"
+        table = "streaming_prices"
+        
+        # High-throughput write settings
+        write.batch-size = 50000  # Large batches for streaming
+        write.buffer-size = 500MB
+        write.format.default = "parquet"
+        write.parquet.compression-codec = "zstd"
+      }
+    }
+
+  # PostgreSQL connector with incremental loading
+  postgres-connector-incremental.conf: |
+    env {
+      execution.parallelism = 4
+    }
+    
+    source {
+      Jdbc {
+        driver = "org.postgresql.Driver"
+        url = "jdbc:postgresql://postgres-shared-service:5432/datahub"
+        user = "postgres"
+        query = "SELECT * FROM metadata WHERE updated_at > ?"
+        
+        # Incremental loading
+        incremental = true
+        incremental.column = "updated_at"
+        start.incremental = "2025-01-01 00:00:00"
+        
+        # Parallel reading
+        partition_column = "id"
+        partition_num = 8  # 8 parallel reads
+        
+        # Batch size
+        fetch_size = 10000
+      }
+    }
+    
+    sink {
+      Iceberg {
+        catalog_name = "iceberg_catalog"
+        catalog_type = "rest"
+        catalog_uri = "http://iceberg-rest-catalog:8181"
+        namespace = "metadata"
+        table = "datahub_metadata"
+        
+        # Merge on duplicate keys
+        write.mode = "upsert"
+        write.upsert.keys = ["id"]
+        write.batch-size = 10000
+      }
+    }
+
+

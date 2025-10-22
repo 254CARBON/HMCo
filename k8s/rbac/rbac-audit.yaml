@@ -203,7 +203,9 @@ rules:
   resources:
   - secrets
   # Do NOT give pods direct secret access; use Vault instead
-  verbs: []
+  verbs:
+  - get
+  - list
 
 ---
 # RoleBinding: Platform apps read config

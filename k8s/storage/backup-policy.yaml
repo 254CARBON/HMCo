@@ -217,6 +217,7 @@ metadata:
   name: verify-backups
   namespace: data-platform
 spec:
+  ttlSecondsAfterFinished: 600
   template:
     spec:
       serviceAccountName: backup-admin

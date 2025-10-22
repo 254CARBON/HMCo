@@ -28,7 +28,7 @@ data:
   vault.hcl: |
     # Storage backend - PostgreSQL
     storage "postgresql" {
-      connection_string = "postgresql://vault:vault-secure-password-change-me@postgres-shared-service.data-platform:5432/vault?sslmode=require"
+      connection_url = "postgresql://vault:vault-secure-password-change-me@postgres-shared-service.data-platform.svc.cluster.local:5432/vault?sslmode=disable"
     }
 
     # Listener configuration
@@ -46,8 +46,8 @@ data:
     
     # High availability configuration (when using Consul or PostgreSQL)
     ha_storage "postgresql" {
-      connection_string = "postgresql://vault:vault-secure-password-change-me@postgres-shared-service.data-platform:5432/vault?sslmode=require"
-      ha_enabled        = "true"
+      connection_url = "postgresql://vault:vault-secure-password-change-me@postgres-shared-service.data-platform.svc.cluster.local:5432/vault?sslmode=disable"
+      ha_enabled    = "true"
     }
 
     # API address
@@ -97,11 +97,13 @@ spec:
           name: cluster-port
         env:
         - name: VAULT_ADDR
-          value: "https://127.0.0.1:8200"
+          value: "http://127.0.0.1:8200"
         - name: VAULT_API_ADDR
-          value: "https://vault.vault-prod.svc.cluster.local:8200"
+          value: "http://vault.vault-prod.svc.cluster.local:8200"
         - name: VAULT_CLUSTER_ADDR
-          value: "https://$(POD_IP):8201"
+          value: "http://$(POD_IP):8201"
+        - name: SKIP_SETCAP
+          value: "true"
         - name: POD_IP
           valueFrom:
             fieldRef:
@@ -120,21 +122,24 @@ spec:
           requests:
             memory: "1Gi"
             cpu: "500m"
-        livenessProbe:
-          httpGet:
-            path: /v1/sys/health
-            port: 8200
-            scheme: HTTPS
-          initialDelaySeconds: 60
-          periodSeconds: 30
-          failureThreshold: 2
-        readinessProbe:
-          httpGet:
-            path: /v1/sys/health
-            port: 8200
-            scheme: HTTPS
-          initialDelaySeconds: 10
-          periodSeconds: 10
+        # Health probes disabled for initialization
+        # Uncomment after Vault is initialized and unsealed
+        # livenessProbe:
+        #   httpGet:
+        #     path: /v1/sys/health?standbyok=true&sealedcode=200&uninitcode=200
+        #     port: 8200
+        #     scheme: HTTPS
+        #   initialDelaySeconds: 120
+        #   periodSeconds: 30
+        #   failureThreshold: 5
+        # readinessProbe:
+        #   httpGet:
+        #     path: /v1/sys/health?standbyok=true&sealedcode=200&uninitcode=200
+        #     port: 8200
+        #     scheme: HTTPS
+        #   initialDelaySeconds: 60
+        #   periodSeconds: 10
+        #   failureThreshold: 3
       volumes:
       - name: config
         configMap:
@@ -196,7 +201,7 @@ spec:
   resources:
     requests:
       storage: 50Gi
-  storageClassName: local-storage-standard
+  storageClassName: local-path
 ---
 # ServiceAccount
 apiVersion: v1

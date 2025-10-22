@@ -1,0 +1,145 @@
+# Kubernetes Job to automatically import DolphinScheduler workflows
+# This job runs after DolphinScheduler deployment and imports workflow definitions
+# from the dolphinscheduler-commodity-workflows ConfigMap
+
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: dolphinscheduler-workflow-import
+  namespace: data-platform
+  labels:
+    app: dolphinscheduler
+    component: workflow-import
+    automation: setup
+spec:
+  # Keep successful pods for review
+  ttlSecondsAfterFinished: 86400  # 24 hours
+  backoffLimit: 3
+  template:
+    metadata:
+      labels:
+        app: dolphinscheduler-workflow-import
+        component: workflow-import
+    spec:
+      restartPolicy: OnFailure
+      serviceAccountName: dolphinscheduler
+      
+      # Init container to wait for DolphinScheduler API
+      initContainers:
+      - name: wait-for-api
+        image: curlimages/curl:latest
+        command:
+        - sh
+        - -c
+        - |
+          echo "Waiting for DolphinScheduler API to be ready..."
+          until curl -sf http://dolphinscheduler-api-service:12345/dolphinscheduler/ui/ > /dev/null; do
+            echo "API not ready, waiting..."
+            sleep 10
+          done
+          echo "DolphinScheduler API is ready!"
+      
+      containers:
+      - name: import-workflows
+        image: python:3.11-slim
+        command:
+        - /bin/bash
+        - -c
+        - |
+          set -e
+          
+          echo "Installing dependencies..."
+          apt-get update -qq && apt-get install -y -qq curl jq > /dev/null 2>&1
+          
+          # Install kubectl
+          curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+          chmod +x kubectl
+          mv kubectl /usr/local/bin/
+          
+          echo "Running workflow import script..."
+          python3 /scripts/import-dolphinscheduler-workflows.py \
+            --dolphinscheduler-url http://dolphinscheduler-api-service:12345 \
+            --username admin \
+            --password dolphinscheduler123 \
+            --namespace data-platform \
+            --configmap dolphinscheduler-commodity-workflows \
+            --project-name "Commodity Data Platform" \
+            --skip-existing
+          
+          echo "Workflow import completed!"
+        
+        env:
+        - name: DOLPHINSCHEDULER_URL
+          value: "http://dolphinscheduler-api-service:12345"
+        
+        volumeMounts:
+        - name: import-script
+          mountPath: /scripts
+          readOnly: true
+        
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+      
+      volumes:
+      - name: import-script
+        configMap:
+          name: automation-scripts
+          items:
+          - key: import-dolphinscheduler-workflows.py
+            path: import-dolphinscheduler-workflows.py
+          defaultMode: 0755
+
+---
+# ServiceAccount with permissions to read ConfigMaps
+# (Already exists in dolphinscheduler.yaml, but including here for reference)
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: dolphinscheduler
+  namespace: data-platform
+  labels:
+    app: dolphinscheduler
+    component: workflow-import
+
+---
+kind: Role
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: dolphinscheduler-workflow-import
+  namespace: data-platform
+  labels:
+    app: dolphinscheduler
+    component: workflow-import
+rules:
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    verbs: ["get", "list"]
+  - apiGroups: [""]
+    resources: ["pods", "pods/log"]
+    verbs: ["get", "list"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: dolphinscheduler-workflow-import
+  namespace: data-platform
+  labels:
+    app: dolphinscheduler
+    component: workflow-import
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: dolphinscheduler-workflow-import
+subjects:
+  - kind: ServiceAccount
+    name: dolphinscheduler
+    namespace: data-platform
+
+

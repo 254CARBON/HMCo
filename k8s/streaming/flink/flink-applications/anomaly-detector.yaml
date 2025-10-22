@@ -1,0 +1,127 @@
+# Flink Application: Anomaly Detector
+# Detects unusual price movements and generates alerts
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: flink-anomaly-detector-config
+  namespace: data-platform
+  labels:
+    app: flink
+    flink-app: anomaly-detector
+data:
+  anomaly-detector.sql: |
+    -- Flink SQL for Anomaly Detection
+    
+    -- Source: Real-time commodity prices
+    CREATE TABLE commodity_prices_source (
+      price_id BIGINT,
+      commodity_code STRING,
+      commodity_name STRING,
+      price DECIMAL(18, 4),
+      currency STRING,
+      unit STRING,
+      exchange STRING,
+      price_timestamp TIMESTAMP(3),
+      WATERMARK FOR price_timestamp AS price_timestamp - INTERVAL '10' SECOND
+    ) WITH (
+      'connector' = 'kafka',
+      'topic' = 'commodity-prices-enriched',
+      'properties.bootstrap.servers' = 'kafka-service:9092',
+      'properties.group.id' = 'flink-anomaly-detector',
+      'format' = 'avro-confluent',
+      'avro-confluent.url' = 'http://schema-registry-service:8081',
+      'scan.startup.mode' = 'latest-offset'
+    );
+    
+    -- Sink: Market alerts to Kafka
+    CREATE TABLE market_alerts_sink (
+      alert_id BIGINT,
+      commodity_code STRING,
+      alert_type STRING,
+      alert_severity STRING,
+      alert_message STRING,
+      price_change_pct DECIMAL(10, 2),
+      current_price DECIMAL(18, 4),
+      previous_price DECIMAL(18, 4),
+      alert_timestamp TIMESTAMP(3)
+    ) WITH (
+      'connector' = 'kafka',
+      'topic' = 'market-alerts',
+      'properties.bootstrap.servers' = 'kafka-service:9092',
+      'format' = 'json'
+    );
+    
+    -- Detect rapid price changes (>5% in 1 minute)
+    INSERT INTO market_alerts_sink
+    SELECT
+      CAST(UNIX_TIMESTAMP() AS BIGINT) AS alert_id,
+      commodity_code,
+      'RAPID_PRICE_CHANGE' AS alert_type,
+      CASE
+        WHEN ABS(price_change_pct) > 10 THEN 'CRITICAL'
+        WHEN ABS(price_change_pct) > 5 THEN 'HIGH'
+        ELSE 'MEDIUM'
+      END AS alert_severity,
+      CONCAT('Price changed by ', CAST(price_change_pct AS STRING), '% in 1 minute') AS alert_message,
+      price_change_pct,
+      current_price,
+      previous_price,
+      current_timestamp AS alert_timestamp
+    FROM (
+      SELECT
+        commodity_code,
+        price AS current_price,
+        LAG(price) OVER (PARTITION BY commodity_code ORDER BY price_timestamp) AS previous_price,
+        price_timestamp AS current_timestamp,
+        ((price - LAG(price) OVER (PARTITION BY commodity_code ORDER BY price_timestamp)) / 
+         LAG(price) OVER (PARTITION BY commodity_code ORDER BY price_timestamp)) * 100 AS price_change_pct
+      FROM commodity_prices_source
+    )
+    WHERE ABS(price_change_pct) > 5;
+---
+apiVersion: flink.apache.org/v1beta1
+kind: FlinkDeployment
+metadata:
+  name: anomaly-detector
+  namespace: data-platform
+  labels:
+    app: flink
+    flink-app: anomaly-detector
+spec:
+  image: flink:1.18
+  flinkVersion: v1_18
+  serviceAccount: flink
+  flinkConfiguration:
+    taskmanager.numberOfTaskSlots: "2"
+    state.backend: rocksdb
+    state.backend.incremental: "true"
+    state.checkpoints.dir: s3://flink-checkpoints/anomaly-detector
+    state.savepoints.dir: s3://flink-savepoints/anomaly-detector
+    execution.checkpointing.interval: "30000"
+    execution.checkpointing.mode: EXACTLY_ONCE
+    restart-strategy: fixed-delay
+    restart-strategy.fixed-delay.attempts: "3"
+    restart-strategy.fixed-delay.delay: "30s"
+    s3.endpoint: http://minio-service:9000
+    s3.access-key: minioadmin
+    s3.secret-key: minioadmin123
+    s3.path.style.access: "true"
+  jobManager:
+    resource:
+      memory: "2048m"
+      cpu: 1
+    replicas: 2
+  taskManager:
+    resource:
+      memory: "2048m"
+      cpu: 1
+    replicas: 2
+  job:
+    jarURI: local:///opt/flink/opt/flink-sql-client-1.18.0.jar
+    args: ["-f", "/opt/flink/usrlib/anomaly-detector.sql"]
+    parallelism: 2
+    upgradeMode: savepoint
+    state: running
+
+

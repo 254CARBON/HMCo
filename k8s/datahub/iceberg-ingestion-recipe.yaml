@@ -99,6 +99,7 @@ spec:
       backoffLimit: 3
       completions: 1
       parallelism: 1
+      ttlSecondsAfterFinished: 600
       
       template:
         spec:
@@ -166,6 +167,7 @@ spec:
   backoffLimit: 1
   completions: 1
   parallelism: 1
+  ttlSecondsAfterFinished: 600
   
   template:
     spec:
@@ -221,31 +223,3 @@ metadata:
   labels:
     app: datahub
     component: ingestion
----
-# Role for ingestion (optional)
-apiVersion: rbac.authorization.k8s.io/v1
-kind: Role
-metadata:
-  name: datahub-ingestion
-  namespace: data-platform
-spec:
-  rules:
-  - apiGroups: [""]
-    resources: ["pods", "pods/log"]
-    verbs: ["get", "list"]
----
-# RoleBinding for ingestion (optional)
-apiVersion: rbac.authorization.k8s.io/v1
-kind: RoleBinding
-metadata:
-  name: datahub-ingestion
-  namespace: data-platform
-spec:
-  roleRef:
-    apiGroup: rbac.authorization.k8s.io
-    kind: Role
-    name: datahub-ingestion
-  subjects:
-  - kind: ServiceAccount
-    name: datahub-ingestion
-    namespace: data-platform

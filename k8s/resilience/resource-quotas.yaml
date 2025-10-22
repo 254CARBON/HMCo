@@ -10,20 +10,15 @@ metadata:
   namespace: data-platform
 spec:
   hard:
-    requests.cpu: "32"
-    requests.memory: "64Gi"
-    limits.cpu: "48"
-    limits.memory: "96Gi"
-    persistentvolumeclaims: "50"
-    pods: "200"
-    services: "50"
-    services.loadbalancers: "2"
-    services.nodeports: "5"
-  scopeSelector:
-    matchExpressions:
-    - operator: In
-      scopeName: PriorityClass
-      values: ["high", "medium", "low"]
+    requests.cpu: "80"
+    requests.memory: "256Gi"
+    limits.cpu: "160"
+    limits.memory: "512Gi"
+    persistentvolumeclaims: "100"
+    pods: "400"
+    services: "100"
+    services.loadbalancers: "5"
+    services.nodeports: "10"
 
 ---
 # Data Platform Resource Quota - PVC specific
@@ -35,7 +30,6 @@ metadata:
 spec:
   hard:
     requests.storage: "1Ti"
-    snapshots.storage.k8s.io: "100"
 
 ---
 # Monitoring Resource Quota
@@ -101,37 +95,8 @@ spec:
     pods: "10"
 
 ---
-# Network policies do not count toward quotas but we can enforce other limits
-# Default resource limits per container (enforced via LimitRange)
-apiVersion: v1
-kind: LimitRange
-metadata:
-  name: data-platform-limits
-  namespace: data-platform
-spec:
-  limits:
-  # Pod defaults
-  - type: Pod
-    min:
-      cpu: "10m"
-      memory: "32Mi"
-    max:
-      cpu: "4"
-      memory: "8Gi"
-  # Container defaults
-  - type: Container
-    default:
-      cpu: "250m"
-      memory: "256Mi"
-    defaultRequest:
-      cpu: "100m"
-      memory: "128Mi"
-    min:
-      cpu: "10m"
-      memory: "32Mi"
-    max:
-      cpu: "4"
-      memory: "8Gi"
+# LimitRange removed to allow GPU-intensive workloads (RAPIDS, Trino, etc.)
+# ResourceQuota still enforces namespace-level limits
 
 ---
 # Monitoring namespace LimitRange

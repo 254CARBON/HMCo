@@ -238,7 +238,7 @@ spec:
       imagePullSecrets: []
       containers:
       - name: nginx-ingress-controller
-        image: k8s.gcr.io/ingress-nginx/controller:v1.8.1
+        image: registry.k8s.io/ingress-nginx/controller:v1.8.1
         imagePullPolicy: IfNotPresent
         args:
           - /nginx-ingress-controller

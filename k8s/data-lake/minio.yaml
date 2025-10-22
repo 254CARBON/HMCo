@@ -78,7 +78,7 @@ spec:
       resources:
         requests:
           storage: 50Gi
-      storageClassName: local-storage-standard
+      storageClassName: local-path
 ---
 # MinIO Headless Service for internal communication
 apiVersion: v1

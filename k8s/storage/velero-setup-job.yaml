@@ -1,0 +1,76 @@
+# Job to create MinIO bucket and secret for Velero
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: velero-minio-setup
+  namespace: velero
+  labels:
+    app: velero-setup
+spec:
+  ttlSecondsAfterFinished: 600
+  backoffLimit: 3
+  template:
+    metadata:
+      labels:
+        app: velero-setup
+    spec:
+      restartPolicy: OnFailure
+      dnsPolicy: ClusterFirst
+      dnsConfig:
+        options:
+        - name: ndots
+          value: "1"
+      containers:
+      - name: minio-setup
+        image: minio/mc:latest
+        command:
+        - /bin/sh
+        - -c
+        - |
+          set -e
+          echo "Setting up MinIO for Velero backups..."
+          
+          # Configure mc
+          mc alias set myminio http://minio-service.data-platform.svc.cluster.local:9000 $AWS_ACCESS_KEY_ID $AWS_SECRET_ACCESS_KEY
+          
+          # Create bucket if it doesn't exist
+          if ! mc ls myminio/velero-backups >/dev/null 2>&1; then
+            echo "Creating bucket: velero-backups"
+            mc mb myminio/velero-backups
+            mc anonymous set none myminio/velero-backups
+            echo "Bucket created successfully"
+          else
+            echo "Bucket already exists: velero-backups"
+          fi
+          
+          # Enable versioning
+          mc version enable myminio/velero-backups || true
+          
+          echo "MinIO setup complete!"
+          mc ls myminio/
+        env:
+        - name: AWS_ACCESS_KEY_ID
+          valueFrom:
+            secretKeyRef:
+              name: minio-credentials
+              key: access-key
+        - name: AWS_SECRET_ACCESS_KEY
+          valueFrom:
+            secretKeyRef:
+              name: minio-credentials
+              key: secret-key
+---
+# Secret with MinIO credentials (copied from data-platform namespace)
+apiVersion: v1
+kind: Secret
+metadata:
+  name: minio-credentials
+  namespace: velero
+type: Opaque
+data:
+  # These will be populated from data-platform/minio-secret
+  # Run: kubectl get secret minio-secret -n data-platform -o jsonpath='{.data.access-key}' | kubectl create secret generic minio-credentials -n velero --from-literal=access-key=$(base64 -d) --from-literal=secret-key=$(kubectl get secret minio-secret -n data-platform -o jsonpath='{.data.secret-key}' | base64 -d) --dry-run=client -o yaml | kubectl apply -f -
+  access-key: ""  # Will be set via script
+  secret-key: ""  # Will be set via script
+
+

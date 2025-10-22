@@ -1,0 +1,200 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: feast-feature-repo
+  namespace: data-platform
+data:
+  feature_store.yaml: |
+    project: 254carbon
+    registry:
+      registry_type: sql
+      path: postgresql://postgres:postgres@postgres-shared-service:5432/feast
+    provider: local
+    online_store:
+      type: redis
+      connection_string: redis-service:6379
+    offline_store:
+      type: file
+    entity_key_serialization_version: 2
+  
+  commodity_features.py: |
+    from datetime import timedelta
+    from feast import Entity, FeatureView, Field, FileSource
+    from feast.types import Float64, String, Int64
+    
+    # Define entity
+    commodity = Entity(
+        name="commodity_code",
+        join_keys=["commodity_code"],
+        description="Commodity identifier (e.g., crude_oil_wti, natural_gas)"
+    )
+    
+    # Define data source (will be populated from Iceberg/Doris)
+    commodity_source = FileSource(
+        path="data/commodity_features.parquet",
+        timestamp_field="event_timestamp",
+    )
+    
+    # Define feature view
+    commodity_price_features = FeatureView(
+        name="commodity_price_features",
+        entities=[commodity],
+        ttl=timedelta(hours=1),
+        schema=[
+            Field(name="current_price", dtype=Float64),
+            Field(name="price_change_1h", dtype=Float64),
+            Field(name="price_change_24h", dtype=Float64),
+            Field(name="volume_24h", dtype=Float64),
+            Field(name="volatility_7d", dtype=Float64),
+            Field(name="ma_7d", dtype=Float64),
+            Field(name="ma_30d", dtype=Float64),
+            Field(name="rsi_14d", dtype=Float64),
+        ],
+        online=True,
+        source=commodity_source,
+        tags={"team": "data-platform", "type": "price"},
+    )
+    
+    economic_features = FeatureView(
+        name="economic_features",
+        entities=[commodity],
+        ttl=timedelta(days=1),
+        schema=[
+            Field(name="gdp_growth", dtype=Float64),
+            Field(name="inflation_rate", dtype=Float64),
+            Field(name="interest_rate", dtype=Float64),
+            Field(name="unemployment_rate", dtype=Float64),
+            Field(name="industrial_production", dtype=Float64),
+        ],
+        online=True,
+        source=commodity_source,
+        tags={"team": "data-platform", "type": "economic"},
+    )
+    
+    weather_features = FeatureView(
+        name="weather_features",
+        entities=[commodity],
+        ttl=timedelta(hours=6),
+        schema=[
+            Field(name="temperature_avg", dtype=Float64),
+            Field(name="precipitation", dtype=Float64),
+            Field(name="wind_speed", dtype=Float64),
+            Field(name="storm_index", dtype=Float64),
+        ],
+        online=True,
+        source=commodity_source,
+        tags={"team": "data-platform", "type": "weather"},
+    )
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: feast-server
+  namespace: data-platform
+  labels:
+    app: feast-server
+    component: feature-store
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: feast-server
+  template:
+    metadata:
+      labels:
+        app: feast-server
+        component: feature-store
+    spec:
+      containers:
+      - name: feast-server
+        image: feastdev/feature-server:0.35.0
+        ports:
+        - containerPort: 6566
+          name: grpc
+          protocol: TCP
+        - containerPort: 8080
+          name: http
+          protocol: TCP
+        env:
+        - name: FEAST_FEATURE_STORE_PATH
+          value: /feast/feature_repo
+        - name: POSTGRES_HOST
+          value: postgres-shared-service
+        - name: POSTGRES_PORT
+          value: "5432"
+        - name: POSTGRES_DB
+          value: feast
+        - name: POSTGRES_USER
+          value: postgres
+        - name: POSTGRES_PASSWORD
+          value: postgres
+        - name: REDIS_HOST
+          value: redis-service
+        - name: REDIS_PORT
+          value: "6379"
+        resources:
+          requests:
+            cpu: 500m
+            memory: 1Gi
+          limits:
+            cpu: 2
+            memory: 4Gi
+        volumeMounts:
+        - name: feature-repo
+          mountPath: /feast/feature_repo
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 10
+          periodSeconds: 5
+      volumes:
+      - name: feature-repo
+        configMap:
+          name: feast-feature-repo
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: feast-server
+  namespace: data-platform
+  labels:
+    app: feast-server
+spec:
+  type: ClusterIP
+  selector:
+    app: feast-server
+  ports:
+  - name: grpc
+    port: 6566
+    targetPort: 6566
+    protocol: TCP
+  - name: http
+    port: 8080
+    targetPort: 8080
+    protocol: TCP
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: feast-server
+  namespace: data-platform
+  labels:
+    app: feast-server
+spec:
+  selector:
+    matchLabels:
+      app: feast-server
+  endpoints:
+  - port: http
+    path: /metrics
+    interval: 30s
+
+
+

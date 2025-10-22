@@ -1,0 +1,150 @@
+# Istio Service Mesh Dashboard for Grafana
+# Import into Grafana as ConfigMap
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboard-service-mesh
+  namespace: monitoring
+  labels:
+    grafana_dashboard: "1"
+data:
+  service-mesh-dashboard.json: |
+    {
+      "dashboard": {
+        "title": "254Carbon Service Mesh Overview",
+        "tags": ["istio", "service-mesh", "254carbon"],
+        "timezone": "browser",
+        "refresh": "30s",
+        "time": {
+          "from": "now-1h",
+          "to": "now"
+        },
+        "panels": [
+          {
+            "id": 1,
+            "title": "Service Request Rate",
+            "type": "graph",
+            "gridPos": {"x": 0, "y": 0, "w": 12, "h": 8},
+            "targets": [
+              {
+                "expr": "sum(rate(istio_requests_total{reporter=\"source\",destination_workload_namespace=\"data-platform\"}[5m])) by (destination_workload)",
+                "legendFormat": "{{destination_workload}}"
+              }
+            ],
+            "yaxes": [
+              {"format": "reqps", "label": "Requests/sec"},
+              {"format": "short"}
+            ]
+          },
+          {
+            "id": 2,
+            "title": "Service Error Rate",
+            "type": "graph",
+            "gridPos": {"x": 12, "y": 0, "w": 12, "h": 8},
+            "targets": [
+              {
+                "expr": "sum(rate(istio_requests_total{reporter=\"source\",destination_workload_namespace=\"data-platform\",response_code=~\"5.*\"}[5m])) by (destination_workload) / sum(rate(istio_requests_total{reporter=\"source\",destination_workload_namespace=\"data-platform\"}[5m])) by (destination_workload)",
+                "legendFormat": "{{destination_workload}}"
+              }
+            ],
+            "yaxes": [
+              {"format": "percentunit", "label": "Error Rate"},
+              {"format": "short"}
+            ],
+            "alert": {
+              "conditions": [
+                {
+                  "evaluator": {"params": [0.05], "type": "gt"},
+                  "query": {"params": ["A", "5m", "now"]},
+                  "type": "query"
+                }
+              ],
+              "name": "High Service Error Rate"
+            }
+          },
+          {
+            "id": 3,
+            "title": "Service Latency (P99)",
+            "type": "graph",
+            "gridPos": {"x": 0, "y": 8, "w": 12, "h": 8},
+            "targets": [
+              {
+                "expr": "histogram_quantile(0.99, sum(rate(istio_request_duration_milliseconds_bucket{reporter=\"source\",destination_workload_namespace=\"data-platform\"}[5m])) by (destination_workload, le))",
+                "legendFormat": "{{destination_workload}}"
+              }
+            ],
+            "yaxes": [
+              {"format": "ms", "label": "Latency"},
+              {"format": "short"}
+            ]
+          },
+          {
+            "id": 4,
+            "title": "mTLS Status",
+            "type": "stat",
+            "gridPos": {"x": 12, "y": 8, "w": 6, "h": 4},
+            "targets": [
+              {
+                "expr": "count(istio_tcp_connections_opened_total{reporter=\"source\",security_policy=\"mutual_tls\"})"
+              }
+            ],
+            "options": {
+              "textMode": "value",
+              "colorMode": "value"
+            }
+          },
+          {
+            "id": 5,
+            "title": "Circuit Breaker Status",
+            "type": "table",
+            "gridPos": {"x": 0, "y": 16, "w": 12, "h": 8},
+            "targets": [
+              {
+                "expr": "envoy_cluster_outlier_detection_ejections_active",
+                "format": "table",
+                "instant": true
+              }
+            ]
+          },
+          {
+            "id": 6,
+            "title": "Service Dependencies",
+            "type": "nodeGraph",
+            "gridPos": {"x": 12, "y": 16, "w": 12, "h": 8},
+            "targets": [
+              {
+                "expr": "sum(rate(istio_requests_total{reporter=\"source\"}[5m])) by (source_workload, destination_workload)"
+              }
+            ]
+          },
+          {
+            "id": 7,
+            "title": "Connection Pool Status",
+            "type": "graph",
+            "gridPos": {"x": 0, "y": 24, "w": 12, "h": 8},
+            "targets": [
+              {
+                "expr": "envoy_cluster_upstream_cx_active",
+                "legendFormat": "{{cluster_name}}"
+              }
+            ]
+          },
+          {
+            "id": 8,
+            "title": "Retry Rate",
+            "type": "graph",
+            "gridPos": {"x": 12, "y": 24, "w": 12, "h": 8},
+            "targets": [
+              {
+                "expr": "sum(rate(envoy_cluster_upstream_rq_retry[5m])) by (cluster_name)",
+                "legendFormat": "{{cluster_name}}"
+              }
+            ]
+          }
+        ]
+      }
+    }
+
+
+

@@ -1,147 +1,143 @@
-# Spark Operator deployment for Kubernetes-native Spark applications
+# Spark Job Runner deployment for running Spark applications
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: spark-operator
+  name: spark-job-runner
   namespace: data-platform
   labels:
-    app: spark-operator
+    app: spark-job-runner
     component: compute
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: spark-operator
+      app: spark-job-runner
   template:
     metadata:
       labels:
-        app: spark-operator
+        app: spark-job-runner
         component: compute
     spec:
-      imagePullSecrets: []
-      serviceAccountName: spark-operator
+      serviceAccountName: spark-runner
       containers:
-      - name: spark-operator
-        image: ghcr.io/googlecloudplatform/spark-on-k8s-operator:v1beta2-1.3.8-3.1.1
+      - name: spark-runner
+        image: apache/spark:3.5.0
+        command: ["/bin/bash"]
+        args: ["-c", "while true; do sleep 30; done"]
         ports:
         - containerPort: 8080
-          name: metrics
+          name: spark-ui
         env:
-        - name: WATCH_NAMESPACE
+        - name: SPARK_MODE
+          value: "master"
+        - name: SPARK_RPC_AUTHENTICATION_ENABLED
+          value: "no"
+        - name: SPARK_RPC_ENCRYPTION_ENABLED
+          value: "no"
+        - name: SPARK_LOCAL_STORAGE_ENCRYPTION_ENABLED
+          value: "no"
+        - name: SPARK_SSL_ENABLED
+          value: "no"
+        - name: AWS_ACCESS_KEY_ID
           valueFrom:
-            fieldRef:
-              fieldPath: metadata.namespace
-        - name: POD_NAME
+            secretKeyRef:
+              name: minio-secret
+              key: access-key
+        - name: AWS_SECRET_ACCESS_KEY
           valueFrom:
-            fieldRef:
-              fieldPath: metadata.name
-        - name: OPERATOR_NAME
-          value: "spark-operator"
-        - name: SPARK_IMAGE
-          value: "apache/spark:3.5.0"
-        - name: SPARK_IMAGE_PULL_POLICY
-          value: "IfNotPresent"
-        - name: SPARK_JOB_NAMESPACE
-          value: "data-platform"
-        - name: ENABLE_METRICS
-          value: "true"
-        - name: METRICS_PORT
-          value: "8080"
-        - name: METRICS_ENDPOINT
-          value: "/metrics"
-        - name: METRICS_PREFIX
-          value: "spark_operator"
+            secretKeyRef:
+              name: minio-secret
+              key: secret-key
+        - name: S3_ENDPOINT
+          value: "http://minio-service:9000"
+        volumeMounts:
+        - name: spark-logs
+          mountPath: /opt/spark/work
+        - name: spark-conf
+          mountPath: /opt/spark/conf
         resources:
           limits:
+            memory: "2Gi"
+            cpu: "1000m"
+          requests:
             memory: "1Gi"
             cpu: "500m"
-          requests:
-            memory: "512Mi"
-            cpu: "250m"
-        livenessProbe:
-          httpGet:
-            path: /healthz
-            port: 8080
-            scheme: HTTP
-          initialDelaySeconds: 30
-          periodSeconds: 30
-        readinessProbe:
-          httpGet:
-            path: /readyz
-            port: 8080
-            scheme: HTTP
-          initialDelaySeconds: 10
-          periodSeconds: 10
+      volumes:
+      - name: spark-logs
+        emptyDir:
+          sizeLimit: 10Gi
+      - name: spark-conf
+        configMap:
+          name: spark-defaults
 ---
-# Spark Operator Service Account
+# Spark Job Runner Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: spark-job-runner
+  namespace: data-platform
+  labels:
+    app: spark-job-runner
+spec:
+  ports:
+  - port: 8080
+    targetPort: 8080
+    name: spark-ui
+  selector:
+    app: spark-job-runner
+  type: ClusterIP
+---
+# Spark Job Runner Service Account
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: spark-operator
+  name: spark-runner
   namespace: data-platform
   labels:
-    app: spark-operator
+    app: spark-runner
 ---
-# ClusterRole for Spark Operator
+# Role for Spark Runner
 apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
+kind: Role
 metadata:
-  name: spark-operator
+  name: spark-runner
+  namespace: data-platform
   labels:
-    app: spark-operator
+    app: spark-runner
 rules:
 - apiGroups:
   - ""
   resources:
   - pods
-  - services
-  - endpoints
-  - events
+  - pods/log
+  - pods/exec
+  verbs:
+  - get
+  - list
+  - create
+  - delete
+- apiGroups:
+  - ""
+  resources:
   - configmaps
   - secrets
   verbs:
-  - "*"
-- apiGroups:
-  - apps
-  resources:
-  - deployments
-  - replicasets
-  verbs:
-  - "*"
-- apiGroups:
-  - sparkoperator.k8s.io
-  resources:
-  - sparkapplications
-  - sparkapplications/status
-  - scheduledsparkapplications
-  - scheduledsparkapplications/status
-  verbs:
-  - "*"
-- apiGroups:
-  - networking.k8s.io
-  resources:
-  - networkpolicies
-  verbs:
-  - "*"
-- apiGroups:
-  - policy
-  resources:
-  - poddisruptionbudgets
-  verbs:
-  - "*"
+  - get
+  - list
 ---
-# ClusterRoleBinding for Spark Operator
+# RoleBinding for Spark Runner
 apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
+kind: RoleBinding
 metadata:
-  name: spark-operator
+  name: spark-runner
+  namespace: data-platform
   labels:
-    app: spark-operator
+    app: spark-runner
 roleRef:
   apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: spark-operator
+  kind: Role
+  name: spark-runner
 subjects:
 - kind: ServiceAccount
-  name: spark-operator
+  name: spark-runner
   namespace: data-platform

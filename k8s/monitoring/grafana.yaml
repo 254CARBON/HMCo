@@ -169,6 +169,19 @@ data:
     [auth.anonymous]
     enabled = false
 
+    [auth]
+    disable_login_form = true
+
+    [auth.basic]
+    enabled = false
+
+    [auth.proxy]
+    enabled = true
+    header_name = X-WEBAUTH-USER
+    auto_sign_up = true
+    # Map additional headers if present from ingress
+    headers = Email:X-WEBAUTH-EMAIL; Name:X-WEBAUTH-USER; Login:X-WEBAUTH-USER; Groups:X-WEBAUTH-GROUPS
+
     [smtp]
     enabled = false
 

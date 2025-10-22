@@ -1,0 +1,217 @@
+# PrometheusRules for Deequ Quality Check Failures
+# This file defines alerting rules for data quality issues
+# and integrates with AlertManager for notification routing
+
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: deequ-quality-alerts
+  namespace: data-platform
+  labels:
+    app: deequ
+    component: alerting
+spec:
+  groups:
+  - name: deequ.quality.alerts
+    interval: 30s
+    rules:
+    # Alert: Data Quality Score Low
+    - alert: DataQualityScoreLow
+      expr: |
+        deequ_quality_score < 80
+      for: 5m
+      labels:
+        severity: warning
+        component: deequ
+        runbook_url: "https://github.com/254carbon/HMCo/blob/main/k8s/compute/deequ/README.md#troubleshooting"
+      annotations:
+        summary: "Data Quality Score Low"
+        description: "Data quality score for {{ $labels.table_name }} is {{ $value }}, below acceptable threshold of 80."
+        dashboard_url: "https://grafana.254carbon.com/d/data-quality-overview"
+
+    # Alert: Data Quality Score Critical
+    - alert: DataQualityScoreCritical
+      expr: |
+        deequ_quality_score < 70
+      for: 2m
+      labels:
+        severity: critical
+        component: deequ
+        runbook_url: "https://github.com/254carbon/HMCo/blob/main/k8s/compute/deequ/README.md#troubleshooting"
+      annotations:
+        summary: "Data Quality Score Critical"
+        description: "Data quality score for {{ $labels.table_name }} is {{ $value }}, below critical threshold of 70."
+        dashboard_url: "https://grafana.254carbon.com/d/data-quality-overview"
+
+    # Alert: Quality Check Failed
+    - alert: QualityCheckFailed
+      expr: |
+        increase(deequ_check_failures_total[5m]) > 0
+      for: 1m
+      labels:
+        severity: warning
+        component: deequ
+        runbook_url: "https://github.com/254carbon/HMCo/blob/main/k8s/compute/deequ/README.md#troubleshooting"
+      annotations:
+        summary: "Deequ Quality Check Failed"
+        description: "Quality check {{ $labels.check_name }} for table {{ $labels.table_name }} has failed."
+        dashboard_url: "https://grafana.254carbon.com/d/data-quality-overview"
+
+    # Alert: Data Anomaly Detected
+    - alert: DataAnomalyDetected
+      expr: |
+        deequ_anomaly_detected > 0
+      for: 2m
+      labels:
+        severity: warning
+        component: deequ
+        runbook_url: "https://github.com/254carbon/HMCo/blob/main/k8s/compute/deequ/README.md#anomaly-detection"
+      annotations:
+        summary: "Data Anomaly Detected"
+        description: "Anomaly detected in {{ $labels.table_name }}.{{ $labels.column_name }} - {{ $labels.anomaly_type }}"
+        dashboard_url: "https://grafana.254carbon.com/d/anomaly-detection"
+
+    # Alert: Multiple Quality Checks Failing
+    - alert: MultipleQualityChecksFailing
+      expr: |
+        increase(deequ_check_failures_total[15m]) > 5
+      for: 5m
+      labels:
+        severity: critical
+        component: deequ
+      annotations:
+        summary: "Multiple Quality Checks Failing"
+        description: "More than 5 quality checks have failed in the last 15 minutes. This indicates a systemic data quality issue."
+        dashboard_url: "https://grafana.254carbon.com/d/data-quality-overview"
+
+    # Alert: No Quality Checks Running
+    - alert: NoQualityChecksRunning
+      expr: |
+        absent(deequ_check_total) or increase(deequ_check_total[1h]) == 0
+      for: 2h
+      labels:
+        severity: warning
+        component: deequ
+      annotations:
+        summary: "No Quality Checks Running"
+        description: "No quality checks have run in the last 2 hours. Check if CronJobs are enabled and healthy."
+        runbook_url: "https://github.com/254carbon/HMCo/blob/main/k8s/compute/deequ/README.md#monitoring--troubleshooting"
+---
+# AlertManager Configuration for Deequ Alerts
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: deequ-alertmanager-config
+  namespace: data-platform
+  labels:
+    app: alertmanager
+    component: deequ
+data:
+  alertmanager.yml: |
+    global:
+      smtp_smarthost: 'localhost:25'
+      smtp_from: 'alerts@254carbon.com'
+
+    route:
+      group_by: ['alertname', 'severity']
+      group_wait: 10s
+      group_interval: 10s
+      repeat_interval: 1h
+      receiver: 'default-receiver'
+      routes:
+      - match:
+          severity: critical
+        receiver: 'critical-receiver'
+        continue: true
+      - match:
+          component: deequ
+        receiver: 'data-quality-team'
+        continue: true
+
+    receivers:
+    - name: 'default-receiver'
+      email_configs:
+      - to: 'admin@254carbon.com'
+        subject: 'Alert: {{ .GroupLabels.alertname }}'
+        body: |
+          {{ range .Alerts }}
+          Alert: {{ .Annotations.summary }}
+          Description: {{ .Annotations.description }}
+          Severity: {{ .Labels.severity }}
+          Time: {{ .StartsAt }}
+          {{ end }}
+
+    - name: 'critical-receiver'
+      email_configs:
+      - to: 'critical-alerts@254carbon.com'
+        subject: 'CRITICAL: {{ .GroupLabels.alertname }}'
+        body: |
+          {{ range .Alerts }}
+          Alert: {{ .Annotations.summary }}
+          Description: {{ .Annotations.description }}
+          Severity: {{ .Labels.severity }}
+          Time: {{ .StartsAt }}
+          Runbook: {{ .Annotations.runbook_url }}
+          {{ end }}
+
+    - name: 'data-quality-team'
+      email_configs:
+      - to: 'data-quality@254carbon.com'
+        subject: 'Data Quality Alert: {{ .GroupLabels.alertname }}'
+        body: |
+          {{ range .Alerts }}
+          Alert: {{ .Annotations.summary }}
+          Description: {{ .Annotations.description }}
+          Severity: {{ .Labels.severity }}
+          Dashboard: {{ .Annotations.dashboard_url }}
+          {{ end }}
+---
+# Kafka Producer for Quality Alerts
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: deequ-alert-producer
+  namespace: data-platform
+  labels:
+    app: deequ
+    component: alert-producer
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: deequ
+      component: alert-producer
+  template:
+    metadata:
+      labels:
+        app: deequ
+        component: alert-producer
+    spec:
+      serviceAccountName: deequ
+      containers:
+      - name: alert-producer
+        image: confluentinc/cp-kafka:7.4.0
+        command:
+        - /bin/bash
+        - -c
+        - |
+          # Kafka alert producer script
+          echo "Starting Deequ alert producer..."
+          while true; do
+            # This would be replaced by actual alert consumption logic
+            sleep 60
+          done
+        env:
+        - name: KAFKA_BROKERS
+          value: "kafka-service:9092"
+        - name: KAFKA_TOPIC
+          value: "data-quality-alerts"
+        - name: KAFKA_GROUP_ID
+          value: "deequ-alert-producer"
+        volumeMounts:
+        - name: alert-config
+          mountPath: /opt/alert-config
+      volumes:
+      - name: alert-config
+        configMap:
+          name: deequ-alertmanager-config

@@ -1,0 +1,348 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: great-expectations-config
+  namespace: data-platform
+  labels:
+    app: great-expectations
+data:
+  great_expectations.yml: |
+    config_version: 3.0
+    plugins_directory: plugins/
+    stores:
+      expectations_store:
+        class_name: ExpectationsStore
+        store_backend:
+          class_name: TupleS3StoreBackend
+          bucket: great-expectations
+          prefix: expectations/
+          endpoint_url: http://minio-service:9000
+          boto3_options:
+            aws_access_key_id: ${AWS_ACCESS_KEY_ID}
+            aws_secret_access_key: ${AWS_SECRET_ACCESS_KEY}
+      validations_store:
+        class_name: ValidationsStore
+        store_backend:
+          class_name: TupleS3StoreBackend
+          bucket: great-expectations
+          prefix: validations/
+          endpoint_url: http://minio-service:9000
+          boto3_options:
+            aws_access_key_id: ${AWS_ACCESS_KEY_ID}
+            aws_secret_access_key: ${AWS_SECRET_ACCESS_KEY}
+      evaluation_parameter_store:
+        class_name: EvaluationParameterStore
+      checkpoint_store:
+        class_name: CheckpointStore
+        store_backend:
+          class_name: TupleS3StoreBackend
+          bucket: great-expectations
+          prefix: checkpoints/
+          endpoint_url: http://minio-service:9000
+    expectations_store_name: expectations_store
+    validations_store_name: validations_store
+    evaluation_parameter_store_name: evaluation_parameter_store
+    checkpoint_store_name: checkpoint_store
+    data_docs_sites:
+      local_site:
+        class_name: SiteBuilder
+        store_backend:
+          class_name: TupleS3StoreBackend
+          bucket: great-expectations
+          prefix: data-docs/
+          endpoint_url: http://minio-service:9000
+        site_index_builder:
+          class_name: DefaultSiteIndexBuilder
+  
+  commodity_expectations.py: |
+    import great_expectations as ge
+    from great_expectations.core.batch import BatchRequest
+    from great_expectations.checkpoint import SimpleCheckpoint
+    
+    # Define expectations for commodity prices
+    def create_commodity_price_expectations():
+        context = ge.get_context()
+        
+        # Create expectation suite
+        suite = context.create_expectation_suite(
+            expectation_suite_name="commodity_prices_suite",
+            overwrite_existing=True
+        )
+        
+        # Data quality expectations
+        suite.add_expectation(
+            ge.core.ExpectationConfiguration(
+                expectation_type="expect_table_row_count_to_be_between",
+                kwargs={"min_value": 100, "max_value": 1000000}
+            )
+        )
+        
+        suite.add_expectation(
+            ge.core.ExpectationConfiguration(
+                expectation_type="expect_column_values_to_not_be_null",
+                kwargs={"column": "commodity_code"}
+            )
+        )
+        
+        suite.add_expectation(
+            ge.core.ExpectationConfiguration(
+                expectation_type="expect_column_values_to_not_be_null",
+                kwargs={"column": "price"}
+            )
+        )
+        
+        suite.add_expectation(
+            ge.core.ExpectationConfiguration(
+                expectation_type="expect_column_values_to_be_between",
+                kwargs={"column": "price", "min_value": 0, "max_value": 10000}
+            )
+        )
+        
+        suite.add_expectation(
+            ge.core.ExpectationConfiguration(
+                expectation_type="expect_column_values_to_be_in_set",
+                kwargs={"column": "currency", "value_set": ["USD", "EUR", "GBP"]}
+            )
+        )
+        
+        return suite
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: great-expectations
+  namespace: data-platform
+  labels:
+    app: great-expectations
+    component: data-quality
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: great-expectations
+  template:
+    metadata:
+      labels:
+        app: great-expectations
+        component: data-quality
+    spec:
+      containers:
+      - name: great-expectations
+        image: python:3.10-slim
+        workingDir: /app
+        command:
+        - /bin/bash
+        - -c
+        - |
+          pip install great-expectations==0.18.8 sqlalchemy psycopg2-binary trino boto3
+          
+          # Initialize Great Expectations
+          great_expectations init --no-usage-stats
+          
+          # Copy config
+          cp /config/great_expectations.yml /app/great_expectations/
+          
+          # Run API server
+          python3 -m http.server 8080
+        ports:
+        - containerPort: 8080
+          name: http
+          protocol: TCP
+        env:
+        - name: AWS_ACCESS_KEY_ID
+          valueFrom:
+            secretKeyRef:
+              name: minio-credentials
+              key: accesskey
+        - name: AWS_SECRET_ACCESS_KEY
+          valueFrom:
+            secretKeyRef:
+              name: minio-credentials
+              key: secretkey
+        - name: TRINO_HOST
+          value: "trino-coordinator.data-platform.svc.cluster.local"
+        - name: TRINO_PORT
+          value: "8080"
+        - name: TRINO_CATALOG
+          value: "iceberg_catalog"
+        - name: TRINO_SCHEMA
+          value: "commodity_data"
+        resources:
+          requests:
+            cpu: 500m
+            memory: 1Gi
+          limits:
+            cpu: 2
+            memory: 4Gi
+        volumeMounts:
+        - name: config
+          mountPath: /config
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 8080
+          initialDelaySeconds: 10
+          periodSeconds: 5
+      volumes:
+      - name: config
+        configMap:
+          name: great-expectations-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: great-expectations
+  namespace: data-platform
+  labels:
+    app: great-expectations
+spec:
+  type: ClusterIP
+  selector:
+    app: great-expectations
+  ports:
+  - name: http
+    port: 8080
+    targetPort: 8080
+    protocol: TCP
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: ge-validate-commodity-data
+  namespace: data-platform
+  labels:
+    app: great-expectations
+    component: validation
+spec:
+  schedule: "0 */6 * * *"  # Every 6 hours
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 10
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      template:
+        metadata:
+          labels:
+            app: great-expectations
+            component: validation-job
+        spec:
+          restartPolicy: OnFailure
+          containers:
+          - name: validator
+            image: python:3.10-slim
+            command:
+            - /bin/bash
+            - -c
+            - |
+              pip install great-expectations==0.18.8 sqlalchemy psycopg2-binary trino boto3
+              
+              cat > /app/run_validation.py <<'EOF'
+              import great_expectations as ge
+              from great_expectations.core.batch import BatchRequest
+              
+              context = ge.get_context()
+              
+              # Create datasource for Trino
+              datasource_config = {
+                  "name": "trino_datasource",
+                  "class_name": "Datasource",
+                  "execution_engine": {
+                      "class_name": "SqlAlchemyExecutionEngine",
+                      "connection_string": "trino://trino-coordinator:8080/iceberg_catalog/commodity_data"
+                  },
+                  "data_connectors": {
+                      "default_inferred_data_connector": {
+                          "class_name": "InferredAssetSqlDataConnector",
+                          "include_schema_name": True
+                      }
+                  }
+              }
+              
+              context.add_datasource(**datasource_config)
+              
+              # Create checkpoint
+              checkpoint_config = {
+                  "name": "commodity_checkpoint",
+                  "config_version": 1.0,
+                  "class_name": "SimpleCheckpoint",
+                  "validations": [
+                      {
+                          "batch_request": {
+                              "datasource_name": "trino_datasource",
+                              "data_connector_name": "default_inferred_data_connector",
+                              "data_asset_name": "commodity_data.energy_prices",
+                          },
+                          "expectation_suite_name": "commodity_prices_suite"
+                      }
+                  ]
+              }
+              
+              # Run validation
+              results = context.run_checkpoint(
+                  checkpoint_name="commodity_checkpoint",
+                  checkpoint_config=checkpoint_config
+              )
+              
+              # Send to Kafka if validation fails
+              if not results["success"]:
+                  from kafka import KafkaProducer
+                  import json
+                  
+                  producer = KafkaProducer(
+                      bootstrap_servers=['kafka-service:9092'],
+                      value_serializer=lambda v: json.dumps(v).encode('utf-8')
+                  )
+                  
+                  producer.send('data-quality-alerts', {
+                      'type': 'validation_failure',
+                      'suite': 'commodity_prices_suite',
+                      'results': results
+                  })
+              
+              print(f"Validation completed. Success: {results['success']}")
+              EOF
+              
+              python3 /app/run_validation.py
+            env:
+            - name: AWS_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: minio-credentials
+                  key: accesskey
+            - name: AWS_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: minio-credentials
+                  key: secretkey
+            resources:
+              requests:
+                cpu: 1
+                memory: 2Gi
+              limits:
+                cpu: 2
+                memory: 4Gi
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: great-expectations
+  namespace: data-platform
+  labels:
+    app: great-expectations
+spec:
+  selector:
+    matchLabels:
+      app: great-expectations
+  endpoints:
+  - port: http
+    path: /metrics
+    interval: 30s
+
+
+

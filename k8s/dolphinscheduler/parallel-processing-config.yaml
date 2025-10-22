@@ -1,0 +1,112 @@
+---
+# DolphinScheduler Parallel Processing Configuration
+# Optimizes workflow execution for better throughput
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: dolphinscheduler-worker-config
+  namespace: data-platform
+  labels:
+    app: dolphinscheduler
+    component: worker
+data:
+  application.yaml: |
+    worker:
+      # Parallel task execution
+      exec-threads: 32  # Increased from default 16
+      max-cpu-load-avg: 90
+      reserved-memory: 2.0
+      
+      # Task dispatch optimization
+      task-execute-threads-full-policy: CONTINUE
+      task-listen-port: 1234
+      
+      # Performance settings
+      heartbeat-interval: 10s
+      heartbeat-error-threshold: 5
+      
+      # Parallel execution
+      groups:
+        default:
+          worker-dispatch-policy: RANDOM
+          worker-affinity: false
+      
+      # Resource limits per task
+      task-resource-limit:
+        cpu-quota: -1  # Unlimited
+        memory-max: 0  # Unlimited
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: dolphinscheduler-master-config
+  namespace: data-platform
+  labels:
+    app: dolphinscheduler
+    component: master
+data:
+  application.yaml: |
+    master:
+      # Workflow execution optimization
+      exec-threads: 16
+      dispatch-task-number: 10  # Increased from 3
+      
+      # Task scheduling
+      max-cpu-load-avg: 90
+      reserved-memory: 2.0
+      
+      # Parallel workflow dispatch
+      pre-exec-threads: 8
+      task-commit-retry-times: 5
+      task-commit-interval: 1s
+      
+      # Performance tuning
+      heartbeat-interval: 10s
+      state-wheel-interval: 5s
+      
+      # Failover settings
+      failover-interval: 10s
+      kill-yarn-job-when-task-fail: false
+
+---
+# DolphinScheduler API Optimization
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: dolphinscheduler-api-config
+  namespace: data-platform
+  labels:
+    app: dolphinscheduler
+    component: api
+data:
+  application.yaml: |
+    server:
+      port: 12345
+      max-http-header-size: 8192
+      
+      # Thread pool configuration
+      tomcat:
+        max-threads: 200  # Increased from 75
+        min-spare-threads: 25
+        accept-count: 100
+        max-connections: 1000
+      
+    # API caching
+    spring:
+      cache:
+        type: caffeine
+        caffeine:
+          spec: maximumSize=1000,expireAfterWrite=30m
+      
+      # Connection pooling  
+      datasource:
+        hikari:
+          maximum-pool-size: 50
+          minimum-idle: 5
+          connection-timeout: 30000
+          idle-timeout: 600000
+          max-lifetime: 1800000
+
+

@@ -1,0 +1,409 @@
+# Kong Plugins Configuration
+# Authentication, rate limiting, transformations, and observability
+
+---
+# Global Prometheus plugin
+apiVersion: configuration.konghq.com/v1
+kind: KongClusterPlugin
+metadata:
+  name: prometheus
+  annotations:
+    kubernetes.io/ingress.class: kong
+plugin: prometheus
+
+---
+# Global CORS plugin
+apiVersion: configuration.konghq.com/v1
+kind: KongPlugin
+metadata:
+  name: cors
+  namespace: kong
+config:
+  origins:
+  - "https://254carbon.com"
+  - "https://*.254carbon.com"
+  methods:
+  - GET
+  - POST
+  - PUT
+  - DELETE
+  - PATCH
+  - OPTIONS
+  headers:
+  - Accept
+  - Accept-Version
+  - Content-Length
+  - Content-MD5
+  - Content-Type
+  - Date
+  - X-Auth-Token
+  - Authorization
+  exposed_headers:
+  - X-Auth-Token
+  - X-Request-Id
+  credentials: true
+  max_age: 3600
+plugin: cors
+
+---
+# Rate limiting for DataHub
+apiVersion: configuration.konghq.com/v1
+kind: KongPlugin
+metadata:
+  name: rate-limiting-datahub
+  namespace: kong
+config:
+  minute: 200
+  hour: 10000
+  policy: redis
+  redis_host: redis-service.data-platform.svc.cluster.local
+  redis_port: 6379
+  redis_database: 2
+  fault_tolerant: true
+plugin: rate-limiting
+
+---
+# Rate limiting for Trino
+apiVersion: configuration.konghq.com/v1
+kind: KongPlugin
+metadata:
+  name: rate-limiting-trino
+  namespace: kong
+config:
+  minute: 50
+  hour: 1000
+  policy: redis
+  redis_host: redis-service.data-platform.svc.cluster.local
+  redis_port: 6379
+  redis_database: 2
+  fault_tolerant: true
+plugin: rate-limiting
+
+---
+# Rate limiting for Superset
+apiVersion: configuration.konghq.com/v1
+kind: KongPlugin
+metadata:
+  name: rate-limiting-superset
+  namespace: kong
+config:
+  minute: 100
+  hour: 5000
+  policy: redis
+  redis_host: redis-service.data-platform.svc.cluster.local
+  redis_port: 6379
+  redis_database: 2
+  fault_tolerant: true
+plugin: rate-limiting
+
+---
+# Rate limiting for DolphinScheduler
+apiVersion: configuration.konghq.com/v1
+kind: KongPlugin
+metadata:
+  name: rate-limiting-dolphin
+  namespace: kong
+config:
+  minute: 100
+  hour: 5000
+  policy: redis
+  redis_host: redis-service.data-platform.svc.cluster.local
+  redis_port: 6379
+  redis_database: 2
+  fault_tolerant: true
+plugin: rate-limiting
+
+---
+# Rate limiting for MinIO
+apiVersion: configuration.konghq.com/v1
+kind: KongPlugin
+metadata:
+  name: rate-limiting-minio
+  namespace: kong
+config:
+  minute: 500
+  hour: 20000
+  policy: redis
+  redis_host: redis-service.data-platform.svc.cluster.local
+  redis_port: 6379
+  redis_database: 2
+  fault_tolerant: true
+plugin: rate-limiting
+
+---
+# Rate limiting for MLflow
+apiVersion: configuration.konghq.com/v1
+kind: KongPlugin
+metadata:
+  name: rate-limiting-mlflow
+  namespace: kong
+config:
+  minute: 100
+  hour: 5000
+  policy: redis
+  redis_host: redis-service.data-platform.svc.cluster.local
+  redis_port: 6379
+  redis_database: 2
+  fault_tolerant: true
+plugin: rate-limiting
+
+---
+# Rate limiting for Iceberg
+apiVersion: configuration.konghq.com/v1
+kind: KongPlugin
+metadata:
+  name: rate-limiting-iceberg
+  namespace: kong
+config:
+  minute: 200
+  hour: 10000
+  policy: redis
+  redis_host: redis-service.data-platform.svc.cluster.local
+  redis_port: 6379
+  redis_database: 2
+  fault_tolerant: true
+plugin: rate-limiting
+
+---
+# Rate limiting for Portal
+apiVersion: configuration.konghq.com/v1
+kind: KongPlugin
+metadata:
+  name: rate-limiting-portal
+  namespace: kong
+config:
+  minute: 300
+  hour: 15000
+  policy: redis
+  redis_host: redis-service.data-platform.svc.cluster.local
+  redis_port: 6379
+  redis_database: 2
+  fault_tolerant: true
+plugin: rate-limiting
+
+---
+# Rate limiting for Grafana
+apiVersion: configuration.konghq.com/v1
+kind: KongPlugin
+metadata:
+  name: rate-limiting-grafana
+  namespace: kong
+config:
+  minute: 200
+  hour: 10000
+  policy: redis
+  redis_host: redis-service.data-platform.svc.cluster.local
+  redis_port: 6379
+  redis_database: 2
+  fault_tolerant: true
+plugin: rate-limiting
+
+---
+# Rate limiting for Prometheus
+apiVersion: configuration.konghq.com/v1
+kind: KongPlugin
+metadata:
+  name: rate-limiting-prometheus
+  namespace: kong
+config:
+  minute: 100
+  hour: 5000
+  policy: redis
+  redis_host: redis-service.data-platform.svc.cluster.local
+  redis_port: 6379
+  redis_database: 2
+  fault_tolerant: true
+plugin: rate-limiting
+
+---
+# Rate limiting for Kafka REST
+apiVersion: configuration.konghq.com/v1
+kind: KongPlugin
+metadata:
+  name: rate-limiting-kafka
+  namespace: kong
+config:
+  minute: 100
+  hour: 5000
+  policy: redis
+  redis_host: redis-service.data-platform.svc.cluster.local
+  redis_port: 6379
+  redis_database: 2
+  fault_tolerant: true
+plugin: rate-limiting
+
+---
+# Rate limiting for Schema Registry
+apiVersion: configuration.konghq.com/v1
+kind: KongPlugin
+metadata:
+  name: rate-limiting-schema
+  namespace: kong
+config:
+  minute: 100
+  hour: 5000
+  policy: redis
+  redis_host: redis-service.data-platform.svc.cluster.local
+  redis_port: 6379
+  redis_database: 2
+  fault_tolerant: true
+plugin: rate-limiting
+
+---
+# Request transformer - Add platform headers
+apiVersion: configuration.konghq.com/v1
+kind: KongPlugin
+metadata:
+  name: add-platform-headers
+  namespace: kong
+config:
+  add:
+    headers:
+    - "X-Platform:254carbon"
+    - "X-Environment:production"
+    - "X-Request-Id:$(uuid)"
+plugin: request-transformer
+
+---
+# Response transformer - Add security headers
+apiVersion: configuration.konghq.com/v1
+kind: KongPlugin
+metadata:
+  name: add-security-headers
+  namespace: kong
+config:
+  add:
+    headers:
+    - "X-Kong-Response:true"
+    - "X-Content-Type-Options:nosniff"
+    - "X-Frame-Options:DENY"
+    - "X-XSS-Protection:1; mode=block"
+    - "Strict-Transport-Security:max-age=31536000; includeSubDomains"
+  remove:
+    headers:
+    - "X-Powered-By"
+    - "Server"
+plugin: response-transformer
+
+---
+# JWT Authentication plugin (disabled by default)
+apiVersion: configuration.konghq.com/v1
+kind: KongPlugin
+metadata:
+  name: jwt-auth
+  namespace: kong
+config:
+  uri_param_names:
+  - jwt
+  key_claim_name: iss
+  secret_is_base64: false
+  claims_to_verify:
+  - exp
+  - nbf
+plugin: jwt
+
+---
+# API Key Authentication plugin (disabled by default)
+apiVersion: configuration.konghq.com/v1
+kind: KongPlugin
+metadata:
+  name: key-auth
+  namespace: kong
+config:
+  key_names:
+  - apikey
+  - api-key
+  - x-api-key
+  hide_credentials: true
+  key_in_body: false
+plugin: key-auth
+
+---
+# OAuth2 plugin (disabled by default)
+apiVersion: configuration.konghq.com/v1
+kind: KongPlugin
+metadata:
+  name: oauth2
+  namespace: kong
+config:
+  scopes:
+  - read
+  - write
+  - admin
+  mandatory_scope: true
+  enable_client_credentials: true
+  enable_authorization_code: true
+  enable_password_grant: false
+  enable_implicit_grant: false
+plugin: oauth2
+
+---
+# IP Restriction plugin (example)
+apiVersion: configuration.konghq.com/v1
+kind: KongPlugin
+metadata:
+  name: ip-restriction-internal
+  namespace: kong
+config:
+  allow:
+  - 10.0.0.0/8
+  - 172.16.0.0/12
+  - 192.168.0.0/16
+plugin: ip-restriction
+
+---
+# Request size limiting
+apiVersion: configuration.konghq.com/v1
+kind: KongPlugin
+metadata:
+  name: request-size-limit
+  namespace: kong
+config:
+  allowed_payload_size: 100
+  size_unit: megabytes
+plugin: request-size-limiting
+
+---
+# Bot detection
+apiVersion: configuration.konghq.com/v1
+kind: KongPlugin
+metadata:
+  name: bot-detection
+  namespace: kong
+config:
+  allow:
+  - "googlebot"
+  - "bingbot"
+  deny:
+  - "scrapy"
+  - "curl"
+plugin: bot-detection
+
+---
+# File logging
+apiVersion: configuration.konghq.com/v1
+kind: KongPlugin
+metadata:
+  name: file-log
+  namespace: kong
+config:
+  path: /dev/stdout
+  reopen: true
+plugin: file-log
+
+---
+# HTTP Log to external system
+apiVersion: configuration.konghq.com/v1
+kind: KongPlugin
+metadata:
+  name: http-log
+  namespace: kong
+config:
+  http_endpoint: "http://loki.monitoring.svc.cluster.local:3100/loki/api/v1/push"
+  method: POST
+  timeout: 10000
+  keepalive: 60000
+plugin: http-log
+
+
+

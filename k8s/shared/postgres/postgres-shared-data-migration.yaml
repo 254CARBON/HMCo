@@ -1,0 +1,139 @@
+# Utility jobs to back up and restore the shared PostgreSQL database when
+# migrating from the previous Deployment (ephemeral storage) to the new
+# StatefulSet with persistent volumes.
+#
+# Usage:
+#   1. Create/ensure backup PVC:     kubectl apply -f postgres-shared-data-migration.yaml
+#   2. Run backup job BEFORE change: kubectl create job --from=cronjob=postgres-shared-backup manual-postgres-backup
+#      (or edit this file to Job and apply once; see notes below)
+#   3. After StatefulSet is Ready,   kubectl create job --from=cronjob=postgres-shared-restore manual-postgres-restore
+#   4. Inspect backup files with     kubectl exec -n data-platform <pod> -- ls /backup
+#
+# Both CronJobs are shipped suspended so they do not execute automatically.
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: postgres-shared-backup
+  namespace: data-platform
+  labels:
+    app: postgres-shared
+spec:
+  accessModes:
+  - ReadWriteOnce
+  storageClassName: local-storage-standard
+  resources:
+    requests:
+      storage: 10Gi
+
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: postgres-shared-backup
+  namespace: data-platform
+  labels:
+    app: postgres-shared
+    component: backup
+spec:
+  schedule: "0 3 * * *"
+  suspend: true
+  jobTemplate:
+    spec:
+      ttlSecondsAfterFinished: 86400
+      template:
+        metadata:
+          labels:
+            app: postgres-shared
+            component: backup
+        spec:
+          restartPolicy: OnFailure
+          containers:
+          - name: pg-backup
+            image: postgres:15
+            imagePullPolicy: IfNotPresent
+            env:
+            - name: PGPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-shared-secret
+                  key: password
+            command:
+            - /bin/bash
+            - -c
+            - |
+              set -euo pipefail
+              TIMESTAMP="$(date +%Y%m%d-%H%M%S)"
+              BACKUP_FILE="/backup/postgres-backup-${TIMESTAMP}.sql"
+              echo "Creating backup at ${BACKUP_FILE}"
+              pg_dumpall \
+                --dbname="postgresql://datahub:${PGPASSWORD}@postgres-shared-service:5432/postgres" \
+                --clean \
+                > "${BACKUP_FILE}"
+              cp "${BACKUP_FILE}" /backup/latest.sql
+              echo "Backup complete"
+            volumeMounts:
+            - name: backup
+              mountPath: /backup
+          volumes:
+          - name: backup
+            persistentVolumeClaim:
+              claimName: postgres-shared-backup
+
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: postgres-shared-restore
+  namespace: data-platform
+  labels:
+    app: postgres-shared
+    component: restore
+spec:
+  schedule: "0 4 * * *"
+  suspend: true
+  jobTemplate:
+    spec:
+      ttlSecondsAfterFinished: 86400
+      template:
+        metadata:
+          labels:
+            app: postgres-shared
+            component: restore
+        spec:
+          restartPolicy: OnFailure
+          containers:
+          - name: pg-restore
+            image: postgres:15
+            imagePullPolicy: IfNotPresent
+            env:
+            - name: PGPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-shared-secret
+                  key: password
+            command:
+            - /bin/bash
+            - -c
+            - |
+              set -euo pipefail
+              RESTORE_FILE="${RESTORE_FILE:-/backup/latest.sql}"
+              if [ ! -f "${RESTORE_FILE}" ]; then
+                echo "Restore file ${RESTORE_FILE} not found. Provide RESTORE_FILE env."
+                ls -al /backup
+                exit 1
+              fi
+              echo "Restoring from ${RESTORE_FILE}"
+              psql \
+                --dbname="postgresql://datahub:${PGPASSWORD}@postgres-shared-service:5432/postgres" \
+                --set ON_ERROR_STOP=on \
+                < "${RESTORE_FILE}"
+              echo "Restore complete"
+            volumeMounts:
+            - name: backup
+              mountPath: /backup
+          volumes:
+          - name: backup
+            persistentVolumeClaim:
+              claimName: postgres-shared-backup

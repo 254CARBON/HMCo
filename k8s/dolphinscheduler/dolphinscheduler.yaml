@@ -64,6 +64,14 @@ spec:
         component: workflow-engine
     spec:
       serviceAccountName: dolphinscheduler
+      # Fix DNS resolution issues
+      dnsPolicy: ClusterFirst
+      dnsConfig:
+        options:
+        - name: ndots
+          value: "1"
+        - name: timeout
+          value: "5"
       imagePullSecrets: []
       containers:
       - name: dolphinscheduler-api
@@ -120,15 +128,19 @@ spec:
             path: /dolphinscheduler/actuator/health
             port: 12345
             scheme: HTTP
-          initialDelaySeconds: 120
+          initialDelaySeconds: 300
           periodSeconds: 30
+          timeoutSeconds: 10
+          failureThreshold: 5
         readinessProbe:
           httpGet:
             path: /dolphinscheduler/actuator/health
             port: 12345
             scheme: HTTP
-          initialDelaySeconds: 30
+          initialDelaySeconds: 60
           periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 10
       volumes:
       - name: dolphinscheduler-logs
         emptyDir: {}
@@ -174,6 +186,14 @@ spec:
         component: workflow-engine
     spec:
       serviceAccountName: dolphinscheduler
+      # Fix DNS resolution issues
+      dnsPolicy: ClusterFirst
+      dnsConfig:
+        options:
+        - name: ndots
+          value: "1"
+        - name: timeout
+          value: "5"
       imagePullSecrets: []
       containers:
       - name: dolphinscheduler-master
@@ -207,6 +227,18 @@ spec:
           value: "UTC"
         - name: TZ
           value: "UTC"
+        - name: REGISTRY_ZOOKEEPER_SESSION_TIMEOUT
+          value: "60000"
+        - name: REGISTRY_ZOOKEEPER_CONNECTION_TIMEOUT
+          value: "30000"
+        - name: MASTER_LISTEN_PORT
+          value: "5678"
+        - name: MASTER_EXEC_THREADS
+          value: "100"
+        - name: MASTER_TASK_COMMIT_RETRY_TIMES
+          value: "5"
+        - name: MASTER_TASK_COMMIT_INTERVAL
+          value: "1000"
         volumeMounts:
         - name: dolphinscheduler-logs
           mountPath: /opt/dolphinscheduler/logs
@@ -260,6 +292,14 @@ spec:
         component: workflow-engine
     spec:
       serviceAccountName: dolphinscheduler
+      # Fix DNS resolution issues
+      dnsPolicy: ClusterFirst
+      dnsConfig:
+        options:
+        - name: ndots
+          value: "1"
+        - name: timeout
+          value: "5"
       imagePullSecrets: []
       containers:
       - name: dolphinscheduler-worker
@@ -354,6 +394,14 @@ spec:
         component: workflow-engine
     spec:
       serviceAccountName: dolphinscheduler
+      # Fix DNS resolution issues
+      dnsPolicy: ClusterFirst
+      dnsConfig:
+        options:
+        - name: ndots
+          value: "1"
+        - name: timeout
+          value: "5"
       imagePullSecrets: []
       containers:
       - name: dolphinscheduler-alert

@@ -1,0 +1,212 @@
+# Real-time Commodity Price Monitoring Use Case
+# Monitors price movements and generates trading signals
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: realtime-commodity-monitoring
+  namespace: data-platform
+  labels:
+    app: streaming
+    use-case: commodity-monitoring
+data:
+  doris-routine-load.sql: |
+    -- Configure Routine Load from Kafka to Doris
+    -- This continuously loads commodity prices into Doris
+    
+    USE commodity_realtime;
+    
+    -- Create Routine Load for energy prices
+    CREATE ROUTINE LOAD load_energy_prices_rt ON energy_prices_rt
+    COLUMNS(price_id, commodity_code, commodity_name, price, currency, unit, exchange, price_timestamp, ingestion_timestamp)
+    PROPERTIES
+    (
+        "desired_concurrent_number"="3",
+        "max_batch_interval" = "10",
+        "max_batch_rows" = "100000",
+        "max_batch_size" = "104857600",
+        "strict_mode" = "false",
+        "format" = "json",
+        "jsonpaths" = "[\"$.price_id\",\"$.commodity_code\",\"$.commodity_name\",\"$.price\",\"$.currency\",\"$.unit\",\"$.exchange\",\"$.price_timestamp\",\"$.ingestion_timestamp\"]"
+    )
+    FROM KAFKA
+    (
+        "kafka_broker_list" = "kafka-service:9092",
+        "kafka_topic" = "commodity-prices-enriched",
+        "property.group.id" = "doris_energy_prices",
+        "property.kafka_default_offsets" = "OFFSET_END"
+    );
+    
+    -- Create Routine Load for market alerts
+    CREATE ROUTINE LOAD load_market_alerts ON market_alerts
+    COLUMNS(alert_id, commodity_code, alert_type, alert_severity, alert_message, price_change_pct, current_price, previous_price, alert_timestamp)
+    PROPERTIES
+    (
+        "desired_concurrent_number"="2",
+        "max_batch_interval" = "5",
+        "max_batch_rows" = "50000",
+        "strict_mode" = "false",
+        "format" = "json"
+    )
+    FROM KAFKA
+    (
+        "kafka_broker_list" = "kafka-service:9092",
+        "kafka_topic" = "market-alerts",
+        "property.group.id" = "doris_market_alerts",
+        "property.kafka_default_offsets" = "OFFSET_END"
+    );
+    
+    -- Verify routine load status
+    SHOW ROUTINE LOAD;
+  
+  trading-signals.sql: |
+    -- Real-time Trading Signal Queries
+    
+    -- Get latest prices for all commodities
+    SELECT 
+      commodity_code,
+      commodity_name,
+      price,
+      currency,
+      price_timestamp
+    FROM commodity_realtime.energy_prices_rt
+    WHERE price_timestamp > DATE_SUB(NOW(), INTERVAL 5 MINUTE)
+    ORDER BY price_timestamp DESC
+    LIMIT 100;
+    
+    -- Calculate price spreads
+    SELECT 
+      a.commodity_code,
+      a.price AS current_price,
+      b.price AS hour_ago_price,
+      ((a.price - b.price) / b.price) * 100 AS price_change_pct
+    FROM (
+      SELECT commodity_code, price, price_timestamp
+      FROM commodity_realtime.energy_prices_rt
+      WHERE price_timestamp > DATE_SUB(NOW(), INTERVAL 5 MINUTE)
+    ) a
+    LEFT JOIN (
+      SELECT commodity_code, price, price_timestamp
+      FROM commodity_realtime.energy_prices_rt
+      WHERE price_timestamp BETWEEN DATE_SUB(NOW(), INTERVAL 65 MINUTE) 
+        AND DATE_SUB(NOW(), INTERVAL 55 MINUTE)
+    ) b ON a.commodity_code = b.commodity_code
+    WHERE ABS(((a.price - b.price) / b.price) * 100) > 2;
+    
+    -- Get active alerts
+    SELECT 
+      alert_id,
+      commodity_code,
+      alert_type,
+      alert_severity,
+      alert_message,
+      price_change_pct,
+      current_price,
+      alert_timestamp
+    FROM commodity_realtime.market_alerts
+    WHERE alert_timestamp > DATE_SUB(NOW(), INTERVAL 1 HOUR)
+      AND resolved = FALSE
+    ORDER BY alert_timestamp DESC;
+    
+    -- Calculate volume-weighted average price (VWAP)
+    SELECT 
+      commodity_code,
+      window_start,
+      (SUM(close_price * volume) / SUM(volume)) AS vwap,
+      SUM(volume) AS total_volume
+    FROM commodity_realtime.price_1min_agg
+    WHERE window_start > DATE_SUB(NOW(), INTERVAL 1 HOUR)
+    GROUP BY commodity_code, window_start
+    ORDER BY window_start DESC;
+  
+  superset-queries.sql: |
+    -- Superset Dashboard Queries for Real-time Commodity Monitoring
+    
+    -- Real-time Price Chart (1-minute bars)
+    SELECT 
+      commodity_code,
+      window_start AS time,
+      open_price,
+      high_price,
+      low_price,
+      close_price,
+      volume
+    FROM commodity_realtime.price_1min_agg
+    WHERE window_start > DATE_SUB(NOW(), INTERVAL 24 HOUR)
+      AND commodity_code = '{{commodity_code}}'
+    ORDER BY window_start;
+    
+    -- Top Movers (Price changes in last hour)
+    SELECT 
+      commodity_code,
+      commodity_name,
+      MAX(price) AS high,
+      MIN(price) AS low,
+      LAST_VALUE(price) AS current,
+      ((LAST_VALUE(price) - FIRST_VALUE(price)) / FIRST_VALUE(price)) * 100 AS change_pct
+    FROM commodity_realtime.energy_prices_rt
+    WHERE price_timestamp > DATE_SUB(NOW(), INTERVAL 1 HOUR)
+    GROUP BY commodity_code, commodity_name
+    ORDER BY ABS(change_pct) DESC
+    LIMIT 20;
+    
+    -- Alert Heatmap
+    SELECT 
+      DATE_FORMAT(alert_timestamp, '%Y-%m-%d %H:00:00') AS hour,
+      alert_severity,
+      COUNT(*) AS alert_count
+    FROM commodity_realtime.market_alerts
+    WHERE alert_timestamp > DATE_SUB(NOW(), INTERVAL 7 DAY)
+    GROUP BY hour, alert_severity
+    ORDER BY hour DESC;
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: setup-commodity-monitoring
+  namespace: data-platform
+  labels:
+    app: streaming
+    use-case: commodity-monitoring
+spec:
+  ttlSecondsAfterFinished: 86400
+  template:
+    metadata:
+      labels:
+        app: streaming
+        use-case: commodity-monitoring
+    spec:
+      restartPolicy: OnFailure
+      initContainers:
+      - name: wait-for-doris
+        image: busybox:1.35
+        command:
+        - sh
+        - -c
+        - |
+          echo "Waiting for Doris FE..."
+          until nc -z doris-fe-service 9030; do
+            echo "Waiting..."
+            sleep 10
+          done
+          echo "Doris is ready!"
+          sleep 30
+      containers:
+      - name: setup-routine-load
+        image: mysql:8.0
+        command:
+        - sh
+        - -c
+        - |
+          echo "Setting up Doris Routine Load..."
+          mysql -h doris-fe-service -P 9030 -uroot < /config/doris-routine-load.sql
+          echo "Routine Load configured successfully!"
+        volumeMounts:
+        - name: config
+          mountPath: /config
+      volumes:
+      - name: config
+        configMap:
+          name: realtime-commodity-monitoring
+
+

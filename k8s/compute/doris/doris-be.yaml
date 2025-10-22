@@ -20,9 +20,20 @@ spec:
         component: analytical-database
     spec:
       imagePullSecrets: []
+      securityContext:
+        fsGroup: 0
+        seccompProfile:
+          type: RuntimeDefault
       containers:
       - name: doris-be
-        image: apache/doris:2.0.2-be-x86_64
+        image: apache/doris:be-3.0.8
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          seccompProfile:
+            type: RuntimeDefault
         ports:
         - containerPort: 9060
           name: be-webserver
@@ -37,24 +48,12 @@ spec:
         - containerPort: 9000
           name: be-storage
         env:
-        - name: BE_MASTER_IP
-          value: "doris-fe-service"
-        - name: BE_HEARTBEAT_PORT
-          value: "9050"
-        - name: BE_BRPC_PORT
-          value: "8040"
-        - name: BE_WEBSERVER_PORT
-          value: "9060"
-        - name: BE_MYSQL_PORT
-          value: "8060"
-        - name: BE_ARROW_FLIGHT_SQL_PORT
-          value: "8070"
-        - name: BE_STORAGE_PORT
-          value: "9000"
-        - name: BE_LOG_DIR
-          value: "/opt/apache-doris/be/log"
-        - name: BE_STORAGE_ROOT_PATH
-          value: "/opt/apache-doris/be/storage"
+        - name: FE_SERVERS
+          value: "fe1:doris-fe-0.doris-fe-headless.data-platform.svc.cluster.local:9010"
+        - name: BE_ADDR
+          value: "doris-be-0.doris-be-headless.data-platform.svc.cluster.local:9050"
+        - name: NODE_ROLE
+          value: "mix"
         volumeMounts:
         - name: doris-be-data
           mountPath: /opt/apache-doris/be
@@ -86,7 +85,7 @@ spec:
       resources:
         requests:
           storage: 100Gi
-      storageClassName: local-storage-standard
+      storageClassName: local-path
   - metadata:
       name: doris-be-logs
     spec:
@@ -95,7 +94,7 @@ spec:
       resources:
         requests:
           storage: 20Gi
-      storageClassName: local-storage-standard
+      storageClassName: local-path
 ---
 # Doris BE Headless Service for internal communication
 apiVersion: v1

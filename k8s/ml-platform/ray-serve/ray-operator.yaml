@@ -1,0 +1,54 @@
+apiVersion: apps/v1
+# Deprecated: retained for reference only. GitOps installs the operator via Helm.
+kind: Deployment
+metadata:
+  name: ray-operator
+  namespace: ray-system
+  labels:
+    app: ray-operator
+  annotations:
+    deprecated-by: kuberay-operator-helm
+spec:
+  replicas: 0
+  selector:
+    matchLabels:
+      app: ray-operator
+  template:
+    metadata:
+      labels:
+        app: ray-operator
+    spec:
+      serviceAccountName: ray-operator
+      containers:
+      - name: ray-operator
+        image: kuberay/operator:v1.0.0
+        env:
+        - name: WATCH_NAMESPACE
+          value: ""
+        - name: RAY_OPERATOR_POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: ENABLE_RAYJOB_CRD
+          value: "true"
+        - name: ENABLE_RAYSERVICE_CRD
+          value: "true"
+        resources:
+          requests:
+            cpu: 200m
+            memory: 512Mi
+          limits:
+            cpu: 500m
+            memory: 1Gi
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /readyz
+            port: 8080
+          initialDelaySeconds: 10
+          periodSeconds: 5

@@ -1,0 +1,279 @@
+# Authorization Policies
+# Fine-grained access control for services
+
+---
+# Allow all traffic by default during migration (will be tightened later)
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: allow-all
+  namespace: data-platform
+spec:
+  action: ALLOW
+  rules:
+  - {}
+
+---
+# DataHub GMS - Allow access from frontend and consumers
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: datahub-gms-policy
+  namespace: data-platform
+spec:
+  selector:
+    matchLabels:
+      app: datahub-gms
+  action: ALLOW
+  rules:
+  # Allow from DataHub frontend
+  - from:
+    - source:
+        principals:
+        - "cluster.local/ns/data-platform/sa/datahub-frontend"
+    to:
+    - operation:
+        methods: ["GET", "POST", "PUT", "DELETE"]
+        ports: ["8080"]
+  
+  # Allow from MAE consumer
+  - from:
+    - source:
+        principals:
+        - "cluster.local/ns/data-platform/sa/datahub-mae-consumer"
+    to:
+    - operation:
+        methods: ["GET", "POST"]
+        ports: ["8080"]
+  
+  # Allow from MCE consumer
+  - from:
+    - source:
+        principals:
+        - "cluster.local/ns/data-platform/sa/datahub-mce-consumer"
+    to:
+    - operation:
+        methods: ["GET", "POST"]
+        ports: ["8080"]
+  
+  # Allow health checks from ingress
+  - from:
+    - source:
+        namespaces: ["ingress-nginx"]
+    to:
+    - operation:
+        methods: ["GET"]
+        paths: ["/health"]
+
+---
+# PostgreSQL - Restrict access to authorized services
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: postgres-access-policy
+  namespace: data-platform
+spec:
+  selector:
+    matchLabels:
+      app: postgres-shared
+  action: ALLOW
+  rules:
+  # Allow from DataHub services
+  - from:
+    - source:
+        principals:
+        - "cluster.local/ns/data-platform/sa/datahub-gms"
+        - "cluster.local/ns/data-platform/sa/datahub-mce-consumer"
+  
+  # Allow from DolphinScheduler
+  - from:
+    - source:
+        principals:
+        - "cluster.local/ns/data-platform/sa/dolphinscheduler-api"
+        - "cluster.local/ns/data-platform/sa/dolphinscheduler-master"
+        - "cluster.local/ns/data-platform/sa/dolphinscheduler-worker"
+  
+  # Allow from Superset
+  - from:
+    - source:
+        principals:
+        - "cluster.local/ns/data-platform/sa/superset-web"
+  
+  # Allow from Iceberg REST
+  - from:
+    - source:
+        principals:
+        - "cluster.local/ns/data-platform/sa/iceberg-rest-catalog"
+
+---
+# MinIO - Allow access from all data services
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: minio-access-policy
+  namespace: data-platform
+spec:
+  selector:
+    matchLabels:
+      app: minio
+  action: ALLOW
+  rules:
+  # Allow from within data-platform namespace
+  - from:
+    - source:
+        namespaces: ["data-platform"]
+  
+  # Allow from Velero backup namespace
+  - from:
+    - source:
+        namespaces: ["velero"]
+  
+  # Allow from ingress for console access
+  - from:
+    - source:
+        namespaces: ["ingress-nginx"]
+    to:
+    - operation:
+        methods: ["GET", "POST"]
+        ports: ["9001"]
+
+---
+# Kafka - Allow access from producers and consumers
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: kafka-access-policy
+  namespace: data-platform
+spec:
+  selector:
+    matchLabels:
+      app: kafka
+  action: ALLOW
+  rules:
+  # Allow from DataHub services
+  - from:
+    - source:
+        principals:
+        - "cluster.local/ns/data-platform/sa/datahub-gms"
+        - "cluster.local/ns/data-platform/sa/datahub-mae-consumer"
+        - "cluster.local/ns/data-platform/sa/datahub-mce-consumer"
+  
+  # Allow from Kafka Connect
+  - from:
+    - source:
+        principals:
+        - "cluster.local/ns/data-platform/sa/kafka-connect"
+  
+  # Allow from Flink
+  - from:
+    - source:
+        namespaces: ["data-platform"]
+      source:
+        principals:
+        - "cluster.local/ns/data-platform/sa/flink-jobmanager"
+        - "cluster.local/ns/data-platform/sa/flink-taskmanager"
+
+---
+# Trino - Allow queries from authorized clients
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: trino-access-policy
+  namespace: data-platform
+spec:
+  selector:
+    matchLabels:
+      app: trino-coordinator
+  action: ALLOW
+  rules:
+  # Allow from Superset
+  - from:
+    - source:
+        principals:
+        - "cluster.local/ns/data-platform/sa/superset-web"
+    to:
+    - operation:
+        methods: ["GET", "POST"]
+        ports: ["8080"]
+  
+  # Allow from DolphinScheduler workers
+  - from:
+    - source:
+        principals:
+        - "cluster.local/ns/data-platform/sa/dolphinscheduler-worker"
+  
+  # Allow from ingress for UI
+  - from:
+    - source:
+        namespaces: ["ingress-nginx"]
+    to:
+    - operation:
+        methods: ["GET"]
+        ports: ["8080"]
+
+---
+# Monitoring - Allow Prometheus scraping
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: allow-prometheus-scraping
+  namespace: data-platform
+spec:
+  action: ALLOW
+  rules:
+  - from:
+    - source:
+        namespaces: ["monitoring", "istio-system"]
+    to:
+    - operation:
+        methods: ["GET"]
+        paths: ["/metrics", "/stats/prometheus"]
+
+---
+# Vault - Highly restricted access
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: vault-access-policy
+  namespace: vault-prod
+spec:
+  selector:
+    matchLabels:
+      app: vault
+  action: ALLOW
+  rules:
+  # Allow from specific service accounts only
+  - from:
+    - source:
+        namespaces: ["data-platform"]
+        principals:
+        - "cluster.local/ns/data-platform/sa/external-secrets-operator"
+  
+  # Allow from ingress for UI (protected by Cloudflare Access)
+  - from:
+    - source:
+        namespaces: ["ingress-nginx"]
+    to:
+    - operation:
+        methods: ["GET", "POST"]
+        ports: ["8200"]
+
+---
+# Deny policy example (currently disabled)
+# apiVersion: security.istio.io/v1beta1
+# kind: AuthorizationPolicy
+# metadata:
+#   name: deny-external-to-internal
+#   namespace: data-platform
+# spec:
+#   action: DENY
+#   rules:
+#   - from:
+#     - source:
+#         notNamespaces: ["data-platform", "monitoring", "istio-system"]
+#     to:
+#     - operation:
+#         paths: ["/internal/*"]
+
+
+

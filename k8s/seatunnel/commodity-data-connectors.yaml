@@ -1,0 +1,391 @@
+# SeaTunnel Connectors for Commodity/Financial Data
+# Supports: Market data, Economic indicators, Weather, Energy prices
+
+---
+# SeaTunnel ConfigMap for Commodity Data Sources
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: seatunnel-commodity-connectors
+  namespace: data-platform
+  labels:
+    app: seatunnel
+    component: data-ingestion
+data:
+  # Market Data Connector (REST API Template)
+  market-data-connector.conf: |
+    env {
+      job.mode = "BATCH"
+      checkpoint.interval = 10000
+    }
+    
+    source {
+      Http {
+        url = "https://api.example.com/market/prices"
+        method = "GET"
+        format = "json"
+        schema = {
+          fields {
+            symbol = string
+            price = double
+            volume = long
+            timestamp = long
+            exchange = string
+          }
+        }
+        headers {
+          Authorization = "Bearer ${API_KEY}"
+          Content-Type = "application/json"
+        }
+      }
+    }
+    
+    transform {
+      Sql {
+        query = "SELECT symbol, price, volume, 
+                        FROM_UNIXTIME(timestamp) as trade_time,
+                        exchange,
+                        CURRENT_TIMESTAMP() as ingestion_time
+                 FROM market_data"
+      }
+    }
+    
+    sink {
+      Iceberg {
+        catalog_name = "iceberg_catalog"
+        catalog_uri = "http://iceberg-rest-catalog:8181"
+        namespace = "commodity_data"
+        table = "market_prices"
+        schema_save_mode = "RECREATE_SCHEMA"
+        data_save_mode = "APPEND_DATA"
+      }
+    }
+
+  # Economic Data Connector (Federal Reserve, World Bank APIs)
+  economic-data-connector.conf: |
+    env {
+      job.mode = "BATCH"
+      checkpoint.interval = 10000
+    }
+    
+    source {
+      Http {
+        url = "https://api.stlouisfed.org/fred/series/observations"
+        method = "GET"
+        format = "json"
+        params {
+          series_id = "DCOILWTICO"  # WTI Crude Oil Prices
+          api_key = "${FRED_API_KEY}"
+          file_type = "json"
+        }
+        schema = {
+          fields {
+            date = string
+            value = double
+            series_id = string
+          }
+        }
+      }
+    }
+    
+    transform {
+      Sql {
+        query = "SELECT series_id as indicator_code,
+                        date as observation_date,
+                        CAST(value AS DOUBLE) as value,
+                        'FRED' as source,
+                        CURRENT_TIMESTAMP() as ingestion_time
+                 FROM economic_data
+                 WHERE value IS NOT NULL"
+      }
+    }
+    
+    sink {
+      Iceberg {
+        catalog_name = "iceberg_catalog"
+        catalog_uri = "http://iceberg-rest-catalog:8181"
+        namespace = "commodity_data"
+        table = "economic_indicators"
+        schema_save_mode = "RECREATE_SCHEMA"
+        data_save_mode = "APPEND_DATA"
+      }
+    }
+
+  # Weather Data Connector (NOAA, Weather APIs)
+  weather-data-connector.conf: |
+    env {
+      job.mode = "BATCH"
+      checkpoint.interval = 10000
+    }
+    
+    source {
+      Http {
+        url = "https://api.weather.gov/gridpoints/${OFFICE}/${GRID_X},${GRID_Y}/forecast"
+        method = "GET"
+        format = "json"
+        schema = {
+          fields {
+            location = string
+            temperature = double
+            wind_speed = double
+            precipitation_probability = int
+            forecast_time = string
+          }
+        }
+      }
+    }
+    
+    transform {
+      Sql {
+        query = "SELECT location,
+                        temperature,
+                        wind_speed,
+                        precipitation_probability,
+                        forecast_time,
+                        CURRENT_DATE() as ingestion_date,
+                        CURRENT_TIMESTAMP() as ingestion_time
+                 FROM weather_data"
+      }
+    }
+    
+    sink {
+      Iceberg {
+        catalog_name = "iceberg_catalog"
+        catalog_uri = "http://iceberg-rest-catalog:8181"
+        namespace = "commodity_data"
+        table = "weather_forecasts"
+        schema_save_mode = "RECREATE_SCHEMA"
+        data_save_mode = "APPEND_DATA"
+      }
+    }
+
+  # Energy Prices Connector (EIA, ICE, NYMEX)
+  energy-prices-connector.conf: |
+    env {
+      job.mode = "BATCH"
+      checkpoint.interval = 10000
+    }
+    
+    source {
+      Http {
+        url = "https://api.eia.gov/v2/natural-gas/pri/sum/data/"
+        method = "GET"
+        format = "json"
+        params {
+          api_key = "${EIA_API_KEY}"
+          frequency = "daily"
+          data[0] = "value"
+          sort[0][column] = "period"
+          sort[0][direction] = "desc"
+          length = "100"
+        }
+        schema = {
+          fields {
+            period = string
+            product = string
+            process = string
+            area = string
+            value = double
+            units = string
+          }
+        }
+      }
+    }
+    
+    transform {
+      Sql {
+        query = "SELECT period as price_date,
+                        product as commodity,
+                        area as location,
+                        value as price,
+                        units,
+                        'EIA' as source,
+                        CURRENT_TIMESTAMP() as ingestion_time
+                 FROM energy_prices
+                 WHERE value IS NOT NULL"
+      }
+    }
+    
+    sink {
+      Iceberg {
+        catalog_name = "iceberg_catalog"
+        catalog_uri = "http://iceberg-rest-catalog:8181"
+        namespace = "commodity_data"
+        table = "energy_prices"
+        schema_save_mode = "RECREATE_SCHEMA"
+        data_save_mode = "APPEND_DATA"
+      }
+    }
+
+  # Alternative Data Connector (CSV/Parquet from S3/MinIO)
+  alternative-data-connector.conf: |
+    env {
+      job.mode = "BATCH"
+      checkpoint.interval = 10000
+    }
+    
+    source {
+      S3File {
+        path = "s3a://commodity-data/alternative/"
+        file_format_type = "parquet"
+        fs.s3a.endpoint = "http://minio-service:9000"
+        fs.s3a.access.key = "${MINIO_ACCESS_KEY}"
+        fs.s3a.secret.key = "${MINIO_SECRET_KEY}"
+        fs.s3a.path.style.access = "true"
+        schema = {
+          fields {
+            data_source = string
+            metric_name = string
+            metric_value = double
+            timestamp = long
+            metadata = string
+          }
+        }
+      }
+    }
+    
+    transform {
+      Sql {
+        query = "SELECT data_source,
+                        metric_name,
+                        metric_value,
+                        FROM_UNIXTIME(timestamp) as observation_time,
+                        metadata,
+                        CURRENT_TIMESTAMP() as ingestion_time
+                 FROM alternative_data"
+      }
+    }
+    
+    sink {
+      Iceberg {
+        catalog_name = "iceberg_catalog"
+        catalog_uri = "http://iceberg-rest-catalog:8181"
+        namespace = "commodity_data"
+        table = "alternative_data"
+        schema_save_mode = "RECREATE_SCHEMA"
+        data_save_mode = "APPEND_DATA"
+      }
+    }
+
+---
+# SeaTunnel Secrets for API Keys
+apiVersion: v1
+kind: Secret
+metadata:
+  name: seatunnel-api-keys
+  namespace: data-platform
+  labels:
+    app: seatunnel
+type: Opaque
+stringData:
+  # Market Data APIs
+  API_KEY: "your-market-data-api-key-here"
+  
+  # Economic Data APIs
+  FRED_API_KEY: "your-fred-api-key-here"
+  WORLD_BANK_API_KEY: "your-world-bank-api-key-here"
+  
+  # Energy Data APIs
+  EIA_API_KEY: "your-eia-api-key-here"
+  ICE_API_KEY: "your-ice-api-key-here"
+  
+  # Weather APIs
+  NOAA_API_KEY: "your-noaa-api-key-here"
+  WEATHER_API_KEY: "your-weather-api-key-here"
+  
+  # Cloud Storage
+  MINIO_ACCESS_KEY: "minioadmin"
+  MINIO_SECRET_KEY: "minioadmin"
+  
+  # Weather API Location Parameters
+  OFFICE: "TOP"
+  GRID_X: "31"
+  GRID_Y: "80"
+
+---
+# SeaTunnel Deployment for Running Connectors
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: seatunnel-engine
+  namespace: data-platform
+  labels:
+    app: seatunnel
+    component: data-ingestion
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: seatunnel
+  template:
+    metadata:
+      labels:
+        app: seatunnel
+        component: data-ingestion
+    spec:
+      containers:
+      - name: seatunnel
+        image: apache/spark:3.5.0-scala2.12-java11-python3-ubuntu
+        resources:
+          requests:
+            cpu: "2000m"
+            memory: "4Gi"
+          limits:
+            cpu: "4000m"
+            memory: "8Gi"
+        env:
+        - name: SEATUNNEL_HOME
+          value: "/opt/seatunnel"
+        - name: JAVA_OPTS
+          value: "-Xms2g -Xmx6g -XX:+UseG1GC"
+        envFrom:
+        - secretRef:
+            name: seatunnel-api-keys
+        command:
+        - /bin/bash
+        - -c
+        - |
+          set -e
+          echo "Installing data connector dependencies..."
+          pip install --quiet --user --no-cache-dir boto3 requests pandas pyarrow || true
+          
+          echo "SeaTunnel connector service ready"
+          echo "Connector configurations available at /config"
+          echo "Use DolphinScheduler workflows to execute data ingestion jobs"
+          echo "Alternative: Use DolphinScheduler Python/Shell tasks for data ingestion"
+          
+          # Keep container running for exec access
+          tail -f /dev/null
+        volumeMounts:
+        - name: config
+          mountPath: /config
+        - name: logs
+          mountPath: /opt/seatunnel/logs
+      volumes:
+      - name: config
+        configMap:
+          name: seatunnel-commodity-connectors
+      - name: logs
+        emptyDir: {}
+
+---
+# SeaTunnel Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: seatunnel-service
+  namespace: data-platform
+  labels:
+    app: seatunnel
+spec:
+  selector:
+    app: seatunnel
+  ports:
+  - name: http
+    port: 5801
+    targetPort: 5801
+  - name: rest
+    port: 8080
+    targetPort: 8080
+  type: ClusterIP
+

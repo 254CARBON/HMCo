@@ -1,0 +1,202 @@
+# Doris Initialization Job
+# Creates initial database and tables for commodity data
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: doris-init-sql
+  namespace: data-platform
+  labels:
+    app: doris
+data:
+  init.sql: |
+    -- Doris Initial Schema Setup
+    -- Create database for commodity streaming data
+    CREATE DATABASE IF NOT EXISTS commodity_realtime;
+    
+    USE commodity_realtime;
+    
+    -- Energy prices fact table (real-time)
+    CREATE TABLE IF NOT EXISTS energy_prices_rt (
+      `price_id` BIGINT NOT NULL,
+      `commodity_code` VARCHAR(50) NOT NULL,
+      `commodity_name` VARCHAR(200),
+      `price` DECIMAL(18, 4),
+      `currency` VARCHAR(10),
+      `unit` VARCHAR(50),
+      `exchange` VARCHAR(100),
+      `price_timestamp` DATETIME NOT NULL,
+      `ingestion_timestamp` DATETIME NOT NULL
+    )
+    DUPLICATE KEY(`price_id`, `commodity_code`, `price_timestamp`)
+    PARTITION BY RANGE(`price_timestamp`) ()
+    DISTRIBUTED BY HASH(`commodity_code`) BUCKETS 10
+    PROPERTIES (
+      "replication_num" = "3",
+      "dynamic_partition.enable" = "true",
+      "dynamic_partition.time_unit" = "DAY",
+      "dynamic_partition.start" = "-7",
+      "dynamic_partition.end" = "3",
+      "dynamic_partition.prefix" = "p",
+      "dynamic_partition.buckets" = "10",
+      "storage_medium" = "SSD",
+      "storage_cooldown_time" = "2025-01-01 00:00:00"
+    );
+    
+    -- Price aggregations (materialized view)
+    CREATE TABLE IF NOT EXISTS price_1min_agg (
+      `commodity_code` VARCHAR(50) NOT NULL,
+      `window_start` DATETIME NOT NULL,
+      `window_end` DATETIME NOT NULL,
+      `open_price` DECIMAL(18, 4),
+      `high_price` DECIMAL(18, 4),
+      `low_price` DECIMAL(18, 4),
+      `close_price` DECIMAL(18, 4),
+      `avg_price` DECIMAL(18, 4),
+      `volume` BIGINT,
+      `trade_count` BIGINT
+    )
+    AGGREGATE KEY(`commodity_code`, `window_start`, `window_end`)
+    PARTITION BY RANGE(`window_start`) ()
+    DISTRIBUTED BY HASH(`commodity_code`) BUCKETS 10
+    PROPERTIES (
+      "replication_num" = "3",
+      "dynamic_partition.enable" = "true",
+      "dynamic_partition.time_unit" = "DAY",
+      "dynamic_partition.start" = "-30",
+      "dynamic_partition.end" = "3",
+      "dynamic_partition.prefix" = "p",
+      "dynamic_partition.buckets" = "10"
+    );
+    
+    -- Market alerts (real-time anomalies)
+    CREATE TABLE IF NOT EXISTS market_alerts (
+      `alert_id` BIGINT NOT NULL,
+      `commodity_code` VARCHAR(50) NOT NULL,
+      `alert_type` VARCHAR(50),
+      `alert_severity` VARCHAR(20),
+      `alert_message` TEXT,
+      `price_change_pct` DECIMAL(10, 2),
+      `current_price` DECIMAL(18, 4),
+      `previous_price` DECIMAL(18, 4),
+      `alert_timestamp` DATETIME NOT NULL,
+      `resolved` BOOLEAN DEFAULT FALSE
+    )
+    DUPLICATE KEY(`alert_id`, `commodity_code`, `alert_timestamp`)
+    PARTITION BY RANGE(`alert_timestamp`) ()
+    DISTRIBUTED BY HASH(`commodity_code`) BUCKETS 10
+    PROPERTIES (
+      "replication_num" = "3",
+      "dynamic_partition.enable" = "true",
+      "dynamic_partition.time_unit" = "DAY",
+      "dynamic_partition.start" = "-30",
+      "dynamic_partition.end" = "3",
+      "dynamic_partition.prefix" = "p",
+      "dynamic_partition.buckets" = "10"
+    );
+    
+    -- Weather events (streaming)
+    CREATE TABLE IF NOT EXISTS weather_events_rt (
+      `event_id` BIGINT NOT NULL,
+      `location` VARCHAR(200),
+      `event_type` VARCHAR(100),
+      `severity` VARCHAR(50),
+      `temperature` DECIMAL(10, 2),
+      `wind_speed` DECIMAL(10, 2),
+      `precipitation` DECIMAL(10, 2),
+      `event_timestamp` DATETIME NOT NULL,
+      `ingestion_timestamp` DATETIME NOT NULL
+    )
+    DUPLICATE KEY(`event_id`, `location`, `event_timestamp`)
+    PARTITION BY RANGE(`event_timestamp`) ()
+    DISTRIBUTED BY HASH(`location`) BUCKETS 10
+    PROPERTIES (
+      "replication_num" = "3",
+      "dynamic_partition.enable" = "true",
+      "dynamic_partition.time_unit" = "DAY",
+      "dynamic_partition.start" = "-7",
+      "dynamic_partition.end" = "3",
+      "dynamic_partition.prefix" = "p",
+      "dynamic_partition.buckets" = "10"
+    );
+    
+    -- Trading signals (real-time)
+    CREATE TABLE IF NOT EXISTS trading_signals (
+      `signal_id` BIGINT NOT NULL,
+      `commodity_code` VARCHAR(50) NOT NULL,
+      `signal_type` VARCHAR(50),
+      `signal_strength` DECIMAL(5, 2),
+      `recommended_action` VARCHAR(50),
+      `confidence_score` DECIMAL(5, 2),
+      `signal_timestamp` DATETIME NOT NULL
+    )
+    DUPLICATE KEY(`signal_id`, `commodity_code`, `signal_timestamp`)
+    PARTITION BY RANGE(`signal_timestamp`) ()
+    DISTRIBUTED BY HASH(`commodity_code`) BUCKETS 10
+    PROPERTIES (
+      "replication_num" = "3",
+      "dynamic_partition.enable" = "true",
+      "dynamic_partition.time_unit" = "DAY",
+      "dynamic_partition.start" = "-7",
+      "dynamic_partition.end" = "3",
+      "dynamic_partition.prefix" = "p",
+      "dynamic_partition.buckets" = "10"
+    );
+    
+    -- Create user for external access
+    CREATE USER IF NOT EXISTS 'doris_user'@'%' IDENTIFIED BY 'doris_password_2025';
+    GRANT ALL ON commodity_realtime.* TO 'doris_user'@'%';
+    
+    SHOW DATABASES;
+    SHOW TABLES FROM commodity_realtime;
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: doris-init
+  namespace: data-platform
+  labels:
+    app: doris
+    component: init
+spec:
+  ttlSecondsAfterFinished: 86400
+  template:
+    metadata:
+      labels:
+        app: doris
+        component: init
+    spec:
+      restartPolicy: OnFailure
+      initContainers:
+      - name: wait-for-doris-fe
+        image: busybox:1.35
+        command:
+        - sh
+        - -c
+        - |
+          echo "Waiting for Doris FE to be ready..."
+          until nc -z doris-fe-service 9030; do
+            echo "Doris FE not ready, waiting..."
+            sleep 10
+          done
+          echo "Doris FE is ready!"
+          sleep 30
+      containers:
+      - name: init-doris
+        image: mysql:8.0
+        command:
+        - sh
+        - -c
+        - |
+          echo "Initializing Doris schema..."
+          mysql -h doris-fe-service -P 9030 -uroot < /init-scripts/init.sql
+          echo "Schema initialization complete!"
+        volumeMounts:
+        - name: init-scripts
+          mountPath: /init-scripts
+      volumes:
+      - name: init-scripts
+        configMap:
+          name: doris-init-sql
+
+

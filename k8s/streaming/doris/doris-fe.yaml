@@ -1,0 +1,228 @@
+# Apache Doris Frontend (FE) Cluster
+# Handles query parsing, planning, and metadata management
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: doris-fe-config
+  namespace: data-platform
+  labels:
+    app: doris
+    component: fe
+data:
+  fe.conf: |
+    # Doris FE Configuration
+    LOG_DIR = /opt/apache-doris/fe/log
+    DATE = `date +%Y%m%d-%H%M%S`
+    JAVA_OPTS = "-Xmx8192m -XX:+UseMembar -XX:SurvivorRatio=8 -XX:MaxTenuringThreshold=7 -XX:+PrintGCDateStamps -XX:+PrintGCDetails -XX:+UseConcMarkSweepGC -XX:+UseParNewGC -XX:+CMSClassUnloadingEnabled -XX:-CMSParallelRemarkEnabled -XX:CMSInitiatingOccupancyFraction=80 -XX:SoftRefLRUPolicyMSPerMB=0 -Xloggc:$LOG_DIR/fe.gc.log.$DATE"
+    
+    # Server configuration
+    http_port = 8030
+    rpc_port = 9020
+    query_port = 9030
+    edit_log_port = 9010
+    
+    # Metadata
+    meta_dir = /opt/apache-doris/fe/doris-meta
+    
+    # Query engine
+    qe_max_connection = 4096
+    max_running_txn_num_per_db = 1000
+    
+    # High availability
+    heartbeat_interval_second = 5
+    heartbeat_retry_times = 3
+    
+    # Performance
+    tablet_sched_max_scheduling_tablets = 10000
+    tablet_sched_max_balancing_tablets = 500
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: doris-fe-service
+  namespace: data-platform
+  labels:
+    app: doris
+    component: fe
+spec:
+  selector:
+    app: doris
+    component: fe
+  ports:
+  - name: http
+    port: 8030
+    targetPort: 8030
+  - name: rpc
+    port: 9020
+    targetPort: 9020
+  - name: query
+    port: 9030
+    targetPort: 9030
+  - name: edit-log
+    port: 9010
+    targetPort: 9010
+  type: ClusterIP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: doris-fe-headless
+  namespace: data-platform
+  labels:
+    app: doris
+    component: fe
+spec:
+  clusterIP: None
+  selector:
+    app: doris
+    component: fe
+  ports:
+  - name: http
+    port: 8030
+    targetPort: 8030
+  - name: rpc
+    port: 9020
+    targetPort: 9020
+  - name: query
+    port: 9030
+    targetPort: 9030
+  - name: edit-log
+    port: 9010
+    targetPort: 9010
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: doris-fe
+  namespace: data-platform
+  labels:
+    app: doris
+    component: fe
+spec:
+  serviceName: doris-fe-headless
+  replicas: 3
+  podManagementPolicy: Parallel
+  selector:
+    matchLabels:
+      app: doris
+      component: fe
+  volumeClaimTemplates:
+  - metadata:
+      name: fe-meta
+    spec:
+      accessModes: ["ReadWriteOnce"]
+      storageClassName: local-path
+      resources:
+        requests:
+          storage: 20Gi
+  - metadata:
+      name: fe-log
+    spec:
+      accessModes: ["ReadWriteOnce"]
+      storageClassName: local-path
+      resources:
+        requests:
+          storage: 10Gi
+  template:
+    metadata:
+      labels:
+        app: doris
+        component: fe
+    spec:
+      initContainers:
+      - name: init-fe
+        image: busybox:1.35
+        command:
+        - sh
+        - -c
+        - |
+          echo "Initializing Doris FE..."
+          mkdir -p /opt/apache-doris/fe/doris-meta
+          mkdir -p /opt/apache-doris/fe/log
+          chmod -R 777 /opt/apache-doris/fe
+          echo "Initialization complete"
+        volumeMounts:
+        - name: fe-meta
+          mountPath: /opt/apache-doris/fe/doris-meta
+        - name: fe-log
+          mountPath: /opt/apache-doris/fe/log
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "50m"
+          limits:
+            memory: "128Mi"
+            cpu: "100m"
+      containers:
+      - name: fe
+        image: apache/doris:fe-3.0.8
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 8030
+          name: http
+        - containerPort: 9020
+          name: rpc
+        - containerPort: 9030
+          name: query
+        - containerPort: 9010
+          name: edit-log
+        env:
+        - name: FE_SERVERS
+          value: "doris-fe-0.doris-fe-headless:9010,doris-fe-1.doris-fe-headless:9010,doris-fe-2.doris-fe-headless:9010"
+        - name: FE_ID
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        volumeMounts:
+        - name: fe-config
+          mountPath: /opt/apache-doris/fe/conf/fe.conf
+          subPath: fe.conf
+        - name: fe-meta
+          mountPath: /opt/apache-doris/fe/doris-meta
+        - name: fe-log
+          mountPath: /opt/apache-doris/fe/log
+        resources:
+          requests:
+            memory: "4Gi"
+            cpu: "2000m"
+          limits:
+            memory: "8Gi"
+            cpu: "4000m"
+        livenessProbe:
+          httpGet:
+            path: /api/health
+            port: http
+          initialDelaySeconds: 180
+          periodSeconds: 30
+          timeoutSeconds: 10
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /api/health
+            port: http
+          initialDelaySeconds: 120
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+      volumes:
+      - name: fe-config
+        configMap:
+          name: doris-fe-config
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: app
+                  operator: In
+                  values:
+                  - doris
+                - key: component
+                  operator: In
+                  values:
+                  - fe
+              topologyKey: kubernetes.io/hostname
+

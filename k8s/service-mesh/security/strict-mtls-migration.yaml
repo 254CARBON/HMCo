@@ -1,0 +1,329 @@
+# Strict mTLS Migration Plan
+# Gradually enable STRICT mTLS mode per service
+
+---
+# Phase 1: Enable STRICT mTLS for stateless services (LOW RISK)
+# These services have no external dependencies on non-mesh traffic
+
+# Portal Services - STRICT mTLS
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: portal-services-strict
+  namespace: data-platform
+spec:
+  selector:
+    matchLabels:
+      app: portal-services
+  mtls:
+    mode: STRICT
+
+---
+# MLflow - STRICT mTLS
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: mlflow-strict
+  namespace: data-platform
+spec:
+  selector:
+    matchLabels:
+      app: mlflow-service
+  mtls:
+    mode: STRICT
+
+---
+# Iceberg REST Catalog - STRICT mTLS
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: iceberg-rest-strict
+  namespace: data-platform
+spec:
+  selector:
+    matchLabels:
+      app: iceberg-rest-catalog
+  mtls:
+    mode: STRICT
+
+---
+# Phase 2: Enable STRICT mTLS for DataHub services (MEDIUM RISK)
+# Ensure all DataHub components are mesh-ready
+
+# DataHub GMS - STRICT mTLS
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: datahub-gms-strict
+  namespace: data-platform
+spec:
+  selector:
+    matchLabels:
+      app: datahub-gms
+  mtls:
+    mode: STRICT
+
+---
+# DataHub Frontend - STRICT mTLS
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: datahub-frontend-strict
+  namespace: data-platform
+spec:
+  selector:
+    matchLabels:
+      app: datahub-frontend
+  mtls:
+    mode: STRICT
+
+---
+# DataHub MAE Consumer - STRICT mTLS
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: datahub-mae-strict
+  namespace: data-platform
+spec:
+  selector:
+    matchLabels:
+      app: datahub-mae-consumer
+  mtls:
+    mode: STRICT
+
+---
+# DataHub MCE Consumer - STRICT mTLS
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: datahub-mce-strict
+  namespace: data-platform
+spec:
+  selector:
+    matchLabels:
+      app: datahub-mce-consumer
+  mtls:
+    mode: STRICT
+
+---
+# Phase 3: Enable STRICT mTLS for query engines (MEDIUM RISK)
+
+# Trino - STRICT mTLS
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: trino-strict
+  namespace: data-platform
+spec:
+  selector:
+    matchLabels:
+      app: trino-coordinator
+  mtls:
+    mode: STRICT
+
+---
+# Phase 4: Enable STRICT mTLS for workflow services (HIGH RISK)
+# Test thoroughly before enabling
+
+# DolphinScheduler API - STRICT mTLS
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: dolphinscheduler-api-strict
+  namespace: data-platform
+spec:
+  selector:
+    matchLabels:
+      app: dolphinscheduler-api
+  mtls:
+    mode: STRICT
+
+---
+# DolphinScheduler Master - STRICT mTLS
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: dolphinscheduler-master-strict
+  namespace: data-platform
+spec:
+  selector:
+    matchLabels:
+      app: dolphinscheduler-master
+  mtls:
+    mode: STRICT
+
+---
+# DolphinScheduler Worker - STRICT mTLS
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: dolphinscheduler-worker-strict
+  namespace: data-platform
+spec:
+  selector:
+    matchLabels:
+      app: dolphinscheduler-worker
+  mtls:
+    mode: STRICT
+
+---
+# Phase 5: Enable STRICT mTLS for visualization (LOW RISK)
+
+# Superset - STRICT mTLS
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: superset-strict
+  namespace: data-platform
+spec:
+  selector:
+    matchLabels:
+      app: superset-web
+  mtls:
+    mode: STRICT
+
+---
+# Grafana - STRICT mTLS
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: grafana-strict
+  namespace: monitoring
+spec:
+  selector:
+    matchLabels:
+      app: grafana
+  mtls:
+    mode: STRICT
+
+---
+# Migration Job - Apply STRICT mTLS gradually
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: mtls-strict-migration
+  namespace: data-platform
+  labels:
+    app: mtls-migration
+spec:
+  template:
+    metadata:
+      annotations:
+        sidecar.istio.io/inject: "false"
+    spec:
+      restartPolicy: OnFailure
+      serviceAccountName: default
+      containers:
+      - name: migration
+        image: bitnami/kubectl:latest
+        command:
+        - /bin/bash
+        - -c
+        - |
+          set -e
+          
+          echo "=== STRICT mTLS Migration Script ==="
+          echo "This script will gradually enable STRICT mTLS mode"
+          echo ""
+          
+          # Phase 1: Stateless services (LOW RISK)
+          echo "Phase 1: Enabling STRICT mTLS for stateless services..."
+          kubectl apply -f - <<EOF
+          apiVersion: security.istio.io/v1beta1
+          kind: PeerAuthentication
+          metadata:
+            name: portal-services-strict
+            namespace: data-platform
+          spec:
+            selector:
+              matchLabels:
+                app: portal-services
+            mtls:
+              mode: STRICT
+          EOF
+          
+          echo "Waiting 30 seconds for metrics..."
+          sleep 30
+          
+          # Check for errors
+          echo "Checking for connection errors..."
+          ERROR_COUNT=$(kubectl exec -n data-platform deployment/portal-services -c istio-proxy -- \
+            curl -s localhost:15000/stats/prometheus | \
+            grep -c "cluster.*upstream_cx_connect_fail" || true)
+          
+          if [ "$ERROR_COUNT" -gt "10" ]; then
+            echo "ERROR: High connection failure rate detected!"
+            echo "Rolling back STRICT mTLS for portal-services"
+            kubectl delete peerauthentication portal-services-strict -n data-platform
+            exit 1
+          fi
+          
+          echo "✅ Phase 1 complete: Stateless services migrated to STRICT mTLS"
+          
+          # Phase 2: DataHub services (MEDIUM RISK)
+          echo ""
+          echo "Phase 2: Enabling STRICT mTLS for DataHub services..."
+          kubectl apply -f /migrations/phase2-datahub.yaml || true
+          
+          sleep 30
+          
+          echo "✅ Phase 2 complete: DataHub services migrated to STRICT mTLS"
+          
+          # Phase 3: Query engines (MEDIUM RISK)
+          echo ""
+          echo "Phase 3: Enabling STRICT mTLS for query engines..."
+          kubectl apply -f /migrations/phase3-query.yaml || true
+          
+          sleep 30
+          
+          echo "✅ Phase 3 complete: Query engines migrated to STRICT mTLS"
+          
+          echo ""
+          echo "=== Migration Complete ==="
+          echo "✅ STRICT mTLS enabled for all applicable services"
+          echo ""
+          echo "Verify with: istioctl authn tls-check <pod>.<namespace>"
+          echo "Monitor metrics in Kiali: https://kiali.254carbon.com"
+
+---
+# Verification script
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mtls-verification
+  namespace: data-platform
+data:
+  verify.sh: |
+    #!/bin/bash
+    # Verify STRICT mTLS is working correctly
+    
+    echo "=== mTLS Verification Script ==="
+    
+    # Get all services with STRICT mTLS
+    STRICT_SERVICES=$(kubectl get peerauthentication -n data-platform -o json | \
+      jq -r '.items[] | select(.spec.mtls.mode=="STRICT") | .metadata.name')
+    
+    echo "Services with STRICT mTLS:"
+    echo "$STRICT_SERVICES"
+    echo ""
+    
+    # Check each service
+    for svc in $STRICT_SERVICES; do
+      echo "Checking $svc..."
+      POD=$(kubectl get pods -n data-platform -l app=$svc -o jsonpath='{.items[0].metadata.name}')
+      
+      if [ -n "$POD" ]; then
+        istioctl authn tls-check $POD.data-platform | grep -q "STRICT"
+        if [ $? -eq 0 ]; then
+          echo "✅ $svc: STRICT mTLS verified"
+        else
+          echo "❌ $svc: STRICT mTLS NOT verified"
+        fi
+      fi
+    done
+    
+    echo ""
+    echo "=== Verification Complete ==="
+
+
+

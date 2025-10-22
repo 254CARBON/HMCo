@@ -7,7 +7,8 @@ metadata:
   labels:
     app: datahub-upgrade
 spec:
-  backoffLimit: 0
+  backoffLimit: 2
+  ttlSecondsAfterFinished: 600
   template:
     metadata:
       labels:
@@ -21,6 +22,13 @@ spec:
         args:
           - -u
           - SystemUpdate
+        resources:
+          requests:
+            cpu: "200m"
+            memory: "512Mi"
+          limits:
+            cpu: "500m"
+            memory: "1Gi"
         env:
           # Database
           - name: EBEAN_DATASOURCE_HOST

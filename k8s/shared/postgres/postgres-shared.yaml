@@ -1,6 +1,9 @@
-# Shared PostgreSQL for DataHub, Superset, Iceberg REST Catalog
-apiVersion: apps/v1
-kind: Deployment
+# Shared PostgreSQL backing service for DataHub, Superset, and Iceberg REST Catalog.
+# This configuration moves the database to a StatefulSet with persistent storage.
+
+---
+apiVersion: v1
+kind: Service
 metadata:
   name: postgres-shared
   namespace: data-platform
@@ -8,6 +11,43 @@ metadata:
     app: postgres-shared
     component: database
 spec:
+  clusterIP: None
+  ports:
+  - name: postgres
+    port: 5432
+    targetPort: 5432
+  selector:
+    app: postgres-shared
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres-shared-service
+  namespace: data-platform
+  labels:
+    app: postgres-shared
+    component: database
+spec:
+  type: ClusterIP
+  ports:
+  - name: postgres
+    port: 5432
+    targetPort: 5432
+  selector:
+    app: postgres-shared
+
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postgres-shared
+  namespace: data-platform
+  labels:
+    app: postgres-shared
+    component: database
+spec:
+  serviceName: postgres-shared
   replicas: 1
   selector:
     matchLabels:
@@ -18,9 +58,11 @@ spec:
         app: postgres-shared
         component: database
     spec:
+      terminationGracePeriodSeconds: 30
       containers:
       - name: postgres
         image: postgres:15
+        imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 5432
           name: postgres
@@ -42,58 +84,52 @@ spec:
         - name: postgres-init
           mountPath: /docker-entrypoint-initdb.d
         resources:
-          limits:
-            memory: "2Gi"
-            cpu: "1000m"
           requests:
-            memory: "1Gi"
             cpu: "500m"
+            memory: "1Gi"
+          limits:
+            cpu: "1000m"
+            memory: "2Gi"
         livenessProbe:
           exec:
             command:
-              - pg_isready
-              - -U
-              - datahub
-              - -d
-              - datahub
+            - pg_isready
+            - -U
+            - datahub
+            - -d
+            - datahub
           initialDelaySeconds: 30
           periodSeconds: 10
+          timeoutSeconds: 5
         readinessProbe:
           exec:
             command:
-              - pg_isready
-              - -U
-              - datahub
-              - -d
-              - datahub
+            - pg_isready
+            - -U
+            - datahub
+            - -d
+            - datahub
           initialDelaySeconds: 5
           periodSeconds: 5
+          timeoutSeconds: 5
       volumes:
-      - name: postgres-data
-        emptyDir: {}
       - name: postgres-init
         configMap:
           name: postgres-shared-init
+  volumeClaimTemplates:
+  - metadata:
+      name: postgres-data
+      labels:
+        app: postgres-shared
+    spec:
+      accessModes:
+      - ReadWriteOnce
+      storageClassName: local-path
+      resources:
+        requests:
+          storage: 50Gi
+
 ---
-# PostgreSQL Service
-apiVersion: v1
-kind: Service
-metadata:
-  name: postgres-shared-service
-  namespace: data-platform
-  labels:
-    app: postgres-shared
-spec:
-  ports:
-  - port: 5432
-    targetPort: 5432
-    name: postgres
-  selector:
-    app: postgres-shared
-  type: ClusterIP
----
----
-# Secret for PostgreSQL password
 apiVersion: v1
 kind: Secret
 metadata:
@@ -105,8 +141,8 @@ type: Opaque
 data:
   # Base64 encoded "datahub_password"
   password: ZGF0YWh1Yl9wYXNzd29yZA==
+
 ---
-# ConfigMap for PostgreSQL initialization scripts
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -117,41 +153,61 @@ metadata:
 data:
   01-init.sql: |
     -- Create additional databases for services
-    CREATE DATABASE superset;
-    CREATE DATABASE iceberg_rest;
+    SELECT 'CREATE DATABASE superset'
+    WHERE NOT EXISTS (
+      SELECT FROM pg_database WHERE datname = 'superset'
+    )
+    \gexec
+
+    SELECT 'CREATE DATABASE iceberg_rest'
+    WHERE NOT EXISTS (
+      SELECT FROM pg_database WHERE datname = 'iceberg_rest'
+    )
+    \gexec
+
     GRANT ALL PRIVILEGES ON DATABASE superset TO datahub;
     GRANT ALL PRIVILEGES ON DATABASE iceberg_rest TO datahub;
 
     -- Create Superset specific user
-    CREATE USER superset_user WITH PASSWORD 'superset_password';
+    DO $$
+    BEGIN
+      IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'superset_user') THEN
+        CREATE USER superset_user WITH PASSWORD 'superset_password';
+      END IF;
+    END
+    $$;
     GRANT ALL PRIVILEGES ON DATABASE superset TO superset_user;
 
     -- Create Iceberg REST Catalog user
-    CREATE USER iceberg_user WITH PASSWORD 'iceberg_password';
+    DO $$
+    BEGIN
+      IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'iceberg_user') THEN
+        CREATE USER iceberg_user WITH PASSWORD 'iceberg_password';
+      END IF;
+    END
+    $$;
     GRANT ALL PRIVILEGES ON DATABASE iceberg_rest TO iceberg_user;
   02-iceberg-schema.sql: |
     -- Iceberg REST Catalog schema initialization
-    -- This script sets up the database for Iceberg metadata management
-    
-    -- Connect to iceberg_rest database
-    \c iceberg_rest;
-    
-    -- Create schema for Iceberg metadata
+    \connect iceberg_rest;
+
     CREATE SCHEMA IF NOT EXISTS iceberg_catalog;
-    
-    -- Grant permissions to iceberg_user
-    GRANT ALL PRIVILEGES ON SCHEMA iceberg_catalog TO iceberg_user;
-    GRANT USAGE ON SCHEMA public TO iceberg_user;
-    GRANT ALL PRIVILEGES ON SCHEMA public TO iceberg_user;
-    
-    -- Enable UUID extension if not already enabled
+
+    GRANT USAGE, CREATE ON SCHEMA iceberg_catalog TO iceberg_user;
+    GRANT USAGE, CREATE ON SCHEMA public TO iceberg_user;
+    GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA iceberg_catalog TO iceberg_user;
+    GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA iceberg_catalog TO iceberg_user;
+
     CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
-    
-    -- Grant extension usage
-    GRANT USAGE ON SCHEMA public TO iceberg_user;
-    
-    -- Set default privileges for future objects
+
     ALTER DEFAULT PRIVILEGES FOR USER postgres IN SCHEMA public GRANT ALL ON TABLES TO iceberg_user;
     ALTER DEFAULT PRIVILEGES FOR USER postgres IN SCHEMA public GRANT ALL ON SEQUENCES TO iceberg_user;
     ALTER DEFAULT PRIVILEGES FOR USER postgres IN SCHEMA iceberg_catalog GRANT ALL ON TABLES TO iceberg_user;
     ALTER DEFAULT PRIVILEGES FOR USER postgres IN SCHEMA iceberg_catalog GRANT ALL ON SEQUENCES TO iceberg_user;
+
+    ALTER ROLE iceberg_user IN DATABASE iceberg_rest SET search_path = iceberg_catalog, public;
+  03-superset-schema.sql: |
+    \connect superset;
+
+    ALTER ROLE superset_user IN DATABASE superset SET search_path = public;
+    GRANT ALL PRIVILEGES ON SCHEMA public TO superset_user;

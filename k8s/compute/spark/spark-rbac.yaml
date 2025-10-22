@@ -1,0 +1,248 @@
+# Spark Operator Runner Service Account
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: spark-runner
+  namespace: data-platform
+  labels:
+    app: spark
+    component: rbac
+---
+# Service Account for Spark Application Drivers/Executors
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: spark-app
+  namespace: data-platform
+  labels:
+    app: spark
+    component: rbac
+---
+# ClusterRole for Spark Operator to manage resources
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: spark-operator-extended
+  labels:
+    app: spark
+    component: rbac
+rules:
+# Existing SparkApplication management
+- apiGroups:
+  - sparkoperator.k8s.io
+  resources:
+  - sparkapplications
+  - sparkapplications/status
+  - scheduledsparkapplications
+  - scheduledsparkapplications/status
+  verbs:
+  - "*"
+# Pod management for driver/executor
+- apiGroups:
+  - ""
+  resources:
+  - pods
+  - pods/log
+  - pods/status
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+# Service management
+- apiGroups:
+  - ""
+  resources:
+  - services
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+# ConfigMap and Secret access
+- apiGroups:
+  - ""
+  resources:
+  - configmaps
+  - secrets
+  verbs:
+  - get
+  - list
+  - watch
+# Events
+- apiGroups:
+  - ""
+  resources:
+  - events
+  verbs:
+  - create
+  - patch
+# Storage classes
+- apiGroups:
+  - storage.k8s.io
+  resources:
+  - storageclasses
+  verbs:
+  - get
+  - list
+# Persistent volumes
+- apiGroups:
+  - ""
+  resources:
+  - persistentvolumes
+  - persistentvolumeclaims
+  verbs:
+  - get
+  - list
+# Node information
+- apiGroups:
+  - ""
+  resources:
+  - nodes
+  verbs:
+  - get
+  - list
+# Pod disruption budgets
+- apiGroups:
+  - policy
+  resources:
+  - poddisruptionbudgets
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+# Network policies
+- apiGroups:
+  - networking.k8s.io
+  resources:
+  - networkpolicies
+  verbs:
+  - get
+  - list
+---
+# ClusterRole for Spark Applications (drivers/executors)
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: spark-app-runner
+  labels:
+    app: spark
+    component: rbac
+rules:
+# Pod status
+- apiGroups:
+  - ""
+  resources:
+  - pods
+  - pods/log
+  verbs:
+  - get
+  - list
+  - watch
+# Pod/exec access for debugging
+- apiGroups:
+  - ""
+  resources:
+  - pods/exec
+  verbs:
+  - create
+# Service discovery
+- apiGroups:
+  - ""
+  resources:
+  - services
+  - endpoints
+  verbs:
+  - get
+  - list
+  - watch
+# ConfigMap access (for configuration)
+- apiGroups:
+  - ""
+  resources:
+  - configmaps
+  verbs:
+  - get
+  - list
+  - watch
+---
+# ClusterRoleBinding for Spark Operator
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: spark-operator-extended
+  labels:
+    app: spark
+    component: rbac
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: spark-operator-extended
+subjects:
+- kind: ServiceAccount
+  name: spark-operator
+  namespace: data-platform
+---
+# ClusterRoleBinding for Spark Application pods
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: spark-app-runner
+  labels:
+    app: spark
+    component: rbac
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: spark-app-runner
+subjects:
+- kind: ServiceAccount
+  name: spark-app
+  namespace: data-platform
+---
+# Role for namespace-scoped pod management
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: spark-pod-manager
+  namespace: data-platform
+  labels:
+    app: spark
+    component: rbac
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - pods
+  - pods/log
+  verbs:
+  - get
+  - list
+  - delete
+  - watch
+---
+# RoleBinding for namespace pod management
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: spark-pod-manager
+  namespace: data-platform
+  labels:
+    app: spark
+    component: rbac
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: spark-pod-manager
+subjects:
+- kind: ServiceAccount
+  name: spark-runner
+  namespace: data-platform

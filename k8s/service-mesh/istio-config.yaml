@@ -1,0 +1,293 @@
+# Istio Control Plane Configuration
+# Optimized for 254Carbon platform with minimal footprint
+
+apiVersion: install.istio.io/v1alpha1
+kind: IstioOperator
+metadata:
+  name: control-plane
+  namespace: istio-system
+spec:
+  profile: minimal
+  
+  # Global mesh configuration
+  meshConfig:
+    # Enable access logging
+    accessLogFile: /dev/stdout
+    accessLogEncoding: JSON
+    accessLogFormat: |
+      {
+        "start_time": "%START_TIME%",
+        "method": "%REQ(:METHOD)%",
+        "path": "%REQ(X-ENVOY-ORIGINAL-PATH?:PATH)%",
+        "protocol": "%PROTOCOL%",
+        "response_code": "%RESPONSE_CODE%",
+        "response_flags": "%RESPONSE_FLAGS%",
+        "bytes_received": "%BYTES_RECEIVED%",
+        "bytes_sent": "%BYTES_SENT%",
+        "duration": "%DURATION%",
+        "upstream_service_time": "%RESP(X-ENVOY-UPSTREAM-SERVICE-TIME)%",
+        "x_forwarded_for": "%REQ(X-FORWARDED-FOR)%",
+        "user_agent": "%REQ(USER-AGENT)%",
+        "request_id": "%REQ(X-REQUEST-ID)%",
+        "authority": "%REQ(:AUTHORITY)%",
+        "upstream_host": "%UPSTREAM_HOST%",
+        "upstream_cluster": "%UPSTREAM_CLUSTER%"
+      }
+    
+    # Default proxy configuration
+    defaultConfig:
+      # Tracing configuration
+      tracing:
+        sampling: 10.0
+        zipkin:
+          address: jaeger-collector.istio-system.svc.cluster.local:9411
+      
+      # Proxy stats configuration
+      proxyStatsMatcher:
+        inclusionRegexps:
+        - ".*upstream_rq.*"
+        - ".*upstream_cx.*"
+        - ".*outlier_detection.*"
+        - ".*circuit_breakers.*"
+        - ".*lb_healthy_panic.*"
+        - ".*retry.*"
+      
+      # Connection timeouts
+      gatewayTopology:
+        numTrustedProxies: 2
+      
+    # Outbound traffic policy
+    outboundTrafficPolicy:
+      mode: ALLOW_ANY
+    
+    # Enable Prometheus integration
+    enablePrometheusMerge: true
+    
+    # Extension providers for telemetry
+    extensionProviders:
+    - name: prometheus
+      prometheus: {}
+    
+    - name: jaeger
+      zipkin:
+        service: jaeger-collector.istio-system.svc.cluster.local
+        port: 9411
+    
+    # Default telemetry
+    defaultProviders:
+      metrics:
+      - prometheus
+      tracing:
+      - jaeger
+
+  # Component configuration
+  components:
+    # Istiod (control plane)
+    pilot:
+      enabled: true
+      k8s:
+        # Resource configuration
+        resources:
+          requests:
+            cpu: 100m
+            memory: 256Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+        
+        # High availability
+        replicaCount: 2
+        
+        # Pod disruption budget
+        podDisruptionBudget:
+          minAvailable: 1
+        
+        # Environment variables
+        env:
+        - name: PILOT_TRACE_SAMPLING
+          value: "10.0"
+        - name: PILOT_ENABLE_PROTOCOL_SNIFFING_FOR_OUTBOUND
+          value: "true"
+        - name: PILOT_ENABLE_PROTOCOL_SNIFFING_FOR_INBOUND
+          value: "true"
+        
+        # Horizontal pod autoscaling
+        hpaSpec:
+          minReplicas: 2
+          maxReplicas: 5
+          metrics:
+          - type: Resource
+            resource:
+              name: cpu
+              target:
+                type: Utilization
+                averageUtilization: 80
+        
+        # Pod anti-affinity for HA
+        affinity:
+          podAntiAffinity:
+            preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchLabels:
+                    app: istiod
+                topologyKey: kubernetes.io/hostname
+    
+    # Ingress gateway (optional, we use NGINX)
+    ingressGateways:
+    - name: istio-ingressgateway
+      enabled: false
+    
+    # Egress gateway
+    egressGateways:
+    - name: istio-egressgateway
+      enabled: false
+
+  # Values for Helm charts
+  values:
+    global:
+      # Logging level
+      logging:
+        level: "default:info"
+      
+      # Proxy configuration
+      proxy:
+        # Resource limits for sidecars
+        resources:
+          requests:
+            cpu: 10m
+            memory: 64Mi
+          limits:
+            cpu: 200m
+            memory: 256Mi
+        
+        # Proxy concurrency
+        concurrency: 2
+        
+        # Enable core dumps for debugging
+        enableCoreDump: false
+        
+        # Proxy component log level
+        logLevel: warning
+        
+        # Proxy image type
+        image: proxyv2
+        
+        # Cluster domain
+        clusterDomain: "cluster.local"
+        
+        # Include IP ranges for traffic capture
+        includeIPRanges: "*"
+        
+        # Exclude IP ranges (e.g., for external services)
+        excludeIPRanges: ""
+        
+        # Exclude inbound ports
+        excludeInboundPorts: ""
+        
+        # Exclude outbound ports
+        excludeOutboundPorts: ""
+        
+        # Lifecycle hooks
+        lifecycle:
+          preStop:
+            exec:
+              command:
+              - /bin/sh
+              - -c
+              - sleep 15
+      
+      # mTLS configuration
+      mtls:
+        enabled: true
+        auto: true
+      
+      # Network settings
+      network: ""
+      multiCluster:
+        enabled: false
+      
+      # Image pull policy
+      imagePullPolicy: IfNotPresent
+      
+      # Image pull secrets
+      imagePullSecrets: []
+    
+    # Pilot-specific values
+    pilot:
+      autoscaleEnabled: true
+      autoscaleMin: 2
+      autoscaleMax: 5
+      replicaCount: 2
+      
+      # CPU threshold for autoscaling
+      cpu:
+        targetAverageUtilization: 80
+      
+      # Enable protocol sniffing
+      enableProtocolSniffingForOutbound: true
+      enableProtocolSniffingForInbound: true
+    
+    # Sidecar injector
+    sidecarInjectorWebhook:
+      rewriteAppHTTPProbe: true
+      enableNamespacesByDefault: false
+      
+      # Injection template
+      templates:
+        custom: |
+          spec:
+            containers:
+            - name: istio-proxy
+              resources:
+                requests:
+                  cpu: 10m
+                  memory: 64Mi
+                limits:
+                  cpu: 200m
+                  memory: 256Mi
+    
+    # Telemetry V2 (recommended)
+    telemetry:
+      enabled: true
+      v2:
+        enabled: true
+        prometheus:
+          enabled: true
+        stackdriver:
+          enabled: false
+
+---
+# ConfigMap for mesh configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: istio-mesh-config
+  namespace: istio-system
+  labels:
+    istio.io/rev: default
+data:
+  mesh: |
+    # Set the default behavior of the sidecar for handling outbound traffic
+    outboundTrafficPolicy:
+      mode: ALLOW_ANY
+    
+    # Enable access logging
+    accessLogFile: /dev/stdout
+    
+    # Default connection timeout
+    defaultConfig:
+      connectionTimeout: 10s
+      
+      # Istio proxy config
+      concurrency: 2
+      
+      # Status port for health checks
+      statusPort: 15020
+      
+      # Discovery address
+      discoveryAddress: istiod.istio-system.svc:15012
+
+
+

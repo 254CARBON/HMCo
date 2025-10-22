@@ -1,0 +1,139 @@
+---
+# VictoriaMetrics for Long-term Metrics Storage
+# High-performance, cost-effective Prometheus alternative
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: victoria-metrics
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: victoria-metrics-data
+  namespace: victoria-metrics
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 200Gi
+  storageClassName: local-path
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: victoria-metrics
+  namespace: victoria-metrics
+  labels:
+    app: victoria-metrics
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: victoria-metrics
+  template:
+    metadata:
+      labels:
+        app: victoria-metrics
+    spec:
+      containers:
+      - name: victoria-metrics
+        image: victoriametrics/victoria-metrics:v1.93.0
+        args:
+        - -storageDataPath=/victoria-metrics-data
+        - -retentionPeriod=12  # 12 months retention
+        - -memory.allowedPercent=80
+        - -search.maxQueryDuration=60s
+        - -search.maxConcurrentRequests=16
+        - -httpListenAddr=:8428
+        ports:
+        - containerPort: 8428
+          name: http
+        resources:
+          requests:
+            cpu: 1000m
+            memory: 4Gi
+          limits:
+            cpu: 2000m
+            memory: 8Gi
+        volumeMounts:
+        - name: data
+          mountPath: /victoria-metrics-data
+      volumes:
+      - name: data
+        persistentVolumeClaim:
+          claimName: victoria-metrics-data
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: victoria-metrics
+  namespace: victoria-metrics
+  labels:
+    app: victoria-metrics
+spec:
+  type: ClusterIP
+  ports:
+  - port: 8428
+    targetPort: 8428
+    protocol: TCP
+    name: http
+  selector:
+    app: victoria-metrics
+
+---
+# Prometheus Remote Write Configuration
+# Add to Prometheus to send metrics to VictoriaMetrics
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prometheus-remote-write-config
+  namespace: monitoring
+data:
+  remote-write.yaml: |
+    remote_write:
+    - url: http://victoria-metrics.victoria-metrics.svc.cluster.local:8428/api/v1/write
+      queue_config:
+        max_samples_per_send: 10000
+        capacity: 50000
+        max_shards: 20
+      write_relabel_configs:
+      - source_labels: [__name__]
+        regex: 'up|container_.*|node_.*|kube_.*|datahub_.*|dolphinscheduler_.*|trino_.*'
+        action: keep
+
+---
+# VictoriaMetrics Ingress
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: victoria-metrics
+  namespace: victoria-metrics
+  annotations:
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    nginx.ingress.kubernetes.io/auth-type: basic
+    nginx.ingress.kubernetes.io/auth-secret: victoria-metrics-basic-auth
+    nginx.ingress.kubernetes.io/auth-realm: 'Authentication Required'
+spec:
+  ingressClassName: nginx
+  tls:
+  - hosts:
+    - metrics.254carbon.com
+    secretName: victoria-metrics-tls
+  rules:
+  - host: metrics.254carbon.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: victoria-metrics
+            port:
+              number: 8428
+
+

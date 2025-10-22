@@ -18,10 +18,19 @@ spec:
         app: iceberg-rest-catalog
         component: data-lake
     spec:
+      # Fix DNS resolution issues
+      dnsPolicy: ClusterFirst
+      dnsConfig:
+        options:
+        - name: ndots
+          value: "1"
+        - name: timeout
+          value: "5"
       imagePullSecrets: []
       containers:
       - name: iceberg-rest-catalog
-        image: tabulario/iceberg-rest:0.6.1
+        image: tabulario/iceberg-rest:0.6.0
+        imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 8181
           name: catalog-api
@@ -30,7 +39,7 @@ spec:
         - name: CATALOG_WAREHOUSE
           value: "s3://iceberg-warehouse/"
         - name: CATALOG_URI
-          value: "jdbc:postgresql://postgres-shared-service:5432/iceberg_rest"
+          value: "jdbc:postgresql://postgres-shared-service:5432/iceberg_rest?currentSchema=iceberg_catalog"
         - name: CATALOG_JDBC_USER
           value: "iceberg_user"
         - name: CATALOG_JDBC_PASSWORD
@@ -65,9 +74,13 @@ spec:
           value: "rest"
         - name: CATALOG_DEFAULT_NAMESPACE
           value: "default"
-        # Connection pooling
+        # Connection initialization (use direct role privileges to avoid catalog pods hitting public schema denials)
         - name: CATALOG_JDBC_INITIALIZE_SQL
-          value: "SELECT 1"
+          value: "SET search_path TO iceberg_catalog, public"
+        - name: CATALOG_JDBC_FLYWAY_SCHEMAS
+          value: "iceberg_catalog"
+        - name: CATALOG_JDBC_FLYWAY_DEFAULT_SCHEMA
+          value: "iceberg_catalog"
         resources:
           limits:
             memory: "1.5Gi"

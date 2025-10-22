@@ -1,0 +1,164 @@
+---
+# A/B Testing Framework for Model Serving
+# Route traffic between model versions for experimentation
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ab-testing-config
+  namespace: data-platform
+  labels:
+    app: ray-serve
+    component: ab-testing
+data:
+  ab_deployment.py: |
+    # A/B Testing with Ray Serve
+    # Splits traffic between model versions
+    
+    from ray import serve
+    import random
+    
+    @serve.deployment(num_replicas=2)
+    class ModelA:
+        """Baseline model (Control)"""
+        def __init__(self):
+            # Load model A
+            self.model_version = "v1.0"
+        
+        async def __call__(self, request):
+            # Model A prediction logic
+            return {
+                "model": "A",
+                "version": self.model_version,
+                "prediction": self._predict(request)
+            }
+        
+        def _predict(self, request):
+            # Placeholder prediction
+            return 85.50
+    
+    @serve.deployment(num_replicas=2)
+    class ModelB:
+        """Experimental model (Treatment)"""
+        def __init__(self):
+            # Load model B
+            self.model_version = "v2.0"
+        
+        async def __call__(self, request):
+            # Model B prediction logic
+            return {
+                "model": "B",
+                "version": self.model_version,
+                "prediction": self._predict(request)
+            }
+        
+        def _predict(self, request):
+            # Placeholder prediction
+            return 86.25
+    
+    @serve.deployment
+    class ABTestRouter:
+        """Routes requests to A or B based on traffic split"""
+        def __init__(self, model_a, model_b, split_ratio=0.5):
+            self.model_a = model_a
+            self.model_b = model_b
+            self.split_ratio = split_ratio
+        
+        async def __call__(self, request):
+            # Route based on split ratio
+            if random.random() < self.split_ratio:
+                result = await self.model_a.remote(request)
+                variant = "A"
+            else:
+                result = await self.model_b.remote(request)
+                variant = "B"
+            
+            # Log for analytics
+            self._log_experiment(request, result, variant)
+            
+            return result
+        
+        def _log_experiment(self, request, result, variant):
+            # Log to analytics system
+            pass
+    
+    # Deploy
+    model_a = ModelA.bind()
+    model_b = ModelB.bind()
+    router = ABTestRouter.bind(model_a, model_b, split_ratio=0.5)
+    
+    serve.run(router, name="ab-test-router", route_prefix="/predict")
+
+---
+# A/B Test Metrics Collection
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ab-test-metrics
+  namespace: data-platform
+data:
+  metrics.py: |
+    # A/B Test Metrics and Analysis
+    
+    from prometheus_client import Counter, Histogram, Gauge
+    import numpy as np
+    from scipy import stats
+    
+    # Metrics
+    predictions_total = Counter(
+        'ab_test_predictions_total',
+        'Total predictions by variant',
+        ['variant', 'model_version']
+    )
+    
+    prediction_latency = Histogram(
+        'ab_test_prediction_latency_seconds',
+        'Prediction latency by variant',
+        ['variant'],
+        buckets=[0.01, 0.05, 0.1, 0.5, 1.0, 2.0]
+    )
+    
+    model_accuracy = Gauge(
+        'ab_test_model_accuracy',
+        'Model accuracy by variant',
+        ['variant']
+    )
+    
+    class ABTestAnalyzer:
+        """Statistical analysis of A/B test results"""
+        
+        def calculate_significance(self, results_a, results_b, alpha=0.05):
+            """
+            Calculate statistical significance using t-test
+            Returns: (is_significant, p_value, confidence)
+            """
+            t_stat, p_value = stats.ttest_ind(results_a, results_b)
+            is_significant = p_value < alpha
+            confidence = (1 - p_value) * 100
+            
+            return is_significant, p_value, confidence
+        
+        def calculate_lift(self, metric_a, metric_b):
+            """Calculate percentage lift from A to B"""
+            if metric_a == 0:
+                return 0
+            return ((metric_b - metric_a) / metric_a) * 100
+        
+        def determine_winner(self, results_a, results_b, minimum_lift=5):
+            """
+            Determine if there's a clear winner
+            Requires statistical significance and minimum lift
+            """
+            is_sig, p_value, conf = self.calculate_significance(results_a, results_b)
+            
+            mean_a = np.mean(results_a)
+            mean_b = np.mean(results_b)
+            lift = self.calculate_lift(mean_a, mean_b)
+            
+            if is_sig and abs(lift) >= minimum_lift:
+                winner = "B" if lift > 0 else "A"
+                return winner, lift, conf
+            
+            return None, lift, conf
+
+

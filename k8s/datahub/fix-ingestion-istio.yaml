@@ -1,0 +1,184 @@
+---
+# Fix for DataHub ingestion CronJobs - disable Istio sidecar injection
+# Jobs/CronJobs need to complete and terminate, Istio sidecars prevent this
+
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: datahub-kafka-ingestion
+  namespace: data-platform
+  labels:
+    app: datahub-ingestion
+    source: kafka
+spec:
+  schedule: "30 */4 * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      template:
+        metadata:
+          annotations:
+            sidecar.istio.io/inject: "false"  # Disable Istio for Jobs
+        spec:
+          serviceAccountName: datahub-ingestion
+          restartPolicy: Never
+          containers:
+          - name: datahub-ingestion
+            image: acryldata/datahub-ingestion:head
+            command:
+              - /bin/sh
+              - -c
+              - |
+                echo "Starting Kafka metadata ingestion..."
+                datahub ingest -c /config/kafka-recipe.yaml
+                echo "Ingestion complete"
+            env:
+              - name: DATAHUB_GMS_HOST
+                value: datahub-gms.data-platform.svc.cluster.local
+              - name: DATAHUB_GMS_PORT
+                value: "8080"
+              - name: DATAHUB_SYSTEM_TOKEN
+                valueFrom:
+                  secretKeyRef:
+                    name: datahub-secret
+                    key: DATAHUB_SECRET
+            resources:
+              requests:
+                cpu: 200m
+                memory: 512Mi
+              limits:
+                cpu: 500m
+                memory: 1Gi
+            volumeMounts:
+              - name: recipe
+                mountPath: /config
+                readOnly: true
+          volumes:
+            - name: recipe
+              configMap:
+                name: datahub-kafka-ingestion-recipe
+
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: datahub-postgres-ingestion
+  namespace: data-platform
+  labels:
+    app: datahub-ingestion
+    source: postgres
+spec:
+  schedule: "0 4 * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      template:
+        metadata:
+          annotations:
+            sidecar.istio.io/inject: "false"  # Disable Istio for Jobs
+        spec:
+          serviceAccountName: datahub-ingestion
+          restartPolicy: Never
+          containers:
+          - name: datahub-ingestion
+            image: acryldata/datahub-ingestion:head
+            command:
+              - /bin/sh
+              - -c
+              - |
+                echo "Starting PostgreSQL metadata ingestion..."
+                datahub ingest -c /config/postgres-recipe.yaml
+                echo "Ingestion complete"
+            env:
+              - name: DATAHUB_GMS_HOST
+                value: datahub-gms.data-platform.svc.cluster.local
+              - name: DATAHUB_GMS_PORT
+                value: "8080"
+              - name: DATAHUB_SYSTEM_TOKEN
+                valueFrom:
+                  secretKeyRef:
+                    name: datahub-secret
+                    key: DATAHUB_SECRET
+            resources:
+              requests:
+                cpu: 200m
+                memory: 512Mi
+              limits:
+                cpu: 500m
+                memory: 1Gi
+            volumeMounts:
+              - name: recipe
+                mountPath: /config
+                readOnly: true
+          volumes:
+            - name: recipe
+              configMap:
+                name: datahub-postgres-ingestion-recipe
+
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: datahub-trino-ingestion
+  namespace: data-platform
+  labels:
+    app: datahub-ingestion
+    source: trino
+spec:
+  schedule: "0 */6 * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      template:
+        metadata:
+          annotations:
+            sidecar.istio.io/inject: "false"  # Disable Istio for Jobs
+        spec:
+          serviceAccountName: datahub-ingestion
+          restartPolicy: Never
+          containers:
+          - name: datahub-ingestion
+            image: acryldata/datahub-ingestion:head
+            command:
+              - /bin/sh
+              - -c
+              - |
+                echo "Starting Trino metadata ingestion..."
+                datahub ingest -c /config/trino-recipe.yaml
+                echo "Ingestion complete"
+            env:
+              - name: DATAHUB_GMS_HOST
+                value: datahub-gms.data-platform.svc.cluster.local
+              - name: DATAHUB_GMS_PORT
+                value: "8080"
+              - name: DATAHUB_SYSTEM_TOKEN
+                valueFrom:
+                  secretKeyRef:
+                    name: datahub-secret
+                    key: DATAHUB_SECRET
+            resources:
+              requests:
+                cpu: 200m
+                memory: 512Mi
+              limits:
+                cpu: 500m
+                memory: 1Gi
+            volumeMounts:
+              - name: recipe
+                mountPath: /config
+                readOnly: true
+          volumes:
+            - name: recipe
+              configMap:
+                name: datahub-trino-ingestion-recipe
+
+

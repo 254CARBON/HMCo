@@ -112,6 +112,40 @@ spec:
     - protocol: UDP
       port: 53
 ---
+# Allow Velero namespace to reach MinIO for backups
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-velero-backup
+  namespace: data-platform
+spec:
+  podSelector:
+    matchLabels:
+      app: minio
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: velero
+    ports:
+    - protocol: TCP
+      port: 9000
+    - protocol: TCP
+      port: 9001
+  egress:
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          name: velero
+    ports:
+    - protocol: TCP
+      port: 9000
+    - protocol: TCP
+      port: 9001
+---
 # Restrict access to Vault (production secrets management)
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy

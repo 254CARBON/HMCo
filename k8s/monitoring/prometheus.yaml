@@ -12,12 +12,15 @@ spec:
   selector:
     matchLabels:
       app: prometheus
+  strategy:
+    type: Recreate
   template:
     metadata:
       labels:
         app: prometheus
         component: monitoring
     spec:
+      serviceAccountName: prometheus
       containers:
       - name: prometheus
         image: prom/prometheus:v2.47.0
@@ -96,8 +99,8 @@ spec:
     - ReadWriteOnce
   resources:
     requests:
-      storage: 50Gi
-  storageClassName: local-path
+      storage: 20Gi
+  storageClassName: local-storage-standard
 ---
 # ConfigMap for Prometheus configuration
 apiVersion: v1
@@ -179,7 +182,7 @@ data:
             - 'trino-worker.data-platform:8080'
             - 'doris-fe-service.data-platform:8030'
             - 'doris-be-service.data-platform:9060'
-            - 'seatunnel-service.data-platform:5801'
+            - 'seatunnel-service.data-platform:8080'
             - 'superset.data-platform:8088'
             - 'spark-history-server.data-platform:18080'
             - 'spark-operator.data-platform:8080'

@@ -1,0 +1,147 @@
+---
+# PostgreSQL Read Replicas for Scale
+# Offloads read queries to replica instances
+
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postgres-read-replica
+  namespace: data-platform
+  labels:
+    app: postgres-shared
+    role: replica
+spec:
+  serviceName: postgres-read-replicas
+  replicas: 2
+  selector:
+    matchLabels:
+      app: postgres-shared
+      role: replica
+  template:
+    metadata:
+      labels:
+        app: postgres-shared
+        role: replica
+    spec:
+      containers:
+      - name: postgres
+        image: postgres:15
+        ports:
+        - containerPort: 5432
+          name: postgres
+        env:
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: postgres-shared-secret
+              key: password
+        - name: PGDATA
+          value: /var/lib/postgresql/data/pgdata
+        - name: POSTGRES_PRIMARY_HOST
+          value: postgres-shared-service
+        - name: POSTGRES_PRIMARY_PORT
+          value: "5432"
+        volumeMounts:
+        - name: postgres-data
+          mountPath: /var/lib/postgresql/data
+        - name: replica-config
+          mountPath: /docker-entrypoint-initdb.d
+        resources:
+          requests:
+            cpu: 2000m
+            memory: 8Gi
+          limits:
+            cpu: 4000m
+            memory: 16Gi
+      volumes:
+      - name: replica-config
+        configMap:
+          name: postgres-replica-config
+  volumeClaimTemplates:
+  - metadata:
+      name: postgres-data
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      storageClassName: local-path
+      resources:
+        requests:
+          storage: 100Gi
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postgres-replica-config
+  namespace: data-platform
+data:
+  setup-replica.sh: |
+    #!/bin/bash
+    set -e
+    
+    # Wait for primary
+    until pg_isready -h $POSTGRES_PRIMARY_HOST -p $POSTGRES_PRIMARY_PORT; do
+      echo "Waiting for primary..."
+      sleep 2
+    done
+    
+    # Create replica
+    if [ ! -s "$PGDATA/PG_VERSION" ]; then
+      echo "Setting up replica..."
+      pg_basebackup -h $POSTGRES_PRIMARY_HOST -D $PGDATA -U postgres -v -P -W
+      
+      # Configure as replica
+      cat > $PGDATA/postgresql.conf << EOF
+    hot_standby = on
+    max_connections = 100
+    shared_buffers = 4GB
+    effective_cache_size = 12GB
+    EOF
+      
+      # Create standby signal
+      touch $PGDATA/standby.signal
+    fi
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres-read-replicas
+  namespace: data-platform
+  labels:
+    app: postgres-shared
+    role: replica
+spec:
+  type: ClusterIP
+  ports:
+  - port: 5432
+    targetPort: 5432
+    protocol: TCP
+    name: postgres
+  selector:
+    app: postgres-shared
+    role: replica
+  sessionAffinity: ClientIP  # Stick to same replica
+
+---
+# Headless service for individual replica access
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres-read-replicas-headless
+  namespace: data-platform
+  labels:
+    app: postgres-shared
+    role: replica
+spec:
+  type: ClusterIP
+  clusterIP: None
+  ports:
+  - port: 5432
+    targetPort: 5432
+    protocol: TCP
+    name: postgres
+  selector:
+    app: postgres-shared
+    role: replica
+
+

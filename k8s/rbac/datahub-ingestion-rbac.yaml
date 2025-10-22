@@ -1,0 +1,35 @@
+---
+# Role for DataHub ingestion jobs
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: datahub-ingestion
+  namespace: data-platform
+  labels:
+    app: datahub
+    component: ingestion
+rules:
+- apiGroups: [""]
+  resources: ["pods", "pods/log"]
+  verbs: ["get", "list"]
+- apiGroups: [""]
+  resources: ["configmaps"]
+  verbs: ["get", "list"]
+---
+# RoleBinding for DataHub ingestion
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: datahub-ingestion
+  namespace: data-platform
+  labels:
+    app: datahub
+    component: ingestion
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: datahub-ingestion
+subjects:
+- kind: ServiceAccount
+  name: datahub-ingestion
+  namespace: data-platform

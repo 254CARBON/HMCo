@@ -125,10 +125,15 @@ Expected response:
 | Variable | Value | Purpose |
 |----------|-------|---------|
 | `CATALOG_WAREHOUSE` | `s3://iceberg-warehouse/` | S3 data location |
-| `CATALOG_URI` | `jdbc:postgresql://postgres-shared-service:5432/iceberg_rest` | PostgreSQL connection |
+| `CATALOG_URI` | `jdbc:postgresql://postgres-shared-service:5432/iceberg_rest?currentSchema=iceberg_catalog` | PostgreSQL connection (targets dedicated schema) |
 | `CATALOG_JDBC_USER` | `iceberg_user` | Database user |
 | `CATALOG_S3_ENDPOINT` | `http://minio-service:9000` | MinIO endpoint |
 | `CATALOG_S3_PATH_STYLE_ACCESS` | `true` | MinIO compatibility |
+
+### Image Settings
+
+- `image: tabulario/iceberg-rest:0.6.0`
+- `imagePullPolicy: IfNotPresent` (reuses cached image to avoid transient registry issues)
 
 ### Resource Requests
 

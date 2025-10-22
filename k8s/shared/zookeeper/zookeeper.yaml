@@ -20,7 +20,7 @@ spec:
         app: zookeeper
     spec:
       accessModes: [ "ReadWriteOnce" ]
-      storageClassName: local-storage-standard
+      storageClassName: local-path
       resources:
         requests:
           storage: 10Gi
@@ -30,7 +30,7 @@ spec:
         app: zookeeper
     spec:
       accessModes: [ "ReadWriteOnce" ]
-      storageClassName: local-storage-standard
+      storageClassName: local-path
       resources:
         requests:
           storage: 5Gi

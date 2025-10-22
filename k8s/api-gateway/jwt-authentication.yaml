@@ -1,0 +1,372 @@
+# JWT Authentication Configuration for Kong
+# Secure all API routes with JWT validation
+
+---
+# JWT Plugin Configuration
+apiVersion: configuration.konghq.com/v1
+kind: KongPlugin
+metadata:
+  name: jwt-auth-global
+  namespace: kong
+config:
+  uri_param_names:
+  - jwt
+  - token
+  cookie_names:
+  - jwt_token
+  key_claim_name: iss
+  secret_is_base64: false
+  claims_to_verify:
+  - exp
+  - nbf
+  maximum_expiration: 86400  # 24 hours
+  algorithm: RS256
+  run_on_preflight: false
+plugin: jwt
+
+---
+# JWT Consumer for Portal
+apiVersion: configuration.konghq.com/v1
+kind: KongConsumer
+metadata:
+  name: portal-jwt-consumer
+  namespace: kong
+username: portal-service
+custom_id: "portal-001"
+
+---
+# JWT Credential Secret for Portal
+apiVersion: v1
+kind: Secret
+metadata:
+  name: portal-jwt-credential
+  namespace: kong
+  labels:
+    konghq.com/credential: jwt
+type: Opaque
+stringData:
+  kongCredType: jwt
+  key: "portal-service-issuer"
+  algorithm: RS256
+  rsa_public_key: |
+    -----BEGIN PUBLIC KEY-----
+    MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAyQxm4GPl4EzJ2MZHqPfF
+    mBqOvWjT0j3pGmOE9hf0P2LqLQYqLfyf0hJZPpJqvKjL5LqPvQxm4GPl4EzJ2MZH
+    qPfFmBqOvWjT0j3pGmOE9hf0P2LqLQYqLfyf0hJZPpJqvKjL5LqPvQxm4GPl4EzJ
+    2MZHqPfFmBqOvWjT0j3pGmOE9hf0P2LqLQYqLfyf0hJZPpJqvKjL5LqPvQxm4GPl
+    4EzJ2MZHqPfFmBqOvWjT0j3pGmOE9hf0P2LqLQYqLfyf0hJZPpJqvKjL5LqP
+    -----END PUBLIC KEY-----
+
+---
+# Apply JWT auth to DataHub routes
+apiVersion: configuration.konghq.com/v1
+kind: KongRoute
+metadata:
+  name: datahub-gms-api-secure
+  namespace: kong
+  annotations:
+    konghq.com/plugins: jwt-auth-global,rate-limiting-datahub
+spec:
+  service: datahub-gms
+  paths:
+  - /api/datahub
+  strip_path: true
+  protocols:
+  - https
+  methods:
+  - GET
+  - POST
+  - PUT
+  - DELETE
+  - PATCH
+
+---
+# Apply JWT auth to Trino routes
+apiVersion: configuration.konghq.com/v1
+kind: KongRoute
+metadata:
+  name: trino-api-secure
+  namespace: kong
+  annotations:
+    konghq.com/plugins: jwt-auth-global,rate-limiting-trino
+spec:
+  service: trino
+  paths:
+  - /api/trino
+  strip_path: true
+  protocols:
+  - https
+
+---
+# Apply JWT auth to MLflow routes
+apiVersion: configuration.konghq.com/v1
+kind: KongRoute
+metadata:
+  name: mlflow-api-secure
+  namespace: kong
+  annotations:
+    konghq.com/plugins: jwt-auth-global,rate-limiting-mlflow
+spec:
+  service: mlflow
+  paths:
+  - /api/mlflow
+  strip_path: true
+  protocols:
+  - https
+
+---
+# JWT Token Generator Job
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: jwt-token-generator
+  namespace: kong
+spec:
+  template:
+    metadata:
+      annotations:
+        sidecar.istio.io/inject: "false"
+    spec:
+      restartPolicy: OnFailure
+      containers:
+      - name: jwt-generator
+        image: python:3.11-slim
+        command:
+        - /bin/bash
+        - -c
+        - |
+          pip install pyjwt cryptography requests
+          
+          python3 << 'EOF'
+          import jwt
+          import json
+          from datetime import datetime, timedelta
+          from cryptography.hazmat.primitives import serialization
+          from cryptography.hazmat.primitives.asymmetric import rsa
+          from cryptography.hazmat.backends import default_backend
+          
+          # Generate RSA key pair
+          print("Generating RSA key pair...")
+          private_key = rsa.generate_private_key(
+              public_exponent=65537,
+              key_size=2048,
+              backend=default_backend()
+          )
+          
+          public_key = private_key.public_key()
+          
+          # Serialize keys
+          private_pem = private_key.private_bytes(
+              encoding=serialization.Encoding.PEM,
+              format=serialization.PrivateFormat.PKCS8,
+              encryption_algorithm=serialization.NoEncryption()
+          ).decode('utf-8')
+          
+          public_pem = public_key.public_bytes(
+              encoding=serialization.Encoding.PEM,
+              format=serialization.PublicFormat.SubjectPublicKeyInfo
+          ).decode('utf-8')
+          
+          print("\n=== Private Key (Store Securely) ===")
+          print(private_pem)
+          
+          print("\n=== Public Key (Configure in Kong) ===")
+          print(public_pem)
+          
+          # Generate sample JWT token
+          payload = {
+              'iss': 'portal-service-issuer',
+              'sub': 'user@254carbon.com',
+              'aud': '254carbon-api',
+              'exp': datetime.utcnow() + timedelta(hours=24),
+              'nbf': datetime.utcnow(),
+              'iat': datetime.utcnow(),
+              'user_id': 'user-123',
+              'roles': ['data-engineer', 'analyst']
+          }
+          
+          token = jwt.encode(payload, private_key, algorithm='RS256')
+          
+          print("\n=== Sample JWT Token ===")
+          print(token)
+          
+          print("\n=== Token Payload ===")
+          print(json.dumps(payload, indent=2, default=str))
+          
+          print("\n=== Test Command ===")
+          print(f"curl -H 'Authorization: Bearer {token}' https://api.254carbon.com/api/datahub/entities")
+          
+          # Save to file
+          with open('/tmp/jwt-config.json', 'w') as f:
+              json.dump({
+                  'private_key': private_pem,
+                  'public_key': public_pem,
+                  'sample_token': token
+              }, f, indent=2)
+          
+          print("\n✅ JWT configuration saved to /tmp/jwt-config.json")
+          EOF
+
+---
+# JWT Validation ConfigMap
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: jwt-validation-guide
+  namespace: kong
+data:
+  README.md: |
+    # JWT Authentication Guide
+    
+    ## Overview
+    
+    All API routes are now protected with JWT authentication. Clients must include
+    a valid JWT token in the Authorization header.
+    
+    ## Token Format
+    
+    ```
+    Authorization: Bearer <jwt-token>
+    ```
+    
+    ## Token Claims
+    
+    Required claims:
+    - `iss` (issuer): Identifies the token issuer
+    - `sub` (subject): User identifier
+    - `exp` (expiration): Token expiration time
+    - `nbf` (not before): Token validity start time
+    - `iat` (issued at): Token issue time
+    
+    Optional claims:
+    - `user_id`: User ID in the system
+    - `roles`: Array of user roles
+    - `permissions`: Array of permissions
+    
+    ## Generating Tokens
+    
+    ### Python Example
+    
+    ```python
+    import jwt
+    from datetime import datetime, timedelta
+    
+    private_key = open('private_key.pem').read()
+    
+    payload = {
+        'iss': 'portal-service-issuer',
+        'sub': 'user@254carbon.com',
+        'exp': datetime.utcnow() + timedelta(hours=24),
+        'nbf': datetime.utcnow(),
+        'iat': datetime.utcnow(),
+        'user_id': 'user-123',
+        'roles': ['data-engineer']
+    }
+    
+    token = jwt.encode(payload, private_key, algorithm='RS256')
+    print(token)
+    ```
+    
+    ### Node.js Example
+    
+    ```javascript
+    const jwt = require('jsonwebtoken');
+    const fs = require('fs');
+    
+    const privateKey = fs.readFileSync('private_key.pem');
+    
+    const payload = {
+      iss: 'portal-service-issuer',
+      sub: 'user@254carbon.com',
+      exp: Math.floor(Date.now() / 1000) + (24 * 60 * 60),
+      nbf: Math.floor(Date.now() / 1000),
+      iat: Math.floor(Date.now() / 1000),
+      user_id: 'user-123',
+      roles: ['data-engineer']
+    };
+    
+    const token = jwt.sign(payload, privateKey, { algorithm: 'RS256' });
+    console.log(token);
+    ```
+    
+    ## Testing
+    
+    ```bash
+    # Test API call with JWT
+    curl -H "Authorization: Bearer <your-token>" \
+      https://api.254carbon.com/api/datahub/entities
+    
+    # Expected response: 200 OK with data
+    # Without token: 401 Unauthorized
+    ```
+    
+    ## Token Verification
+    
+    Kong automatically verifies:
+    - Signature validity (RSA256)
+    - Expiration time
+    - Not-before time
+    - Issuer claim
+    
+    ## Troubleshooting
+    
+    ### 401 Unauthorized - Missing Token
+    Include the Authorization header with Bearer token
+    
+    ### 401 Unauthorized - Invalid Signature
+    Verify the public key is correctly configured in Kong
+    
+    ### 401 Unauthorized - Token Expired
+    Generate a new token with updated expiration time
+    
+    ### 403 Forbidden - Insufficient Permissions
+    Check the roles/permissions in the token payload
+
+---
+# OAuth2 Integration (Optional)
+apiVersion: configuration.konghq.com/v1
+kind: KongPlugin
+metadata:
+  name: oauth2-provider
+  namespace: kong
+config:
+  scopes:
+  - read
+  - write
+  - admin
+  - data:read
+  - data:write
+  - models:read
+  - models:write
+  mandatory_scope: true
+  enable_client_credentials: true
+  enable_authorization_code: true
+  enable_password_grant: false
+  enable_implicit_grant: false
+  token_expiration: 7200
+  refresh_token_ttl: 1209600  # 14 days
+  provision_key: "provision-key-change-this"
+plugin: oauth2
+
+---
+# OIDC Integration (Alternative to JWT)
+apiVersion: configuration.konghq.com/v1
+kind: KongPlugin
+metadata:
+  name: oidc-auth
+  namespace: kong
+config:
+  issuer: "https://auth.254carbon.com"
+  client_id: "kong-api-gateway"
+  client_secret: "change-this-secret"
+  ssl_verify: true
+  session_secret: "change-this-session-secret"
+  recovery_page_path: "/unauthorized"
+  redirect_after_logout_uri: "/"
+  scope: "openid profile email"
+  response_type: "code"
+  token_endpoint_auth_method: "client_secret_post"
+plugin: openid-connect
+
+
+

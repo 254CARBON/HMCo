@@ -20,9 +20,20 @@ spec:
         component: analytical-database
     spec:
       imagePullSecrets: []
+      securityContext:
+        fsGroup: 0
+        seccompProfile:
+          type: RuntimeDefault
       containers:
       - name: doris-fe
-        image: apache/doris:2.0.2-fe-x86_64
+        image: apache/doris:fe-3.0.8
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          seccompProfile:
+            type: RuntimeDefault
         ports:
         - containerPort: 8030
           name: fe-query
@@ -33,22 +44,10 @@ spec:
         - containerPort: 9010
           name: fe-http
         env:
-        - name: FE_MASTER_IP
-          value: "doris-fe-0.doris-fe-headless"
-        - name: FE_QUERY_PORT
-          value: "8030"
-        - name: FE_EDIT_LOG_PORT
-          value: "9020"
-        - name: MYSQL_PORT
-          value: "9030"
-        - name: HTTP_PORT
-          value: "9010"
-        - name: FE_ENABLE_LOGICAL_SESSION
-          value: "true"
-        - name: FE_LOG_DIR
-          value: "/opt/apache-doris/fe/log"
-        - name: FE_META_DIR
-          value: "/opt/apache-doris/fe/doris-meta"
+        - name: FE_SERVERS
+          value: "fe1:doris-fe-0.doris-fe-headless.data-platform.svc.cluster.local:9010"
+        - name: FE_ID
+          value: "1"
         volumeMounts:
         - name: doris-fe-data
           mountPath: /opt/apache-doris/fe
@@ -80,7 +79,7 @@ spec:
       resources:
         requests:
           storage: 20Gi
-      storageClassName: local-storage-standard
+      storageClassName: local-path
   - metadata:
       name: doris-fe-logs
     spec:
@@ -89,7 +88,7 @@ spec:
       resources:
         requests:
           storage: 10Gi
-      storageClassName: local-storage-standard
+      storageClassName: local-path
 ---
 # Doris FE Headless Service for internal communication
 apiVersion: v1

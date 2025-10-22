@@ -1,0 +1,51 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: kubeflow
+  labels:
+    name: kubeflow
+    istio-injection: enabled
+    control-plane: kubeflow
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: kubeflow-pipelines
+  namespace: kubeflow
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kubeflow-pipelines
+rules:
+- apiGroups: [""]
+  resources: ["pods", "pods/log", "services", "endpoints", "persistentvolumeclaims", "events", "configmaps", "secrets"]
+  verbs: ["*"]
+- apiGroups: ["apps"]
+  resources: ["deployments", "daemonsets", "replicasets", "statefulsets"]
+  verbs: ["*"]
+- apiGroups: ["batch"]
+  resources: ["jobs", "cronjobs"]
+  verbs: ["*"]
+- apiGroups: ["argoproj.io"]
+  resources: ["workflows", "workflows/finalizers", "workflowtemplates", "cronworkflows", "clusterworkflowtemplates"]
+  verbs: ["*"]
+- apiGroups: ["kubeflow.org"]
+  resources: ["*"]
+  verbs: ["*"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: kubeflow-pipelines
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: kubeflow-pipelines
+subjects:
+- kind: ServiceAccount
+  name: kubeflow-pipelines
+  namespace: kubeflow
+
+
+

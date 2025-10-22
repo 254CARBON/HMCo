@@ -1,0 +1,246 @@
+# Grafana Dashboards for Streaming Infrastructure
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: streaming-dashboards
+  namespace: monitoring
+  labels:
+    grafana_dashboard: "1"
+data:
+  kafka-connect-dashboard.json: |
+    {
+      "dashboard": {
+        "title": "Kafka Connect Monitoring",
+        "tags": ["streaming", "kafka-connect"],
+        "timezone": "browser",
+        "panels": [
+          {
+            "title": "Connector Status",
+            "type": "stat",
+            "targets": [
+              {
+                "expr": "sum(kafka_connect_connector_status) by (connector, state)",
+                "legendFormat": "{{connector}} - {{state}}"
+              }
+            ],
+            "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0}
+          },
+          {
+            "title": "Task Throughput",
+            "type": "graph",
+            "targets": [
+              {
+                "expr": "rate(kafka_connect_source_task_source_record_poll_total[5m])",
+                "legendFormat": "{{connector}} - records/sec"
+              }
+            ],
+            "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0}
+          },
+          {
+            "title": "Connector Errors",
+            "type": "graph",
+            "targets": [
+              {
+                "expr": "rate(kafka_connect_connector_task_status{state=\"FAILED\"}[5m])",
+                "legendFormat": "{{connector}} - failures/sec"
+              }
+            ],
+            "gridPos": {"h": 8, "w": 24, "x": 0, "y": 8}
+          }
+        ]
+      }
+    }
+  
+  flink-dashboard.json: |
+    {
+      "dashboard": {
+        "title": "Apache Flink Monitoring",
+        "tags": ["streaming", "flink"],
+        "timezone": "browser",
+        "panels": [
+          {
+            "title": "Job Status",
+            "type": "stat",
+            "targets": [
+              {
+                "expr": "flink_jobmanager_job_uptime",
+                "legendFormat": "{{job_name}}"
+              }
+            ],
+            "gridPos": {"h": 6, "w": 8, "x": 0, "y": 0}
+          },
+          {
+            "title": "Records Processed",
+            "type": "graph",
+            "targets": [
+              {
+                "expr": "rate(flink_taskmanager_job_task_numRecordsInPerSecond[5m])",
+                "legendFormat": "{{job_name}} - in"
+              },
+              {
+                "expr": "rate(flink_taskmanager_job_task_numRecordsOutPerSecond[5m])",
+                "legendFormat": "{{job_name}} - out"
+              }
+            ],
+            "gridPos": {"h": 8, "w": 16, "x": 8, "y": 0}
+          },
+          {
+            "title": "Checkpoint Duration",
+            "type": "graph",
+            "targets": [
+              {
+                "expr": "flink_jobmanager_job_lastCheckpointDuration",
+                "legendFormat": "{{job_name}}"
+              }
+            ],
+            "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8}
+          },
+          {
+            "title": "Backpressure",
+            "type": "graph",
+            "targets": [
+              {
+                "expr": "flink_taskmanager_job_task_backPressuredTimeMsPerSecond",
+                "legendFormat": "{{task_name}}"
+              }
+            ],
+            "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8}
+          }
+        ]
+      }
+    }
+  
+  doris-dashboard.json: |
+    {
+      "dashboard": {
+        "title": "Apache Doris Monitoring",
+        "tags": ["streaming", "doris", "olap"],
+        "timezone": "browser",
+        "panels": [
+          {
+            "title": "FE Node Status",
+            "type": "stat",
+            "targets": [
+              {
+                "expr": "up{job=\"doris-fe-service\"}",
+                "legendFormat": "FE {{instance}}"
+              }
+            ],
+            "gridPos": {"h": 6, "w": 8, "x": 0, "y": 0}
+          },
+          {
+            "title": "BE Node Status",
+            "type": "stat",
+            "targets": [
+              {
+                "expr": "up{job=\"doris-be-service\"}",
+                "legendFormat": "BE {{instance}}"
+              }
+            ],
+            "gridPos": {"h": 6, "w": 8, "x": 8, "y": 0}
+          },
+          {
+            "title": "Query Rate",
+            "type": "graph",
+            "targets": [
+              {
+                "expr": "rate(doris_fe_query_total[5m])",
+                "legendFormat": "Queries/sec"
+              }
+            ],
+            "gridPos": {"h": 8, "w": 12, "x": 0, "y": 6}
+          },
+          {
+            "title": "Query Latency (P95)",
+            "type": "graph",
+            "targets": [
+              {
+                "expr": "histogram_quantile(0.95, rate(doris_fe_query_latency_ms_bucket[5m]))",
+                "legendFormat": "P95 latency"
+              }
+            ],
+            "gridPos": {"h": 8, "w": 12, "x": 12, "y": 6}
+          },
+          {
+            "title": "Data Ingestion Rate",
+            "type": "graph",
+            "targets": [
+              {
+                "expr": "rate(doris_be_load_rows_total[5m])",
+                "legendFormat": "Rows/sec - {{instance}}"
+              }
+            ],
+            "gridPos": {"h": 8, "w": 12, "x": 0, "y": 14}
+          },
+          {
+            "title": "Disk Usage",
+            "type": "graph",
+            "targets": [
+              {
+                "expr": "(doris_be_disk_used_bytes / doris_be_disk_total_bytes) * 100",
+                "legendFormat": "{{instance}} - disk %"
+              }
+            ],
+            "gridPos": {"h": 8, "w": 12, "x": 12, "y": 14}
+          }
+        ]
+      }
+    }
+  
+  streaming-overview-dashboard.json: |
+    {
+      "dashboard": {
+        "title": "Streaming Infrastructure Overview",
+        "tags": ["streaming", "overview"],
+        "timezone": "browser",
+        "panels": [
+          {
+            "title": "End-to-End Latency",
+            "type": "graph",
+            "targets": [
+              {
+                "expr": "histogram_quantile(0.95, rate(stream_processing_latency_seconds_bucket[5m]))",
+                "legendFormat": "P95 latency"
+              }
+            ],
+            "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0}
+          },
+          {
+            "title": "Throughput",
+            "type": "graph",
+            "targets": [
+              {
+                "expr": "sum(rate(kafka_topic_partition_current_offset[5m]))",
+                "legendFormat": "Messages/sec"
+              }
+            ],
+            "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0}
+          },
+          {
+            "title": "Component Health",
+            "type": "stat",
+            "targets": [
+              {
+                "expr": "up{job=~\"kafka-connect-service|doris-fe-service|doris-be-service\"}",
+                "legendFormat": "{{job}}"
+              }
+            ],
+            "gridPos": {"h": 8, "w": 24, "x": 0, "y": 8}
+          },
+          {
+            "title": "Error Rate",
+            "type": "graph",
+            "targets": [
+              {
+                "expr": "sum(rate(stream_processing_errors_total[5m])) by (component)",
+                "legendFormat": "{{component}}"
+              }
+            ],
+            "gridPos": {"h": 8, "w": 24, "x": 0, "y": 16}
+          }
+        ]
+      }
+    }
+
+

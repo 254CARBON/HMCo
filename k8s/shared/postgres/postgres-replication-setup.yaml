@@ -1,0 +1,134 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postgres-replication-config
+  namespace: data-platform
+data:
+  setup-replication.sh: |
+    #!/bin/bash
+    set -e
+
+    # PostgreSQL Replication Setup Script
+    # Sets up primary-standby replication for high availability
+
+    POSTGRES_USER="datahub"
+    POSTGRES_DB="datahub"
+    REPLICATION_USER="replicator"
+    REPLICATION_PASSWORD="repl_password"
+
+    # Function to wait for PostgreSQL to be ready
+    wait_for_postgres() {
+        local host=$1
+        local port=${2:-5432}
+        local db=${3:-$POSTGRES_DB}
+        local user=${4:-$POSTGRES_USER}
+
+        echo "Waiting for PostgreSQL at $host:$port..."
+
+        for i in $(seq 1 60); do
+            if PGPASSWORD=$(cat /run/secrets/postgres-password) pg_isready \
+                -h "$host" -p "$port" -U "$user" -d "$db" >/dev/null 2>&1; then
+                echo "PostgreSQL is ready at $host:$port"
+                return 0
+            fi
+            echo "Attempt $i/60: PostgreSQL not ready yet..."
+            sleep 2
+        done
+
+        echo "PostgreSQL failed to become ready at $host:$port"
+        return 1
+    }
+
+    # Setup primary database
+    setup_primary() {
+        echo "Setting up primary PostgreSQL instance..."
+
+        # Create replication user
+        PGPASSWORD=$(cat /run/secrets/postgres-password) psql -U $POSTGRES_USER -d $POSTGRES_DB -c "
+            CREATE USER $REPLICATION_USER REPLICATION LOGIN ENCRYPTED PASSWORD '$REPLICATION_PASSWORD';
+        "
+
+        # Configure primary for replication
+        echo "host replication $REPLICATION_USER 0.0.0.0/0 md5" >> /var/lib/postgresql/data/pgdata/pg_hba.conf
+        echo "wal_level = replica" >> /var/lib/postgresql/data/pgdata/postgresql.conf
+        echo "max_wal_senders = 3" >> /var/lib/postgresql/data/pgdata/postgresql.conf
+        echo "wal_keep_size = 64" >> /var/lib/postgresql/data/pgdata/postgresql.conf
+        echo "hot_standby = on" >> /var/lib/postgresql/data/pgdata/postgresql.conf
+
+        echo "Primary setup complete"
+    }
+
+    # Setup standby database
+    setup_standby() {
+        echo "Setting up standby PostgreSQL instance..."
+
+        # Wait for primary to be ready
+        wait_for_postgres postgres-shared-0.postgres-shared-headless 5432
+
+        # Stop PostgreSQL to remove default data
+        pg_ctl stop
+
+        # Remove existing data directory
+        rm -rf /var/lib/postgresql/data/pgdata/*
+
+        # Create base backup from primary
+        PGPASSWORD=$REPLICATION_PASSWORD pg_basebackup \
+            -h postgres-shared-0.postgres-shared-headless \
+            -p 5432 \
+            -U $REPLICATION_USER \
+            -D /var/lib/postgresql/data/pgdata \
+            -R \
+            -P \
+            -X stream
+
+        # Create standby signal file
+        touch /var/lib/postgresql/data/pgdata/standby.signal
+
+        echo "Standby setup complete"
+    }
+
+    # Main execution
+    if [[ "$(hostname)" == "postgres-shared-0" ]]; then
+        setup_primary
+    else
+        setup_standby
+    fi
+
+    echo "PostgreSQL replication setup completed successfully"
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: postgres-replication-setup
+  namespace: data-platform
+spec:
+  template:
+    spec:
+      containers:
+      - name: postgres-setup
+        image: postgres:15
+        command:
+        - /bin/bash
+        - /scripts/setup-replication.sh
+        volumeMounts:
+        - name: scripts
+          mountPath: /scripts
+        - name: postgres-password
+          mountPath: /run/secrets
+          readOnly: true
+        env:
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: password
+              name: postgres-shared-secret
+      volumes:
+      - name: scripts
+        configMap:
+          name: postgres-replication-config
+          defaultMode: 0755
+      - name: postgres-password
+        secret:
+          secretName: postgres-shared-secret
+      restartPolicy: OnFailure

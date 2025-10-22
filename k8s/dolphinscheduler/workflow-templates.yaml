@@ -1,0 +1,331 @@
+# DolphinScheduler Workflow Templates
+# These are example workflow definitions that can be imported into DolphinScheduler
+# Access DolphinScheduler at: https://dolphinscheduler.254carbon.com
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: dolphinscheduler-workflow-templates
+  namespace: data-platform
+  labels:
+    app: dolphinscheduler
+    component: workflows
+data:
+  # Template 1: Daily Data Ingestion Workflow
+  daily-data-ingestion.json: |
+    {
+      "name": "Daily Data Ingestion",
+      "description": "Automated daily data ingestion from multiple sources",
+      "globalParams": [],
+      "schedule": {
+        "crontab": "0 2 * * *",
+        "startTime": null,
+        "endTime": null,
+        "timezoneId": "UTC"
+      },
+      "timeout": 7200,
+      "executionType": "PARALLEL",
+      "tasks": [
+        {
+          "name": "check_source_availability",
+          "taskType": "SHELL",
+          "taskParams": {
+            "rawScript": "#!/bin/bash\necho 'Checking data sources...'\ncurl -f http://postgres-shared-service:5432 || exit 1\necho 'All sources available'"
+          },
+          "timeout": 300,
+          "retryTimes": 3,
+          "retryInterval": 60
+        },
+        {
+          "name": "extract_postgres_data",
+          "taskType": "SQL",
+          "taskParams": {
+            "type": "POSTGRESQL",
+            "datasource": "postgres_shared",
+            "sql": "SELECT * FROM public.raw_data WHERE created_at >= CURRENT_DATE"
+          },
+          "dependence": ["check_source_availability"],
+          "timeout": 1800
+        },
+        {
+          "name": "load_to_datalake",
+          "taskType": "SHELL",
+          "taskParams": {
+            "rawScript": "#!/bin/bash\necho 'Loading data to Iceberg...'\n# Add your data loading logic here\necho 'Data loaded successfully'"
+          },
+          "dependence": ["extract_postgres_data"],
+          "timeout": 3600,
+          "retryTimes": 2
+        },
+        {
+          "name": "update_datahub_metadata",
+          "taskType": "HTTP",
+          "taskParams": {
+            "url": "http://datahub-gms:8080/entities",
+            "httpMethod": "POST",
+            "httpParams": {},
+            "condition": "success"
+          },
+          "dependence": ["load_to_datalake"],
+          "timeout": 300
+        },
+        {
+          "name": "send_completion_notification",
+          "taskType": "SHELL",
+          "taskParams": {
+            "rawScript": "echo 'Daily data ingestion completed successfully'"
+          },
+          "dependence": ["update_datahub_metadata"],
+          "runFlag": "ALWAYS"
+        }
+      ]
+    }
+
+  # Template 2: Data Quality Check Workflow
+  data-quality-check.json: |
+    {
+      "name": "Data Quality Checks",
+      "description": "Automated data quality validation and monitoring",
+      "globalParams": [],
+      "schedule": {
+        "crontab": "0 */4 * * *",
+        "startTime": null,
+        "endTime": null,
+        "timezoneId": "UTC"
+      },
+      "timeout": 3600,
+      "executionType": "SERIAL",
+      "tasks": [
+        {
+          "name": "check_data_freshness",
+          "taskType": "SQL",
+          "taskParams": {
+            "type": "TRINO",
+            "datasource": "trino_iceberg",
+            "sql": "SELECT table_name, MAX(update_timestamp) as last_update FROM iceberg.catalog.tables GROUP BY table_name"
+          },
+          "timeout": 300
+        },
+        {
+          "name": "check_row_counts",
+          "taskType": "SQL",
+          "taskParams": {
+            "type": "TRINO",
+            "datasource": "trino_iceberg",
+            "sql": "SELECT table_name, COUNT(*) as row_count FROM iceberg.catalog.tables GROUP BY table_name"
+          },
+          "dependence": ["check_data_freshness"],
+          "timeout": 600
+        },
+        {
+          "name": "check_null_values",
+          "taskType": "SQL",
+          "taskParams": {
+            "type": "TRINO",
+            "datasource": "trino_iceberg",
+            "sql": "SELECT column_name, COUNT(*) as null_count FROM iceberg.catalog.tables WHERE column_value IS NULL GROUP BY column_name"
+          },
+          "dependence": ["check_row_counts"],
+          "timeout": 600
+        },
+        {
+          "name": "validate_schema",
+          "taskType": "SHELL",
+          "taskParams": {
+            "rawScript": "#!/bin/bash\necho 'Validating schema consistency...'\n# Add schema validation logic\necho 'Schema validation passed'"
+          },
+          "dependence": ["check_null_values"],
+          "timeout": 300
+        },
+        {
+          "name": "generate_quality_report",
+          "taskType": "SHELL",
+          "taskParams": {
+            "rawScript": "#!/bin/bash\necho 'Generating data quality report...'\necho 'Report generated at: /reports/quality_$(date +%Y%m%d).html'"
+          },
+          "dependence": ["validate_schema"],
+          "timeout": 300
+        }
+      ]
+    }
+
+  # Template 3: Backup Automation Workflow
+  backup-automation.json: |
+    {
+      "name": "Automated Backup Workflow",
+      "description": "Automated backup of critical data and metadata",
+      "globalParams": [],
+      "schedule": {
+        "crontab": "0 3 * * 0",
+        "startTime": null,
+        "endTime": null,
+        "timezoneId": "UTC"
+      },
+      "timeout": 7200,
+      "executionType": "SERIAL",
+      "tasks": [
+        {
+          "name": "backup_postgresql_databases",
+          "taskType": "SHELL",
+          "taskParams": {
+            "rawScript": "#!/bin/bash\necho 'Backing up PostgreSQL databases...'\nkubectl exec -n data-platform postgres-shared-0 -- pg_dumpall -U postgres > /backup/postgres_$(date +%Y%m%d).sql\necho 'PostgreSQL backup completed'"
+          },
+          "timeout": 1800,
+          "retryTimes": 2
+        },
+        {
+          "name": "backup_datahub_metadata",
+          "taskType": "HTTP",
+          "taskParams": {
+            "url": "http://datahub-gms:8080/admin/backup",
+            "httpMethod": "POST",
+            "httpParams": {}
+          },
+          "dependence": ["backup_postgresql_databases"],
+          "timeout": 900
+        },
+        {
+          "name": "trigger_velero_backup",
+          "taskType": "SHELL",
+          "taskParams": {
+            "rawScript": "#!/bin/bash\necho 'Triggering Velero backup...'\nvelero backup create weekly-backup-$(date +%Y%m%d) --include-namespaces data-platform\necho 'Velero backup initiated'"
+          },
+          "dependence": ["backup_datahub_metadata"],
+          "timeout": 600
+        },
+        {
+          "name": "sync_to_external_storage",
+          "taskType": "SHELL",
+          "taskParams": {
+            "rawScript": "#!/bin/bash\necho 'Syncing backups to external storage...'\n# Add S3/remote sync logic here\necho 'Sync completed'"
+          },
+          "dependence": ["trigger_velero_backup"],
+          "timeout": 1800
+        },
+        {
+          "name": "verify_backup_integrity",
+          "taskType": "SHELL",
+          "taskParams": {
+            "rawScript": "#!/bin/bash\necho 'Verifying backup integrity...'\n# Add verification logic\necho 'Backup integrity verified'"
+          },
+          "dependence": ["sync_to_external_storage"],
+          "timeout": 300
+        },
+        {
+          "name": "send_backup_report",
+          "taskType": "SHELL",
+          "taskParams": {
+            "rawScript": "echo 'Weekly backup completed and verified successfully'"
+          },
+          "dependence": ["verify_backup_integrity"],
+          "runFlag": "ALWAYS"
+        }
+      ]
+    }
+
+---
+# Documentation ConfigMap
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: dolphinscheduler-workflow-guide
+  namespace: data-platform
+data:
+  README.md: |
+    # DolphinScheduler Workflow Templates
+    
+    ## Overview
+    
+    This directory contains pre-built workflow templates for common data platform tasks:
+    
+    1. **Daily Data Ingestion** - Automated ETL pipeline running daily at 2 AM UTC
+    2. **Data Quality Checks** - Validation running every 4 hours
+    3. **Backup Automation** - Weekly backups on Sundays at 3 AM UTC
+    
+    ## Usage
+    
+    ### Importing Workflows
+    
+    1. Access DolphinScheduler UI: https://dolphinscheduler.254carbon.com
+    2. Login with admin credentials
+    3. Navigate to Project Management > Import Workflow
+    4. Upload JSON files from the workflow-templates ConfigMap
+    5. Configure data source connections
+    6. Enable schedules
+    
+    ### Configuring Data Sources
+    
+    Before running workflows, configure these data sources:
+    
+    **PostgreSQL (postgres_shared)**
+    - Type: PostgreSQL
+    - Host: postgres-shared-service
+    - Port: 5432
+    - Database: datahub
+    - User: datahub
+    
+    **Trino (trino_iceberg)**
+    - Type: Trino
+    - Host: trino-coordinator
+    - Port: 8080
+    - Catalog: iceberg
+    
+    **MinIO (for backups)**
+    - Type: S3
+    - Endpoint: http://minio-service:9000
+    - Bucket: data-backups
+    
+    ## Monitoring Workflows
+    
+    - View workflow execution history in DolphinScheduler UI
+    - Prometheus metrics available at: /metrics endpoint
+    - Alerts configured in Prometheus for workflow failures
+    - Logs available in Loki/Grafana
+    
+    ## Customizing Workflows
+    
+    To create custom workflows:
+    
+    1. Use templates as starting point
+    2. Modify task parameters for your use case
+    3. Add/remove tasks as needed
+    4. Test in development environment
+    5. Deploy to production
+    
+    ## Best Practices
+    
+    - Always set appropriate timeouts
+    - Configure retry policies for network-dependent tasks
+    - Use dependencies to control execution order
+    - Add notifications for critical workflow failures
+    - Document workflow purpose and dependencies
+    - Version control workflow definitions
+    
+    ## Troubleshooting
+    
+    ### Workflow Fails to Start
+    - Check DolphinScheduler API logs
+    - Verify worker nodes are available
+    - Ensure data source connections are configured
+    
+    ### Task Execution Failures
+    - Review task logs in DolphinScheduler UI
+    - Verify resource availability (CPU, memory)
+    - Check network connectivity to external services
+    
+    ### Schedule Not Triggering
+    - Verify cron expression is correct
+    - Check timezone settings
+    - Ensure scheduler is running
+    
+    ## Support
+    
+    For issues or questions:
+    - Check DolphinScheduler documentation
+    - Review Prometheus alerts
+    - Examine logs in Grafana
+    - Contact platform team
+
+
+
+

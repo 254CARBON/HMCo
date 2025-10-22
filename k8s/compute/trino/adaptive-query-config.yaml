@@ -1,0 +1,94 @@
+---
+# Trino Session Properties for Adaptive Query Execution
+# Automatically optimizes queries based on runtime statistics
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: trino-session-properties
+  namespace: data-platform
+  labels:
+    app: trino
+    component: configuration
+data:
+  session.properties: |
+    # Adaptive query execution
+    optimizer.use-cost-based-partitioning=true
+    optimizer.join-reordering-strategy=AUTOMATIC
+    optimizer.use-stats-calculator=true
+    
+    # Dynamic filtering
+    enable-dynamic-filtering=true
+    dynamic-filtering.wait-timeout=30s
+    
+    # Join optimization
+    join-distribution-type=AUTOMATIC
+    join-max-broadcast-table-size=100MB
+    join-reordering-strategy=AUTOMATIC
+    
+    # Aggregation optimization
+    use-mark-distinct=true
+    prefer-partial-aggregation=true
+    
+    # Writer optimization
+    task-writer-count=AUTO
+    scale-writers=true
+    writer-min-size=32MB
+    
+    # Statistics collection
+    collect-plan-statistics-for-all-queries=true
+    
+    # Pushdown enabled
+    optimizer.push-aggregation-through-outer-join=true
+    optimizer.push-table-write-through-union=true
+    
+    # Predicate pushdown
+    optimizer.predicate-pushdown-use-table-properties=true
+    
+    # Projection pushdown  
+    optimizer.projection-pushdown-enabled=true
+
+---
+# Trino Performance Monitoring
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: trino-jmx-export-config
+  namespace: data-platform
+  labels:
+    app: trino
+    component: monitoring
+data:
+  jmx-export.json: |
+    {
+      "hostPort": "localhost:9080",
+      "rules": [
+        {
+          "pattern": "trino.execution<name=QueryManager><>RunningQueries",
+          "name": "trino_running_queries",
+          "type": "GAUGE"
+        },
+        {
+          "pattern": "trino.execution<name=QueryManager><>QueuedQueries",
+          "name": "trino_queued_queries",
+          "type": "GAUGE"
+        },
+        {
+          "pattern": "trino.execution<name=QueryExecution><>ExecutionTime",
+          "name": "trino_query_execution_time_seconds",
+          "type": "GAUGE"
+        },
+        {
+          "pattern": "trino.memory<name=ClusterMemoryManager><>TotalDistributedBytes",
+          "name": "trino_cluster_memory_bytes",
+          "type": "GAUGE"
+        },
+        {
+          "pattern": "trino.memory<name=ClusterMemoryManager><>FreeDistributedBytes",
+          "name": "trino_cluster_free_memory_bytes",
+          "type": "GAUGE"
+        }
+      ]
+    }
+
+

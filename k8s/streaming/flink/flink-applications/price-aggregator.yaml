@@ -1,0 +1,132 @@
+# Flink Application: Price Aggregator
+# Creates 1-minute, 5-minute, and hourly OHLC price bars
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: flink-price-aggregator-config
+  namespace: data-platform
+  labels:
+    app: flink
+    flink-app: price-aggregator
+data:
+  price-aggregator.sql: |
+    -- Flink SQL for Price Aggregation
+    
+    -- Create Kafka source table
+    CREATE TABLE commodity_prices_source (
+      price_id BIGINT,
+      commodity_code STRING,
+      commodity_name STRING,
+      price DECIMAL(18, 4),
+      currency STRING,
+      unit STRING,
+      exchange STRING,
+      price_timestamp TIMESTAMP(3),
+      ingestion_timestamp TIMESTAMP(3),
+      WATERMARK FOR price_timestamp AS price_timestamp - INTERVAL '5' SECOND
+    ) WITH (
+      'connector' = 'kafka',
+      'topic' = 'commodity-prices-enriched',
+      'properties.bootstrap.servers' = 'kafka-service:9092',
+      'properties.group.id' = 'flink-price-aggregator',
+      'format' = 'avro-confluent',
+      'avro-confluent.url' = 'http://schema-registry-service:8081',
+      'scan.startup.mode' = 'latest-offset'
+    );
+    
+    -- Create Doris sink table (1-minute aggregations)
+    CREATE TABLE price_1min_agg_sink (
+      commodity_code STRING,
+      window_start TIMESTAMP(3),
+      window_end TIMESTAMP(3),
+      open_price DECIMAL(18, 4),
+      high_price DECIMAL(18, 4),
+      low_price DECIMAL(18, 4),
+      close_price DECIMAL(18, 4),
+      avg_price DECIMAL(18, 4),
+      volume BIGINT,
+      trade_count BIGINT
+    ) WITH (
+      'connector' = 'doris',
+      'fenodes' = 'doris-fe-service:8030',
+      'table.identifier' = 'commodity_realtime.price_1min_agg',
+      'username' = 'doris_user',
+      'password' = 'doris_password_2025',
+      'sink.properties.format' = 'json',
+      'sink.properties.read_json_by_line' = 'true',
+      'sink.enable-delete' = 'false',
+      'sink.label-prefix' = 'flink_price_agg'
+    );
+    
+    -- Aggregate prices into 1-minute windows
+    INSERT INTO price_1min_agg_sink
+    SELECT
+      commodity_code,
+      TUMBLE_START(price_timestamp, INTERVAL '1' MINUTE) AS window_start,
+      TUMBLE_END(price_timestamp, INTERVAL '1' MINUTE) AS window_end,
+      FIRST_VALUE(price) AS open_price,
+      MAX(price) AS high_price,
+      MIN(price) AS low_price,
+      LAST_VALUE(price) AS close_price,
+      AVG(price) AS avg_price,
+      COUNT(*) AS volume,
+      COUNT(*) AS trade_count
+    FROM commodity_prices_source
+    GROUP BY
+      commodity_code,
+      TUMBLE(price_timestamp, INTERVAL '1' MINUTE);
+---
+apiVersion: flink.apache.org/v1beta1
+kind: FlinkDeployment
+metadata:
+  name: price-aggregator
+  namespace: data-platform
+  labels:
+    app: flink
+    flink-app: price-aggregator
+spec:
+  image: flink:1.18
+  flinkVersion: v1_18
+  serviceAccount: flink
+  flinkConfiguration:
+    taskmanager.numberOfTaskSlots: "4"
+    state.backend: rocksdb
+    state.backend.incremental: "true"
+    state.checkpoints.dir: s3://flink-checkpoints/price-aggregator
+    state.savepoints.dir: s3://flink-savepoints/price-aggregator
+    execution.checkpointing.interval: "60000"
+    execution.checkpointing.mode: EXACTLY_ONCE
+    restart-strategy: fixed-delay
+    restart-strategy.fixed-delay.attempts: "3"
+    restart-strategy.fixed-delay.delay: "30s"
+    s3.endpoint: http://minio-service:9000
+    s3.access-key: minioadmin
+    s3.secret-key: minioadmin123
+    s3.path.style.access: "true"
+  jobManager:
+    resource:
+      memory: "2048m"
+      cpu: 1
+    replicas: 2
+  taskManager:
+    resource:
+      memory: "4096m"
+      cpu: 2
+    replicas: 3
+  podTemplate:
+    spec:
+      containers:
+      - name: flink-main-container
+        env:
+        - name: ENABLE_BUILT_IN_PLUGINS
+          value: flink-s3-fs-hadoop-1.18.0.jar
+  job:
+    jarURI: local:///opt/flink/opt/flink-sql-client-1.18.0.jar
+    args: ["-f", "/opt/flink/usrlib/price-aggregator.sql"]
+    parallelism: 2
+    upgradeMode: savepoint
+    state: running
+    savepointTriggerNonce: 0
+
+

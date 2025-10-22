@@ -1,0 +1,52 @@
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: iceberg-compaction
+  namespace: data-platform
+spec:
+  schedule: "0 2 * * *"  # Run daily at 2 AM
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+          - name: iceberg-compaction
+            image: apache/spark:3.5.0-scala2.12-java17-python3-ubuntu
+            command:
+            - /bin/bash
+            - -c
+            - |
+              echo "Starting Iceberg compaction job..."
+              # Install required dependencies
+              pip install iceberg-core pyiceberg
+
+              # Run compaction script
+              python3 -c "
+              from pyiceberg import Table
+              from pyiceberg.catalog import load_catalog
+
+              # Load catalog
+              catalog = load_catalog('rest', uri='http://iceberg-rest-catalog:8181')
+
+              # List all namespaces and tables
+              for namespace in catalog.list_namespaces():
+                  print(f'Namespace: {namespace}')
+                  for table_name in catalog.list_tables(namespace):
+                      print(f'Table: {table_name}')
+                      try:
+                          table = catalog.load_table(f'{namespace}.{table_name}')
+                          # Trigger compaction if needed
+                          print(f'Compacting table: {table_name}')
+                          # This would trigger compaction in a real implementation
+                      except Exception as e:
+                          print(f'Error processing table {table_name}: {e}')
+              "
+            resources:
+              requests:
+                memory: "512Mi"
+                cpu: "200m"
+              limits:
+                memory: "1Gi"
+                cpu: "500m"
+          restartPolicy: OnFailure

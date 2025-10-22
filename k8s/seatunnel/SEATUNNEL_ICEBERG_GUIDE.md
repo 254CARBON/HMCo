@@ -246,7 +246,7 @@ spec:
     spec:
       containers:
       - name: seatunnel
-        image: apache/seatunnel:2.3.3
+        image: apache/seatunnel:2.3.12
         command:
         - /opt/seatunnel/bin/seatunnel.sh
         args:
@@ -391,7 +391,7 @@ mc ls minio/iceberg-warehouse/raw/events/
 
 ## References
 
-- [SeaTunnel Iceberg Connector Docs](https://seatunnel.apache.org/docs/2.3.3/connector/iceberg)
+- [SeaTunnel Iceberg Connector Docs](https://seatunnel.apache.org/docs/2.3.12/connector/iceberg)
 - [Apache Iceberg](https://iceberg.apache.org/)
 - [SeaTunnel Documentation](https://seatunnel.apache.org/docs/)
 

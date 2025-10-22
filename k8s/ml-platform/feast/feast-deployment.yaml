@@ -1,0 +1,177 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: feast-feature-store
+  namespace: data-platform
+  labels:
+    app: feast
+    component: feature-store
+data:
+  feature_store.yaml: |
+    project: commodity_ml
+    provider: local
+    registry:
+      path: /feast/data/registry.db
+    online_store:
+      type: redis
+      connection_string: redis-service.data-platform.svc.cluster.local:6379
+    offline_store:
+      type: file
+    entity_key_serialization_version: 2
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: feast-features
+  namespace: data-platform
+  labels:
+    app: feast
+    component: feature-store
+data:
+  commodity_features.py: |
+    # Feast feature definitions
+    # Features can be added later via feast apply
+    pass
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: feast-server
+  namespace: data-platform
+  labels:
+    app: feast
+    component: feature-server
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: feast
+      component: feature-server
+  template:
+    metadata:
+      labels:
+        app: feast
+        component: feature-server
+    spec:
+      initContainers:
+      - name: feast-apply
+        image: feastdev/feature-server:0.35.0
+        command:
+        - /bin/sh
+        - -c
+        - |
+          echo "Applying Feast feature repository..."
+          cd /feast
+          feast apply
+          echo "Feature store initialized"
+        resources:
+          requests:
+            cpu: 200m
+            memory: 512Mi
+          limits:
+            cpu: 500m
+            memory: 1Gi
+        volumeMounts:
+        - name: feature-store-config
+          mountPath: /feast/feature_store.yaml
+          subPath: feature_store.yaml
+        - name: feast-features
+          mountPath: /feast/commodity_features.py
+          subPath: commodity_features.py
+        env:
+        - name: FEAST_USAGE
+          value: "False"
+      containers:
+      - name: feast-server
+        image: feastdev/feature-server:0.35.0
+        command: ["feast", "serve"]
+        args: ["--host", "0.0.0.0", "--port", "6566"]
+        ports:
+        - containerPort: 6566
+          name: http
+          protocol: TCP
+        - containerPort: 6567
+          name: grpc
+          protocol: TCP
+        workingDir: /feast
+        env:
+        - name: FEAST_USAGE
+          value: "False"
+        resources:
+          requests:
+            cpu: 500m
+            memory: 1Gi
+          limits:
+            cpu: "1"
+            memory: 2Gi
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 6566
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 6566
+          initialDelaySeconds: 10
+          periodSeconds: 5
+        volumeMounts:
+        - name: feature-store-config
+          mountPath: /feast/feature_store.yaml
+          subPath: feature_store.yaml
+        - name: feast-features
+          mountPath: /feast/commodity_features.py
+          subPath: commodity_features.py
+        - name: feast-data
+          mountPath: /feast/data
+      volumes:
+      - name: feature-store-config
+        configMap:
+          name: feast-feature-store
+      - name: feast-features
+        configMap:
+          name: feast-features
+      - name: feast-data
+        emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: feast-server
+  namespace: data-platform
+  labels:
+    app: feast
+    component: feature-server
+spec:
+  type: ClusterIP
+  selector:
+    app: feast
+    component: feature-server
+  ports:
+  - name: http
+    port: 6566
+    targetPort: 6566
+    protocol: TCP
+  - name: grpc
+    port: 6567
+    targetPort: 6567
+    protocol: TCP
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: feast-server
+  namespace: data-platform
+  labels:
+    app: feast
+spec:
+  selector:
+    matchLabels:
+      app: feast
+      component: feature-server
+  endpoints:
+  - port: http
+    path: /metrics
+    interval: 30s
+

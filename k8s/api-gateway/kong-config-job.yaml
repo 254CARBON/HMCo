@@ -1,0 +1,40 @@
+# Job to configure Kong services via Admin API
+
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: kong-configure-services
+  namespace: kong
+  labels:
+    app: kong-config
+spec:
+  template:
+    metadata:
+      annotations:
+        sidecar.istio.io/inject: "false"
+    spec:
+      restartPolicy: OnFailure
+      containers:
+      - name: kong-config
+        image: curlimages/curl:latest
+        command:
+        - /bin/sh
+        - /scripts/configure-kong-services.sh
+        volumeMounts:
+        - name: scripts
+          mountPath: /scripts
+        resources:
+          requests:
+            cpu: 50m
+            memory: 64Mi
+          limits:
+            cpu: 200m
+            memory: 128Mi
+      volumes:
+      - name: scripts
+        configMap:
+          name: kong-config-script
+          defaultMode: 0755
+
+
+
