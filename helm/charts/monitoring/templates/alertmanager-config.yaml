@@ -1,0 +1,59 @@
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: alertmanager-config
+  namespace: monitoring
+  labels:
+    app: alertmanager
+type: Opaque
+stringData:
+  alertmanager.yml: |
+    global:
+      smtp_smarthost: 'localhost:587'
+      smtp_from: 'alertmanager@254carbon.com'
+      smtp_auth_username: ''
+      smtp_auth_password: ''
+    route:
+      group_by: ['alertname']
+      group_wait: 10s
+      group_interval: 10s
+      repeat_interval: 1h
+      receiver: 'webhook'
+      routes:
+      - match:
+          severity: critical
+        receiver: 'webhook'
+      - match:
+          severity: warning
+        receiver: 'webhook'
+    receivers:
+    - name: 'webhook'
+      webhook_configs:
+      - url: 'http://localhost:9093/alerts'
+        send_resolved: true
+---
+apiVersion: monitoring.coreos.com/v1
+kind: AlertmanagerConfig
+metadata:
+  name: 254carbon-alertmanager-config
+  namespace: monitoring
+spec:
+  route:
+    groupBy: ['alertname']
+    groupWait: 10s
+    groupInterval: 10s
+    repeatInterval: 1h
+    receiver: '254carbon-webhook'
+    routes:
+    - match:
+        severity: critical
+      receiver: '254carbon-webhook'
+    - match:
+        severity: warning
+      receiver: '254carbon-webhook'
+  receivers:
+  - name: '254carbon-webhook'
+    webhookConfigs:
+    - url: 'http://localhost:9093/alerts'
+      sendResolved: true

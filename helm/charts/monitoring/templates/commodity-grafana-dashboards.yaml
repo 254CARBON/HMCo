@@ -1,0 +1,517 @@
+# Grafana Dashboards for Commodity Data Platform
+# Comprehensive monitoring for market data, pipelines, and performance
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-commodity-dashboards
+  namespace: monitoring
+  labels:
+    grafana_dashboard: "1"
+data:
+  commodity-market-overview.json: |
+    {
+      "annotations": {
+        "list": []
+      },
+      "title": "Commodity Market Overview",
+      "description": "Real-time monitoring of commodity prices, volatility, and market trends",
+      "tags": ["commodity", "market", "prices"],
+      "timezone": "utc",
+      "panels": [
+        {
+          "id": 1,
+          "title": "Current Energy Prices",
+          "type": "stat",
+          "targets": [
+            {
+              "datasource": "Trino",
+              "rawSql": "SELECT commodity, price, price_date FROM (SELECT commodity, price, price_date, ROW_NUMBER() OVER (PARTITION BY commodity ORDER BY price_date DESC) as rn FROM commodity_data.energy_prices) t WHERE rn = 1",
+              "format": "table"
+            }
+          ],
+          "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0}
+        },
+        {
+          "id": 2,
+          "title": "Price Trends (30 Days)",
+          "type": "timeseries",
+          "targets": [
+            {
+              "datasource": "Trino",
+              "rawSql": "SELECT price_date as time, commodity, AVG(price) as price FROM commodity_data.energy_prices WHERE price_date >= CURRENT_DATE - INTERVAL '30' DAY GROUP BY price_date, commodity ORDER BY price_date",
+              "format": "time_series"
+            }
+          ],
+          "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0},
+          "fieldConfig": {
+            "defaults": {
+              "unit": "currencyUSD",
+              "custom": {
+                "lineInterpolation": "smooth"
+              }
+            }
+          }
+        },
+        {
+          "id": 3,
+          "title": "30-Day Volatility",
+          "type": "gauge",
+          "targets": [
+            {
+              "datasource": "Trino",
+              "rawSql": "SELECT commodity, STDDEV(price) / AVG(price) as volatility FROM commodity_data.energy_prices WHERE price_date >= CURRENT_DATE - INTERVAL '30' DAY GROUP BY commodity",
+              "format": "table"
+            }
+          ],
+          "gridPos": {"h": 8, "w": 8, "x": 0, "y": 8},
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percentunit",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {"value": 0, "color": "green"},
+                  {"value": 0.2, "color": "yellow"},
+                  {"value": 0.4, "color": "red"}
+                ]
+              }
+            }
+          }
+        },
+        {
+          "id": 4,
+          "title": "Daily Price Changes",
+          "type": "barchart",
+          "targets": [
+            {
+              "datasource": "Trino",
+              "rawSql": "SELECT commodity, ((price - LAG(price) OVER (PARTITION BY commodity ORDER BY price_date)) / LAG(price) OVER (PARTITION BY commodity ORDER BY price_date)) * 100 as pct_change FROM commodity_data.energy_prices WHERE price_date = CURRENT_DATE - INTERVAL '1' DAY",
+              "format": "table"
+            }
+          ],
+          "gridPos": {"h": 8, "w": 16, "x": 8, "y": 8}
+        }
+      ],
+      "refresh": "5m",
+      "time": {"from": "now-30d", "to": "now"}
+    }
+
+  commodity-pipeline-monitoring.json: |
+    {
+      "title": "Commodity Data Pipeline Monitoring",
+      "description": "Monitor data ingestion pipelines, SeaTunnel connectors, and DolphinScheduler workflows",
+      "tags": ["commodity", "pipeline", "ingestion"],
+      "panels": [
+        {
+          "id": 1,
+          "title": "Pipeline Execution Status",
+          "type": "stat",
+          "targets": [
+            {
+              "datasource": "Prometheus",
+              "expr": "sum(rate(dolphinscheduler_task_success_total[1h])) by (workflow_name)",
+              "legendFormat": "{{ workflow_name }}"
+            }
+          ],
+          "gridPos": {"h": 6, "w": 12, "x": 0, "y": 0}
+        },
+        {
+          "id": 2,
+          "title": "Pipeline Failure Rate",
+          "type": "timeseries",
+          "targets": [
+            {
+              "datasource": "Prometheus",
+              "expr": "rate(dolphinscheduler_task_fail_total[5m])",
+              "legendFormat": "Failures/min"
+            }
+          ],
+          "gridPos": {"h": 6, "w": 12, "x": 12, "y": 0},
+          "fieldConfig": {
+            "defaults": {
+              "color": {"mode": "thresholds"},
+              "thresholds": {
+                "steps": [
+                  {"value": 0, "color": "green"},
+                  {"value": 0.01, "color": "yellow"},
+                  {"value": 0.1, "color": "red"}
+                ]
+              }
+            }
+          }
+        },
+        {
+          "id": 3,
+          "title": "Records Ingested Per Minute",
+          "type": "graph",
+          "targets": [
+            {
+              "datasource": "Prometheus",
+              "expr": "rate(commodity_records_ingested_total[1m])",
+              "legendFormat": "{{ source }}"
+            }
+          ],
+          "gridPos": {"h": 8, "w": 24, "x": 0, "y": 6}
+        },
+        {
+          "id": 4,
+          "title": "SeaTunnel Connector Health",
+          "type": "table",
+          "targets": [
+            {
+              "datasource": "Prometheus",
+              "expr": "up{job=\"seatunnel\"}",
+              "format": "table",
+              "instant": true
+            }
+          ],
+          "gridPos": {"h": 6, "w": 8, "x": 0, "y": 14}
+        },
+        {
+          "id": 5,
+          "title": "Average Ingestion Latency",
+          "type": "timeseries",
+          "targets": [
+            {
+              "datasource": "Prometheus",
+              "expr": "histogram_quantile(0.95, rate(seatunnel_ingestion_duration_seconds_bucket[5m]))",
+              "legendFormat": "P95 Latency"
+            }
+          ],
+          "gridPos": {"h": 6, "w": 16, "x": 8, "y": 14},
+          "fieldConfig": {
+            "defaults": {
+              "unit": "s"
+            }
+          }
+        }
+      ],
+      "refresh": "30s",
+      "time": {"from": "now-6h", "to": "now"}
+    }
+
+  commodity-data-quality.json: |
+    {
+      "title": "Commodity Data Quality Dashboard",
+      "description": "Data quality metrics, validation results, and anomaly detection",
+      "tags": ["commodity", "quality", "validation"],
+      "panels": [
+        {
+          "id": 1,
+          "title": "Overall Data Quality Score",
+          "type": "gauge",
+          "targets": [
+            {
+              "datasource": "Trino",
+              "rawSql": "SELECT ROUND(100.0 * (1 - CAST(COUNT(CASE WHEN price IS NULL OR price < 0 OR price > 10000 THEN 1 END) AS DOUBLE) / COUNT(*)), 2) as quality_score FROM commodity_data.energy_prices WHERE price_date >= CURRENT_DATE - INTERVAL '7' DAY",
+              "format": "table"
+            }
+          ],
+          "gridPos": {"h": 8, "w": 8, "x": 0, "y": 0},
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percent",
+              "thresholds": {
+                "steps": [
+                  {"value": 0, "color": "red"},
+                  {"value": 95, "color": "yellow"},
+                  {"value": 99, "color": "green"}
+                ]
+              },
+              "max": 100,
+              "min": 0
+            }
+          }
+        },
+        {
+          "id": 2,
+          "title": "Null Value Rate by Field",
+          "type": "barchart",
+          "targets": [
+            {
+              "datasource": "Trino",
+              "rawSql": "SELECT 'price' as field, ROUND(100.0 * COUNT(CASE WHEN price IS NULL THEN 1 END) / COUNT(*), 2) as null_rate FROM commodity_data.energy_prices WHERE price_date >= CURRENT_DATE - INTERVAL '7' DAY UNION ALL SELECT 'location', ROUND(100.0 * COUNT(CASE WHEN location IS NULL THEN 1 END) / COUNT(*), 2) FROM commodity_data.energy_prices WHERE price_date >= CURRENT_DATE - INTERVAL '7' DAY",
+              "format": "table"
+            }
+          ],
+          "gridPos": {"h": 8, "w": 16, "x": 8, "y": 0}
+        },
+        {
+          "id": 3,
+          "title": "Data Freshness",
+          "type": "table",
+          "targets": [
+            {
+              "datasource": "Trino",
+              "rawSql": "SELECT 'energy_prices' as source, MAX(ingestion_time) as last_update, ROUND((UNIX_TIMESTAMP(CURRENT_TIMESTAMP) - UNIX_TIMESTAMP(MAX(ingestion_time))) / 3600, 2) as hours_old FROM commodity_data.energy_prices UNION ALL SELECT 'economic_indicators', MAX(ingestion_time), ROUND((UNIX_TIMESTAMP(CURRENT_TIMESTAMP) - UNIX_TIMESTAMP(MAX(ingestion_time))) / 3600, 2) FROM commodity_data.economic_indicators",
+              "format": "table"
+            }
+          ],
+          "gridPos": {"h": 6, "w": 12, "x": 0, "y": 8}
+        },
+        {
+          "id": 4,
+          "title": "Anomalies Detected (Last 7 Days)",
+          "type": "stat",
+          "targets": [
+            {
+              "datasource": "Prometheus",
+              "expr": "sum(increase(commodity_price_anomalies_total[7d]))"
+            }
+          ],
+          "gridPos": {"h": 6, "w": 6, "x": 12, "y": 8},
+          "fieldConfig": {
+            "defaults": {
+              "thresholds": {
+                "steps": [
+                  {"value": 0, "color": "green"},
+                  {"value": 10, "color": "yellow"},
+                  {"value": 50, "color": "red"}
+                ]
+              }
+            }
+          }
+        },
+        {
+          "id": 5,
+          "title": "Duplicate Records",
+          "type": "stat",
+          "targets": [
+            {
+              "datasource": "Trino",
+              "rawSql": "SELECT COUNT(*) - COUNT(DISTINCT commodity || CAST(price_date AS VARCHAR) || location) as duplicates FROM commodity_data.energy_prices WHERE price_date >= CURRENT_DATE - INTERVAL '7' DAY",
+              "format": "table"
+            }
+          ],
+          "gridPos": {"h": 6, "w": 6, "x": 18, "y": 8}
+        }
+      ],
+      "refresh": "5m",
+      "time": {"from": "now-24h", "to": "now"}
+    }
+
+  commodity-economic-indicators.json: |
+    {
+      "title": "Economic Indicators Dashboard",
+      "description": "Track FRED, World Bank, and other economic indicators affecting commodities",
+      "tags": ["commodity", "economic", "indicators"],
+      "panels": [
+        {
+          "id": 1,
+          "title": "Key Economic Indicators",
+          "type": "timeseries",
+          "targets": [
+            {
+              "datasource": "Trino",
+              "rawSql": "SELECT observation_date as time, indicator_code, AVG(value) as value FROM commodity_data.economic_indicators WHERE observation_date >= CURRENT_DATE - INTERVAL '90' DAY AND indicator_code IN ('DCOILWTICO', 'DHHNGSP', 'ELECPRICE') GROUP BY observation_date, indicator_code ORDER BY observation_date",
+              "format": "time_series"
+            }
+          ],
+          "gridPos": {"h": 10, "w": 24, "x": 0, "y": 0},
+          "fieldConfig": {
+            "overrides": [
+              {
+                "matcher": {"id": "byName", "options": "DCOILWTICO"},
+                "properties": [
+                  {"id": "displayName", "value": "WTI Crude Oil"},
+                  {"id": "unit", "value": "currencyUSD"}
+                ]
+              },
+              {
+                "matcher": {"id": "byName", "options": "DHHNGSP"},
+                "properties": [
+                  {"id": "displayName", "value": "Natural Gas Spot"},
+                  {"id": "unit", "value": "currencyUSD"}
+                ]
+              },
+              {
+                "matcher": {"id": "byName", "options": "ELECPRICE"},
+                "properties": [
+                  {"id": "displayName", "value": "Electricity Price Index"},
+                  {"id": "unit", "value": "short"}
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "id": 2,
+          "title": "Indicator Correlation Heatmap",
+          "type": "heatmap",
+          "targets": [
+            {
+              "datasource": "Trino",
+              "rawSql": "WITH indicator_pivot AS (SELECT observation_date, MAX(CASE WHEN indicator_code = 'DCOILWTICO' THEN value END) as oil, MAX(CASE WHEN indicator_code = 'DHHNGSP' THEN value END) as gas, MAX(CASE WHEN indicator_code = 'ELECPRICE' THEN value END) as elec FROM commodity_data.economic_indicators WHERE observation_date >= CURRENT_DATE - INTERVAL '90' DAY GROUP BY observation_date) SELECT CORR(oil, gas) as oil_gas_corr, CORR(oil, elec) as oil_elec_corr, CORR(gas, elec) as gas_elec_corr FROM indicator_pivot",
+              "format": "table"
+            }
+          ],
+          "gridPos": {"h": 8, "w": 12, "x": 0, "y": 10}
+        },
+        {
+          "id": 3,
+          "title": "Data Coverage by Source",
+          "type": "piechart",
+          "targets": [
+            {
+              "datasource": "Trino",
+              "rawSql": "SELECT source, COUNT(*) as record_count FROM commodity_data.economic_indicators WHERE observation_date >= CURRENT_DATE - INTERVAL '30' DAY GROUP BY source",
+              "format": "table"
+            }
+          ],
+          "gridPos": {"h": 8, "w": 12, "x": 12, "y": 10}
+        }
+      ],
+      "refresh": "10m",
+      "time": {"from": "now-90d", "to": "now"}
+    }
+
+  commodity-weather-impact.json: |
+    {
+      "title": "Weather Impact Analysis",
+      "description": "Monitor weather conditions and their impact on commodity production/transport",
+      "tags": ["commodity", "weather", "impact"],
+      "panels": [
+        {
+          "id": 1,
+          "title": "Temperature by Region",
+          "type": "timeseries",
+          "targets": [
+            {
+              "datasource": "Trino",
+              "rawSql": "SELECT forecast_time as time, location, AVG(temperature) as temp FROM commodity_data.weather_forecasts WHERE ingestion_date >= CURRENT_DATE - INTERVAL '7' DAY GROUP BY forecast_time, location ORDER BY forecast_time",
+              "format": "time_series"
+            }
+          ],
+          "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0},
+          "fieldConfig": {
+            "defaults": {
+              "unit": "celsius"
+            }
+          }
+        },
+        {
+          "id": 2,
+          "title": "Precipitation Probability",
+          "type": "bargauge",
+          "targets": [
+            {
+              "datasource": "Trino",
+              "rawSql": "SELECT location, AVG(precipitation_probability) as precip_prob FROM commodity_data.weather_forecasts WHERE DATE(forecast_time) = CURRENT_DATE GROUP BY location",
+              "format": "table"
+            }
+          ],
+          "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0},
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percent",
+              "max": 100,
+              "min": 0
+            }
+          }
+        },
+        {
+          "id": 3,
+          "title": "Wind Speed Alerts",
+          "type": "table",
+          "targets": [
+            {
+              "datasource": "Trino",
+              "rawSql": "SELECT location, forecast_time, wind_speed, CASE WHEN wind_speed > 50 THEN 'CRITICAL' WHEN wind_speed > 30 THEN 'WARNING' ELSE 'NORMAL' END as alert_level FROM commodity_data.weather_forecasts WHERE DATE(forecast_time) >= CURRENT_DATE AND wind_speed > 30 ORDER BY wind_speed DESC LIMIT 20",
+              "format": "table"
+            }
+          ],
+          "gridPos": {"h": 8, "w": 24, "x": 0, "y": 8}
+        }
+      ],
+      "refresh": "15m",
+      "time": {"from": "now-7d", "to": "now+7d"}
+    }
+
+  commodity-gpu-performance.json: |
+    {
+      "title": "GPU Processing Performance",
+      "description": "Monitor RAPIDS GPU-accelerated processing for commodity analytics",
+      "tags": ["commodity", "gpu", "performance"],
+      "panels": [
+        {
+          "id": 1,
+          "title": "GPU Utilization",
+          "type": "timeseries",
+          "targets": [
+            {
+              "datasource": "Prometheus",
+              "expr": "DCGM_FI_DEV_GPU_UTIL{pod=~\"rapids.*\"}",
+              "legendFormat": "GPU {{ gpu }}"
+            }
+          ],
+          "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0},
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percent",
+              "max": 100,
+              "min": 0
+            }
+          }
+        },
+        {
+          "id": 2,
+          "title": "GPU Memory Usage",
+          "type": "timeseries",
+          "targets": [
+            {
+              "datasource": "Prometheus",
+              "expr": "DCGM_FI_DEV_FB_USED{pod=~\"rapids.*\"} / DCGM_FI_DEV_FB_TOTAL * 100",
+              "legendFormat": "GPU {{ gpu }} Memory"
+            }
+          ],
+          "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0},
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percent"
+            }
+          }
+        },
+        {
+          "id": 3,
+          "title": "Processing Throughput",
+          "type": "stat",
+          "targets": [
+            {
+              "datasource": "Prometheus",
+              "expr": "rate(rapids_records_processed_total[5m])",
+              "legendFormat": "Records/sec"
+            }
+          ],
+          "gridPos": {"h": 6, "w": 8, "x": 0, "y": 8},
+          "fieldConfig": {
+            "defaults": {
+              "unit": "ops",
+              "decimals": 0
+            }
+          }
+        },
+        {
+          "id": 4,
+          "title": "Analysis Job Duration",
+          "type": "timeseries",
+          "targets": [
+            {
+              "datasource": "Prometheus",
+              "expr": "histogram_quantile(0.95, rate(rapids_job_duration_seconds_bucket[5m]))",
+              "legendFormat": "{{ job_type }}"
+            }
+          ],
+          "gridPos": {"h": 6, "w": 16, "x": 8, "y": 8},
+          "fieldConfig": {
+            "defaults": {
+              "unit": "s"
+            }
+          }
+        }
+      ],
+      "refresh": "30s",
+      "time": {"from": "now-1h", "to": "now"}
+    }
+

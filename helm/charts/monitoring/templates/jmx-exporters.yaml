@@ -1,0 +1,263 @@
+# JMX Exporters for Java Services
+# Provides detailed metrics for DataHub, DolphinScheduler, Kafka, and other Java applications
+
+---
+# JMX Exporter ConfigMap for DataHub
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: datahub-jmx-config
+  namespace: data-platform
+  labels:
+    app: datahub
+    component: monitoring
+data:
+  jmx-config.yaml: |
+    ---
+    lowercaseOutputName: true
+    lowercaseOutputLabelNames: true
+    rules:
+    # JVM Memory
+    - pattern: 'java.lang<type=Memory><HeapMemoryUsage>(\w+)'
+      name: jvm_memory_heap_$1_bytes
+      type: GAUGE
+    - pattern: 'java.lang<type=Memory><NonHeapMemoryUsage>(\w+)'
+      name: jvm_memory_nonheap_$1_bytes
+      type: GAUGE
+    
+    # GC Metrics
+    - pattern: 'java.lang<type=GarbageCollector, name=(.+)><>CollectionCount'
+      name: jvm_gc_collection_count_total
+      labels:
+        gc: "$1"
+      type: COUNTER
+    - pattern: 'java.lang<type=GarbageCollector, name=(.+)><>CollectionTime'
+      name: jvm_gc_collection_time_seconds_total
+      labels:
+        gc: "$1"
+      type: COUNTER
+      valueFactor: 0.001
+    
+    # Thread Metrics
+    - pattern: 'java.lang<type=Threading><>ThreadCount'
+      name: jvm_threads_current
+      type: GAUGE
+    - pattern: 'java.lang<type=Threading><>PeakThreadCount'
+      name: jvm_threads_peak
+      type: GAUGE
+    
+    # DataHub Specific Metrics
+    - pattern: 'com.linkedin.datahub<type=(.+), name=(.+)><>Count'
+      name: datahub_$1_$2_total
+      type: COUNTER
+    - pattern: 'com.linkedin.datahub<type=(.+), name=(.+)><>Value'
+      name: datahub_$1_$2
+      type: GAUGE
+
+---
+# JMX Exporter ConfigMap for DolphinScheduler
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: dolphinscheduler-jmx-config
+  namespace: data-platform
+  labels:
+    app: dolphinscheduler
+    component: monitoring
+data:
+  jmx-config.yaml: |
+    ---
+    lowercaseOutputName: true
+    lowercaseOutputLabelNames: true
+    rules:
+    # JVM Memory
+    - pattern: 'java.lang<type=Memory><HeapMemoryUsage>(\w+)'
+      name: jvm_memory_heap_$1_bytes
+      type: GAUGE
+    
+    # DolphinScheduler Workflow Metrics
+    - pattern: 'org.apache.dolphinscheduler<type=ProcessInstance, name=(.+)><>Count'
+      name: dolphinscheduler_process_instance_$1_total
+      type: COUNTER
+    - pattern: 'org.apache.dolphinscheduler<type=TaskInstance, name=(.+)><>Count'
+      name: dolphinscheduler_task_instance_$1_total
+      type: COUNTER
+    
+    # Connection Pool Metrics
+    - pattern: 'com.zaxxer.hikari<pool=(.+), type=Pool><>ActiveConnections'
+      name: dolphinscheduler_db_connections_active
+      labels:
+        pool: "$1"
+      type: GAUGE
+    - pattern: 'com.zaxxer.hikari<pool=(.+), type=Pool><>IdleConnections'
+      name: dolphinscheduler_db_connections_idle
+      labels:
+        pool: "$1"
+      type: GAUGE
+
+---
+# ServiceMonitor for DataHub GMS
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: datahub-gms
+  namespace: data-platform
+  labels:
+    app: datahub-gms
+    release: kube-prometheus-stack
+spec:
+  selector:
+    matchLabels:
+      app: datahub-gms
+  endpoints:
+  - port: jmx-metrics
+    interval: 30s
+    path: /metrics
+    scheme: http
+
+---
+# ServiceMonitor for DolphinScheduler
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: dolphinscheduler-api
+  namespace: data-platform
+  labels:
+    app: dolphinscheduler-api
+    release: kube-prometheus-stack
+spec:
+  selector:
+    matchLabels:
+      app: dolphinscheduler-api
+  endpoints:
+  - port: jmx-metrics
+    interval: 30s
+    path: /metrics
+    scheme: http
+
+---
+# Prometheus JMX Exporter Deployment for Kafka
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kafka-jmx-exporter
+  namespace: data-platform
+  labels:
+    app: kafka-jmx-exporter
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kafka-jmx-exporter
+  template:
+    metadata:
+      labels:
+        app: kafka-jmx-exporter
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "5556"
+    spec:
+      containers:
+      - name: jmx-exporter
+        image: bitnami/jmx-exporter:latest
+        ports:
+        - containerPort: 5556
+          name: metrics
+        env:
+        - name: SERVICE_PORT
+          value: "5556"
+        - name: JMX_HOST
+          value: "kafka-service"
+        - name: JMX_PORT
+          value: "9999"
+        volumeMounts:
+        - name: config
+          mountPath: /etc/jmx-exporter
+        resources:
+          requests:
+            cpu: 50m
+            memory: 128Mi
+          limits:
+            cpu: 200m
+            memory: 256Mi
+      volumes:
+      - name: config
+        configMap:
+          name: kafka-jmx-config
+
+---
+# Kafka JMX Exporter Config
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kafka-jmx-config
+  namespace: data-platform
+data:
+  config.yaml: |
+    ---
+    lowercaseOutputName: true
+    rules:
+    # Kafka Broker Metrics
+    - pattern: kafka.server<type=(.+), name=(.+)><>Value
+      name: kafka_server_$1_$2
+      type: GAUGE
+    - pattern: kafka.server<type=(.+), name=(.+)><>Count
+      name: kafka_server_$1_$2_total
+      type: COUNTER
+    
+    # Kafka Network Metrics
+    - pattern: kafka.network<type=RequestMetrics, name=RequestsPerSec, request=(\w+)><>Count
+      name: kafka_network_requests_per_sec_total
+      labels:
+        request: "$1"
+      type: COUNTER
+    
+    # Kafka Log Metrics
+    - pattern: kafka.log<type=Log, name=Size, topic=(.+), partition=(\d+)><>Value
+      name: kafka_log_size_bytes
+      labels:
+        topic: "$1"
+        partition: "$2"
+      type: GAUGE
+
+---
+# Service for Kafka JMX Exporter
+apiVersion: v1
+kind: Service
+metadata:
+  name: kafka-jmx-metrics
+  namespace: data-platform
+  labels:
+    app: kafka-jmx-exporter
+spec:
+  selector:
+    app: kafka-jmx-exporter
+  ports:
+  - name: metrics
+    port: 5556
+    targetPort: 5556
+    protocol: TCP
+  type: ClusterIP
+
+---
+# ServiceMonitor for Kafka JMX
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: kafka-jmx
+  namespace: data-platform
+  labels:
+    app: kafka
+    release: kube-prometheus-stack
+spec:
+  selector:
+    matchLabels:
+      app: kafka-jmx-exporter
+  endpoints:
+  - port: metrics
+    interval: 30s
+    path: /metrics
+
+
+
+

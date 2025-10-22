@@ -1,0 +1,316 @@
+# Advanced Alerting Rules with Runbooks
+# Extended alert definitions for data platform components
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: advanced-alert-rules
+  namespace: monitoring
+  labels:
+    prometheus: kube-prometheus-stack-prometheus
+    role: alert-rules
+data:
+  advanced-alerts.yaml: |
+    groups:
+    # Data Pipeline Alerts
+    - name: data-pipeline-alerts
+      interval: 30s
+      rules:
+      - alert: DolphinSchedulerWorkflowFailed
+        expr: dolphinscheduler_process_instance_failed_total > 0
+        for: 5m
+        labels:
+          severity: warning
+          component: dolphinscheduler
+        annotations:
+          summary: "DolphinScheduler workflow failed"
+          description: "Workflow {{ $labels.workflow_name }} has failed {{ $value }} times in the last 5 minutes"
+          runbook_url: "https://docs.254carbon.com/runbooks/dolphinscheduler-workflow-failure"
+      
+      - alert: DataFreshnessIssue
+        expr: |
+          (time() - max(data_last_update_timestamp_seconds) by (dataset)) > 86400
+        for: 1h
+        labels:
+          severity: warning
+          component: data-quality
+        annotations:
+          summary: "Data freshness issue detected"
+          description: "Dataset {{ $labels.dataset }} hasn't been updated in over 24 hours"
+          runbook_url: "https://docs.254carbon.com/runbooks/data-freshness"
+      
+      - alert: HighPipelineFailureRate
+        expr: |
+          (rate(dolphinscheduler_task_instance_failed_total[5m]) / 
+           rate(dolphinscheduler_task_instance_total[5m])) > 0.1
+        for: 10m
+        labels:
+          severity: critical
+          component: dolphinscheduler
+        annotations:
+          summary: "High pipeline failure rate"
+          description: "Pipeline failure rate is {{ $value | humanizePercentage }} over last 10 minutes"
+          runbook_url: "https://docs.254carbon.com/runbooks/high-failure-rate"
+    
+    # DataHub Alerts
+    - name: datahub-alerts
+      interval: 30s
+      rules:
+      - alert: DataHubGMSHighRestartRate
+        expr: rate(kube_pod_container_status_restarts_total{namespace="data-platform",pod=~"datahub-gms.*"}[15m]) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+          component: datahub
+        annotations:
+          summary: "DataHub GMS restarting frequently"
+          description: "DataHub GMS pod {{ $labels.pod }} has restarted {{ $value }} times per minute"
+          runbook_url: "https://docs.254carbon.com/runbooks/datahub-gms-restarts"
+      
+      - alert: DataHubMetadataIngestionStalled
+        expr: |
+          (time() - datahub_metadata_last_ingestion_timestamp_seconds) > 3600
+        for: 30m
+        labels:
+          severity: warning
+          component: datahub
+        annotations:
+          summary: "DataHub metadata ingestion stalled"
+          description: "No metadata ingested for {{ $labels.source }} in over 1 hour"
+          runbook_url: "https://docs.254carbon.com/runbooks/datahub-ingestion-stalled"
+      
+      - alert: DataHubElasticsearchDown
+        expr: up{job="elasticsearch", namespace="data-platform"} == 0
+        for: 5m
+        labels:
+          severity: critical
+          component: datahub
+        annotations:
+          summary: "DataHub Elasticsearch is down"
+          description: "Elasticsearch service is unavailable, DataHub search will not work"
+          runbook_url: "https://docs.254carbon.com/runbooks/elasticsearch-down"
+    
+    # Certificate Alerts
+    - name: certificate-alerts
+      interval: 1h
+      rules:
+      - alert: CertificateExpiringIn30Days
+        expr: |
+          (cert_manager_certificate_expiration_timestamp_seconds - time()) / 86400 < 30
+        for: 1h
+        labels:
+          severity: warning
+          component: certificates
+        annotations:
+          summary: "Certificate expiring soon"
+          description: "Certificate {{ $labels.name }} in {{ $labels.namespace }} expires in {{ $value }} days"
+          runbook_url: "https://docs.254carbon.com/runbooks/certificate-expiry"
+      
+      - alert: CertificateExpiringIn7Days
+        expr: |
+          (cert_manager_certificate_expiration_timestamp_seconds - time()) / 86400 < 7
+        for: 1h
+        labels:
+          severity: critical
+          component: certificates
+        annotations:
+          summary: "Certificate expiring very soon!"
+          description: "Certificate {{ $labels.name }} in {{ $labels.namespace }} expires in {{ $value }} days - URGENT ACTION REQUIRED"
+          runbook_url: "https://docs.254carbon.com/runbooks/certificate-expiry"
+      
+      - alert: CertificateNotReady
+        expr: cert_manager_certificate_ready_status == 0
+        for: 10m
+        labels:
+          severity: warning
+          component: certificates
+        annotations:
+          summary: "Certificate not ready"
+          description: "Certificate {{ $labels.name }} in {{ $labels.namespace }} is not in ready state"
+          runbook_url: "https://docs.254carbon.com/runbooks/certificate-not-ready"
+    
+    # Database Alerts
+    - name: database-alerts
+      interval: 30s
+      rules:
+      - alert: PostgreSQLHighConnectionUsage
+        expr: |
+          (pg_stat_database_numbackends / pg_settings_max_connections) > 0.8
+        for: 5m
+        labels:
+          severity: warning
+          component: postgresql
+        annotations:
+          summary: "PostgreSQL connection usage high"
+          description: "Database {{ $labels.datname }} is using {{ $value | humanizePercentage }} of max connections"
+          runbook_url: "https://docs.254carbon.com/runbooks/postgresql-connections"
+      
+      - alert: PostgreSQLReplicationLag
+        expr: pg_replication_lag_seconds > 30
+        for: 5m
+        labels:
+          severity: warning
+          component: postgresql
+        annotations:
+          summary: "PostgreSQL replication lag"
+          description: "Replication lag is {{ $value }} seconds on {{ $labels.instance }}"
+          runbook_url: "https://docs.254carbon.com/runbooks/postgresql-replication-lag"
+      
+      - alert: PostgreSQLTooManyDeadTuples
+        expr: |
+          pg_stat_user_tables_n_dead_tup / (pg_stat_user_tables_n_live_tup + pg_stat_user_tables_n_dead_tup) > 0.1
+        for: 15m
+        labels:
+          severity: warning
+          component: postgresql
+        annotations:
+          summary: "PostgreSQL has too many dead tuples"
+          description: "Table {{ $labels.table }} has {{ $value | humanizePercentage }} dead tuples"
+          runbook_url: "https://docs.254carbon.com/runbooks/postgresql-dead-tuples"
+    
+    # Kafka Alerts
+    - name: kafka-alerts
+      interval: 30s
+      rules:
+      - alert: KafkaUnderReplicatedPartitions
+        expr: kafka_server_replicamanager_underreplicatedpartitions > 0
+        for: 5m
+        labels:
+          severity: warning
+          component: kafka
+        annotations:
+          summary: "Kafka has under-replicated partitions"
+          description: "{{ $value }} partitions are under-replicated on {{ $labels.instance }}"
+          runbook_url: "https://docs.254carbon.com/runbooks/kafka-under-replicated"
+      
+      - alert: KafkaOfflinePartitions
+        expr: kafka_controller_kafkacontroller_offlinepartitionscount > 0
+        for: 1m
+        labels:
+          severity: critical
+          component: kafka
+        annotations:
+          summary: "Kafka has offline partitions"
+          description: "{{ $value }} partitions are offline - data loss possible!"
+          runbook_url: "https://docs.254carbon.com/runbooks/kafka-offline-partitions"
+      
+      - alert: KafkaConsumerGroupLag
+        expr: kafka_consumergroup_lag > 1000
+        for: 10m
+        labels:
+          severity: warning
+          component: kafka
+        annotations:
+          summary: "Kafka consumer group lagging"
+          description: "Consumer group {{ $labels.consumergroup }} is {{ $value }} messages behind"
+          runbook_url: "https://docs.254carbon.com/runbooks/kafka-consumer-lag"
+    
+    # Storage Alerts
+    - name: storage-alerts
+      interval: 30s
+      rules:
+      - alert: MinIOHighStorageUsage
+        expr: |
+          (minio_bucket_usage_total_bytes / minio_cluster_capacity_usable_free_bytes) > 0.8
+        for: 10m
+        labels:
+          severity: warning
+          component: minio
+        annotations:
+          summary: "MinIO storage usage high"
+          description: "Bucket {{ $labels.bucket }} is at {{ $value | humanizePercentage }} capacity"
+          runbook_url: "https://docs.254carbon.com/runbooks/minio-storage"
+      
+      - alert: VelerBackupFailed
+        expr: velero_backup_failure_total > 0
+        for: 5m
+        labels:
+          severity: critical
+          component: velero
+        annotations:
+          summary: "Velero backup failed"
+          description: "Backup {{ $labels.schedule }} failed {{ $value }} times"
+          runbook_url: "https://docs.254carbon.com/runbooks/velero-backup-failure"
+      
+      - alert: IcebergTableMaintenanceOverdue
+        expr: |
+          (time() - iceberg_table_last_maintenance_timestamp_seconds) > 604800
+        for: 1h
+        labels:
+          severity: warning
+          component: iceberg
+        annotations:
+          summary: "Iceberg table maintenance overdue"
+          description: "Table {{ $labels.table }} hasn't had maintenance in {{ $value | humanizeDuration }}"
+          runbook_url: "https://docs.254carbon.com/runbooks/iceberg-maintenance"
+    
+    # Performance Alerts
+    - name: performance-alerts
+      interval: 30s
+      rules:
+      - alert: HighAPILatency
+        expr: |
+          histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m])) > 1
+        for: 10m
+        labels:
+          severity: warning
+          component: api
+        annotations:
+          summary: "High API latency detected"
+          description: "95th percentile latency is {{ $value }}s for {{ $labels.endpoint }}"
+          runbook_url: "https://docs.254carbon.com/runbooks/high-api-latency"
+      
+      - alert: HighErrorRate
+        expr: |
+          (rate(http_requests_total{status=~"5.."}[5m]) / 
+           rate(http_requests_total[5m])) > 0.05
+        for: 5m
+        labels:
+          severity: critical
+          component: api
+        annotations:
+          summary: "High error rate"
+          description: "Error rate is {{ $value | humanizePercentage }} on {{ $labels.service }}"
+          runbook_url: "https://docs.254carbon.com/runbooks/high-error-rate"
+      
+      - alert: SlowQueryDetected
+        expr: pg_stat_activity_max_tx_duration > 300
+        for: 5m
+        labels:
+          severity: warning
+          component: postgresql
+        annotations:
+          summary: "Slow database query detected"
+          description: "Query running for {{ $value }}s on database {{ $labels.datname }}"
+          runbook_url: "https://docs.254carbon.com/runbooks/slow-queries"
+
+---
+# PrometheusRule CRD
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: advanced-platform-alerts
+  namespace: monitoring
+  labels:
+    prometheus: kube-prometheus-stack-prometheus
+    role: alert-rules
+spec:
+  groups:
+  - name: advanced-alerts
+    interval: 30s
+    rules:
+    # Include all rules from ConfigMap above
+    - alert: DolphinSchedulerAPIDown
+      expr: up{job="dolphinscheduler-api", namespace="data-platform"} == 0
+      for: 2m
+      labels:
+        severity: critical
+        component: dolphinscheduler
+      annotations:
+        summary: "DolphinScheduler API is down"
+        description: "DolphinScheduler API service is unavailable"
+        runbook_url: "https://docs.254carbon.com/runbooks/dolphinscheduler-api-down"
+
+
+
+

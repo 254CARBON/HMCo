@@ -1,0 +1,77 @@
+## kube-prometheus-stack tuned configuration
+# Deploys Prometheus Operator-managed Prometheus with cross-namespace discovery,
+# persistent storage, sane retention, and Alertmanager integration.
+
+grafana:
+  enabled: false  # We deploy Grafana separately in this repo
+
+alertmanager:
+  enabled: true
+  alertmanagerSpec:
+    replicas: 2
+    retention: 168h
+    storage:
+      volumeClaimTemplate:
+        spec:
+          storageClassName: local-storage-standard
+          accessModes: ["ReadWriteOnce"]
+          resources:
+            requests:
+              storage: 10Gi
+
+prometheus:
+  enabled: true
+  serviceAccount:
+    create: true
+  prometheusSpec:
+    replicas: 1
+    retention: 30d
+    enableAdminAPI: false
+    walCompression: true
+    resources:
+      requests:
+        cpu: 500m
+        memory: 1Gi
+      limits:
+        cpu: 2000m
+        memory: 4Gi
+    storageSpec:
+      volumeClaimTemplate:
+        spec:
+          storageClassName: local-storage-standard
+          accessModes: ["ReadWriteOnce"]
+          resources:
+            requests:
+              storage: 50Gi
+    # Discover ServiceMonitor/PodMonitor/Rules in all namespaces
+    serviceMonitorSelector: {}
+    serviceMonitorSelectorNilUsesHelmValues: false
+    serviceMonitorNamespaceSelector: {}
+    podMonitorSelector: {}
+    podMonitorSelectorNilUsesHelmValues: false
+    podMonitorNamespaceSelector: {}
+    ruleSelector: {}
+    ruleSelectorNilUsesHelmValues: false
+    ruleNamespaceSelector: {}
+    # Alerting to the stack's Alertmanager
+    alerting:
+      alertmanagers:
+        - namespace: monitoring
+          name: alertmanager-operated
+          port: web
+
+  additionalServiceMonitors: []
+
+kube-state-metrics:
+  enabled: true
+
+nodeExporter:
+  enabled: true
+
+prometheusOperator:
+  enabled: true
+  tls:
+    enabled: false
+  admissionWebhooks:
+    enabled: true
+

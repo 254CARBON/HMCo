@@ -1,0 +1,60 @@
+---
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: slo-recording-rules
+  namespace: monitoring
+  labels:
+    role: slo
+spec:
+  groups:
+    - name: http.sli
+      interval: 30s
+      rules:
+        # Request/Errors per job
+        - record: sli:http_requests:rate5m
+          expr: sum(rate(http_requests_total[5m])) by (job)
+        - record: sli:http_errors:rate5m
+          expr: sum(rate(http_requests_total{status=~"5.."}[5m])) by (job)
+        - record: sli:http_error_ratio:5m
+          expr: sli:http_errors:rate5m / sli:http_requests:rate5m
+
+        # Latency p95 per job (5m rolling)
+        - record: sli:http_latency_p95:5m
+          expr: |
+            histogram_quantile(
+              0.95,
+              sum by (job, le) (rate(http_request_duration_seconds_bucket[5m]))
+            )
+
+        # Availability per job (5m rolling)
+        - record: sli:service_availability:5m
+          expr: avg_over_time(up[5m]) by (job)
+
+        # Error ratio windows for burn-rate alerts
+        - record: sli:http_error_ratio:1h
+          expr: |
+            sum(rate(http_requests_total{status=~"5.."}[1h])) by (job)
+            /
+            sum(rate(http_requests_total[1h])) by (job)
+        - record: sli:http_error_ratio:2h
+          expr: |
+            sum(rate(http_requests_total{status=~"5.."}[2h])) by (job)
+            /
+            sum(rate(http_requests_total[2h])) by (job)
+        - record: sli:http_error_ratio:6h
+          expr: |
+            sum(rate(http_requests_total{status=~"5.."}[6h])) by (job)
+            /
+            sum(rate(http_requests_total[6h])) by (job)
+        - record: sli:http_error_ratio:24h
+          expr: |
+            sum(rate(http_requests_total{status=~"5.."}[24h])) by (job)
+            /
+            sum(rate(http_requests_total[24h])) by (job)
+        - record: sli:http_error_ratio:3d
+          expr: |
+            sum(rate(http_requests_total{status=~"5.."}[3d])) by (job)
+            /
+            sum(rate(http_requests_total[3d])) by (job)
+
