@@ -1,0 +1,41 @@
+# Development environment values
+# Optimized for local development with reduced resources
+
+global:
+  namespace: data-platform-dev
+  domain: dev.254carbon.local
+  storageClass: local-path
+
+datahub:
+  enabled: true
+  replicaCount:
+    frontend: 1
+    gms: 1
+    mae-consumer: 1
+    mce-consumer: 1
+  
+  ingress:
+    enabled: false  # Use port-forward for dev
+
+dolphinscheduler:
+  enabled: true
+  replicaCount:
+    api: 1
+    master: 1
+    worker: 1
+    alert: 1
+
+trino:
+  enabled: true
+  replicaCount:
+    coordinator: 1
+    worker: 1
+
+superset:
+  enabled: true
+  replicaCount:
+    web: 1
+    worker: 1
+    beat: 1
+
+

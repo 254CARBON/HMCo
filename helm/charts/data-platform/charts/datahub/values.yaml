@@ -1,0 +1,64 @@
+# DataHub values
+replicaCount:
+  frontend: 3
+  gms: 1
+  mae-consumer: 1
+  mce-consumer: 1
+
+image:
+  frontend: linkedin/datahub-frontend-react:head
+  gms: linkedin/datahub-gms:head
+  mae-consumer: linkedin/datahub-mae-consumer:head
+  mce-consumer: linkedin/datahub-mce-consumer:head
+  pullPolicy: IfNotPresent
+
+service:
+  frontend:
+    type: ClusterIP
+    port: 9002
+  gms:
+    type: ClusterIP
+    port: 8080
+
+ingress:
+  enabled: true
+  className: nginx
+  hostname: datahub.254carbon.com
+  tls: true
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+
+postgresql:
+  host: postgres-shared-service
+  port: 5432
+  database: datahub
+  username: postgres
+
+elasticsearch:
+  host: elasticsearch-service
+  port: 9200
+
+kafka:
+  bootstrap: kafka-service:9092
+
+neo4j:
+  host: graphdb-service
+  port: 7687
+
+resources:
+  frontend:
+    requests:
+      cpu: 500m
+      memory: 1Gi
+    limits:
+      cpu: 2000m
+      memory: 4Gi
+  gms:
+    requests:
+      cpu: 1000m
+      memory: 2Gi
+    limits:
+      cpu: 4000m
+      memory: 8Gi
+
+

@@ -19,6 +19,9 @@ spec:
       valueFiles:
         - values.yaml
         - values/prod.yaml  # Environment-specific values
+      parameters:
+      - name: "data-lake.enabled"
+        value: "true"
   destination:
     server: https://kubernetes.default.svc
     namespace: data-platform

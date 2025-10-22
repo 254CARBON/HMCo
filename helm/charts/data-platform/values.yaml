@@ -1,0 +1,145 @@
+# Default values for data-platform umbrella chart
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+global:
+  namespace: data-platform
+  domain: 254carbon.com
+  storageClass: local-path
+  
+  # Image pull settings
+  imagePullPolicy: IfNotPresent
+  imagePullSecrets: []
+  
+  # Resource defaults
+  resources:
+    small:
+      requests:
+        cpu: 200m
+        memory: 512Mi
+      limits:
+        cpu: 500m
+        memory: 1Gi
+    medium:
+      requests:
+        cpu: 500m
+        memory: 1Gi
+      limits:
+        cpu: 2000m
+        memory: 4Gi
+    large:
+      requests:
+        cpu: 2000m
+        memory: 4Gi
+      limits:
+        cpu: 4000m
+        memory: 8Gi
+
+# DataHub - Data Catalog and Governance
+datahub:
+  enabled: true
+  replicaCount:
+    frontend: 3
+    gms: 1
+    mae-consumer: 1
+    mce-consumer: 1
+  
+  ingress:
+    enabled: true
+    hostname: datahub.254carbon.com
+    tls: true
+  
+  postgresql:
+    enabled: true
+    host: postgres-shared-service
+    port: 5432
+    database: datahub
+  
+  elasticsearch:
+    enabled: true
+    host: elasticsearch-service
+    port: 9200
+  
+  kafka:
+    enabled: true
+    bootstrap: kafka-service:9092
+  
+  neo4j:
+    enabled: true
+    host: graphdb-service
+    port: 7687
+
+# DolphinScheduler - Workflow Orchestration
+dolphinscheduler:
+  enabled: true
+  replicaCount:
+    api: 3
+    master: 1
+    worker: 2
+    alert: 1
+  
+  ingress:
+    enabled: true
+    hostname: dolphinscheduler.254carbon.com
+    tls: true
+  
+  postgresql:
+    enabled: true
+    host: postgres-workflow-service
+    port: 5432
+    database: dolphinscheduler
+  
+  zookeeper:
+    enabled: true
+    host: zookeeper-service
+    port: 2181
+
+# Trino - Distributed SQL Query Engine
+trino:
+  enabled: true
+  replicaCount:
+    coordinator: 1
+    worker: 1
+  
+  ingress:
+    enabled: true
+    hostname: trino.254carbon.com
+    tls: true
+  
+  catalogs:
+    - name: iceberg_catalog
+      type: iceberg
+      properties:
+        iceberg.catalog.type: rest
+        iceberg.rest-catalog.uri: http://iceberg-rest-catalog:8181
+    - name: postgresql
+      type: postgresql
+      properties:
+        connection-url: jdbc:postgresql://postgres-shared-service:5432/datahub
+        connection-user: postgres
+
+# Superset - Data Visualization
+superset:
+  enabled: true
+  replicaCount:
+    web: 1
+    worker: 1
+    beat: 1
+  
+  ingress:
+    enabled: true
+    hostname: superset.254carbon.com
+    tls: true
+  
+  postgresql:
+    enabled: true
+    host: postgres-shared-service
+    port: 5432
+    database: superset
+  
+  redis:
+    enabled: true
+    host: redis-service
+    port: 6379
+
+

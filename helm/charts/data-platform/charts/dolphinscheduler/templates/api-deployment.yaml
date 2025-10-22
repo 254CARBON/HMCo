@@ -1,0 +1,58 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "dolphinscheduler.fullname" . }}-api
+  labels:
+    {{- include "dolphinscheduler.labels" . | nindent 4 }}
+    component: api
+spec:
+  replicas: {{ .Values.replicaCount.api }}
+  selector:
+    matchLabels:
+      {{- include "dolphinscheduler.selectorLabels" . | nindent 6 }}
+      component: api
+  template:
+    metadata:
+      labels:
+        {{- include "dolphinscheduler.selectorLabels" . | nindent 8 }}
+        component: api
+    spec:
+      containers:
+      - name: api
+        image: "{{ .Values.image.repository }}-api:{{ .Values.image.tag }}"
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        ports:
+        - containerPort: 12345
+          name: http
+        env:
+        - name: DATABASE
+          value: postgresql
+        - name: SPRING_DATASOURCE_URL
+          value: "jdbc:postgresql://{{ .Values.postgresql.host }}:{{ .Values.postgresql.port }}/{{ .Values.postgresql.database }}"
+        - name: SPRING_DATASOURCE_USERNAME
+          value: {{ .Values.postgresql.username }}
+        - name: REGISTRY_ZOOKEEPER_CONNECT_STRING
+          value: "{{ .Values.zookeeper.host }}:{{ .Values.zookeeper.port }}"
+        resources:
+          {{- toYaml .Values.resources.api | nindent 10 }}
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "dolphinscheduler.fullname" . }}-api
+  labels:
+    {{- include "dolphinscheduler.labels" . | nindent 4 }}
+    component: api
+spec:
+  type: {{ .Values.service.api.type }}
+  ports:
+  - port: {{ .Values.service.api.port }}
+    targetPort: http
+    protocol: TCP
+    name: http
+  selector:
+    {{- include "dolphinscheduler.selectorLabels" . | nindent 4 }}
+    component: api
+
+

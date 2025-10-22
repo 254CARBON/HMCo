@@ -1,0 +1,67 @@
+# Superset values
+replicaCount:
+  web: 1
+  worker: 1
+  beat: 1
+
+image:
+  repository: apache/superset
+  tag: "3.0.0"
+  pullPolicy: IfNotPresent
+
+service:
+  web:
+    type: ClusterIP
+    port: 8088
+
+ingress:
+  enabled: true
+  className: nginx
+  hostname: superset.254carbon.com
+  tls: true
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+
+postgresql:
+  enabled: true
+  host: postgres-shared-service
+  port: 5432
+  database: superset
+  username: postgres
+
+redis:
+  enabled: true
+  host: redis-service
+  port: 6379
+
+resources:
+  web:
+    requests:
+      cpu: 500m
+      memory: 1Gi
+    limits:
+      cpu: 2000m
+      memory: 4Gi
+  worker:
+    requests:
+      cpu: 500m
+      memory: 2Gi
+    limits:
+      cpu: 2000m
+      memory: 4Gi
+  beat:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 200m
+      memory: 512Mi
+
+autoscaling:
+  enabled: true
+  worker:
+    minReplicas: 1
+    maxReplicas: 4
+    targetCPUUtilizationPercentage: 75
+
+

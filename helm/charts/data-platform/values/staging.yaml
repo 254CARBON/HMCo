@@ -1,0 +1,58 @@
+# Staging environment values
+# Mirror production with slightly reduced scale
+
+global:
+  namespace: data-platform-staging
+  domain: staging.254carbon.com
+  storageClass: local-path
+
+datahub:
+  enabled: true
+  replicaCount:
+    frontend: 2
+    gms: 1
+    mae-consumer: 1
+    mce-consumer: 1
+  
+  ingress:
+    enabled: true
+    hostname: datahub-staging.254carbon.com
+    tls: true
+
+dolphinscheduler:
+  enabled: true
+  replicaCount:
+    api: 2
+    master: 1
+    worker: 2
+    alert: 1
+  
+  ingress:
+    enabled: true
+    hostname: dolphinscheduler-staging.254carbon.com
+    tls: true
+
+trino:
+  enabled: true
+  replicaCount:
+    coordinator: 1
+    worker: 2
+  
+  ingress:
+    enabled: true
+    hostname: trino-staging.254carbon.com
+    tls: true
+
+superset:
+  enabled: true
+  replicaCount:
+    web: 1
+    worker: 1
+    beat: 1
+  
+  ingress:
+    enabled: true
+    hostname: superset-staging.254carbon.com
+    tls: true
+
+
