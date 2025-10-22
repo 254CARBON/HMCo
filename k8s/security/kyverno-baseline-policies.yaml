@@ -33,7 +33,7 @@ metadata:
     policies.kyverno.io/category: Reliability
     policies.kyverno.io/severity: high
 spec:
-  validationFailureAction: audit
+  validationFailureAction: enforce
   background: true
   rules:
     - name: check-requests-limits
@@ -71,7 +71,7 @@ metadata:
     policies.kyverno.io/category: Security
     policies.kyverno.io/severity: high
 spec:
-  validationFailureAction: audit
+  validationFailureAction: enforce
   background: true
   rules:
     - name: run-as-non-root
@@ -99,7 +99,7 @@ metadata:
     policies.kyverno.io/category: Security
     policies.kyverno.io/severity: medium
 spec:
-  validationFailureAction: audit
+  validationFailureAction: enforce
   background: true
   rules:
     - name: readonly-rootfs
