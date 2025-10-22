@@ -1,0 +1,187 @@
+# ResourceQuotas enforce resource limits per namespace
+# Prevents any single namespace from consuming all cluster resources
+
+---
+# Data Platform Resource Quota
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: data-platform-quota
+  namespace: data-platform
+spec:
+  hard:
+    requests.cpu: "80"
+    requests.memory: "256Gi"
+    limits.cpu: "160"
+    limits.memory: "512Gi"
+    persistentvolumeclaims: "100"
+    pods: "400"
+    services: "100"
+    services.loadbalancers: "5"
+    services.nodeports: "10"
+
+---
+# Data Platform Resource Quota - PVC specific
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: data-platform-storage-quota
+  namespace: data-platform
+spec:
+  hard:
+    requests.storage: "1Ti"
+
+---
+# Monitoring Resource Quota
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: monitoring-quota
+  namespace: monitoring
+spec:
+  hard:
+    requests.cpu: "8"
+    requests.memory: "16Gi"
+    limits.cpu: "12"
+    limits.memory: "24Gi"
+    pods: "50"
+    services: "10"
+
+---
+# Vault Production Resource Quota
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: vault-prod-quota
+  namespace: vault-prod
+spec:
+  hard:
+    requests.cpu: "4"
+    requests.memory: "8Gi"
+    limits.cpu: "6"
+    limits.memory: "12Gi"
+    persistentvolumeclaims: "10"
+    pods: "20"
+
+---
+# Ingress Namespace Resource Quota
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: ingress-nginx-quota
+  namespace: ingress-nginx
+spec:
+  hard:
+    requests.cpu: "2"
+    requests.memory: "4Gi"
+    limits.cpu: "4"
+    limits.memory: "8Gi"
+    pods: "10"
+    services: "5"
+
+---
+# cert-manager Resource Quota
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: cert-manager-quota
+  namespace: cert-manager
+spec:
+  hard:
+    requests.cpu: "1"
+    requests.memory: "2Gi"
+    limits.cpu: "2"
+    limits.memory: "4Gi"
+    pods: "10"
+
+---
+# LimitRange removed to allow GPU-intensive workloads (RAPIDS, Trino, etc.)
+# ResourceQuota still enforces namespace-level limits
+
+---
+# Monitoring namespace LimitRange
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: monitoring-limits
+  namespace: monitoring
+spec:
+  limits:
+  - type: Pod
+    min:
+      cpu: "10m"
+      memory: "32Mi"
+    max:
+      cpu: "2"
+      memory: "4Gi"
+  - type: Container
+    default:
+      cpu: "200m"
+      memory: "256Mi"
+    defaultRequest:
+      cpu: "50m"
+      memory: "128Mi"
+    min:
+      cpu: "10m"
+      memory: "32Mi"
+    max:
+      cpu: "2"
+      memory: "4Gi"
+
+---
+# Vault production LimitRange
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: vault-prod-limits
+  namespace: vault-prod
+spec:
+  limits:
+  - type: Pod
+    min:
+      cpu: "50m"
+      memory: "64Mi"
+    max:
+      cpu: "2"
+      memory: "4Gi"
+  - type: Container
+    default:
+      cpu: "500m"
+      memory: "512Mi"
+    defaultRequest:
+      cpu: "250m"
+      memory: "256Mi"
+    min:
+      cpu: "50m"
+      memory: "64Mi"
+    max:
+      cpu: "2"
+      memory: "4Gi"
+
+---
+# Priority classes for workload prioritization
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: critical-services
+value: 1000
+globalDefault: false
+description: "Priority class for critical platform services (databases, brokers)"
+
+---
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: standard-services
+value: 500
+globalDefault: true
+description: "Standard priority for most services"
+
+---
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: low-priority-batch
+value: 100
+globalDefault: false
+description: "Low priority for batch and background jobs"

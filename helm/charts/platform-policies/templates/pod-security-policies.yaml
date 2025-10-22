@@ -1,0 +1,132 @@
+# Enhanced Pod Security Standards
+# Implements baseline pod security with exceptions for database systems
+
+---
+# Update namespace to use baseline (already done, but documenting)
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: data-platform
+  labels:
+    pod-security.kubernetes.io/enforce: baseline
+    pod-security.kubernetes.io/audit: restricted
+    pod-security.kubernetes.io/warn: restricted
+
+---
+# SecurityContext template for new deployments
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: security-context-template
+  namespace: data-platform
+data:
+  recommended-security-context.yaml: |
+    # Recommended SecurityContext for application pods
+    # Apply this to new deployments
+    
+    spec:
+      template:
+        spec:
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            runAsGroup: 1000
+            fsGroup: 1000
+            seccompProfile:
+              type: RuntimeDefault
+          
+          containers:
+          - name: app
+            securityContext:
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: true
+              capabilities:
+                drop:
+                - ALL
+              runAsNonRoot: true
+              runAsUser: 1000
+
+---
+# PodSecurityPolicy replacement - using built-in Pod Security Standards
+# For services requiring elevated permissions, document here:
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: security-exceptions
+  namespace: data-platform
+  labels:
+    security: exceptions
+data:
+  exceptions.txt: |
+    # Services with elevated permissions (documented exceptions)
+    
+    Database Systems (require non-root for initialization):
+    - postgres-shared (uid 999)
+    - postgres-workflow (uid 999)
+    - elasticsearch (uid 1000)
+    - neo4j (uid 7474)
+    - zookeeper (uid 1000)
+    
+    Java Applications (require specific UIDs):
+    - datahub-gms (uid 1000)
+    - dolphinscheduler-* (uid 1000)
+    - kafka (uid 1000)
+    - superset (uid 1000)
+    
+    System Components:
+    - velero (requires host path access for backups)
+    - node-agent (requires node-level access)
+    
+    All exceptions are justified and minimally scoped.
+    Regular security audits should review these exceptions.
+
+---
+# Resource Quotas for security (prevent resource exhaustion attacks)
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: data-platform-quota
+  namespace: data-platform
+spec:
+  hard:
+    requests.cpu: "50"
+    requests.memory: 100Gi
+    requests.storage: 500Gi
+    persistentvolumeclaims: "50"
+    services.loadbalancers: "0"  # No LoadBalancers allowed
+    services.nodeports: "0"  # No NodePorts allowed
+
+---
+# LimitRange for default resource limits
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: data-platform-limits
+  namespace: data-platform
+spec:
+  limits:
+  - max:
+      cpu: "4"
+      memory: "8Gi"
+    min:
+      cpu: "10m"
+      memory: "32Mi"
+    default:
+      cpu: "500m"
+      memory: "512Mi"
+    defaultRequest:
+      cpu: "100m"
+      memory: "128Mi"
+    type: Container
+  
+  - max:
+      cpu: "8"
+      memory: "16Gi"
+    min:
+      cpu: "50m"
+      memory: "128Mi"
+    type: Pod
+
+
+
+

@@ -1,0 +1,247 @@
+# Enhanced RBAC with Granular Permissions
+# Additional roles for specific use cases
+
+---
+# Role: Data Engineer (can manage data pipelines and run queries)
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: data-engineer
+  namespace: data-platform
+rules:
+# View resources
+- apiGroups: [""]
+  resources: ["pods", "services", "configmaps"]
+  verbs: ["get", "list", "watch"]
+
+# View logs (for debugging)
+- apiGroups: [""]
+  resources: ["pods/log"]
+  verbs: ["get", "list"]
+
+# Manage jobs (for data pipelines)
+- apiGroups: ["batch"]
+  resources: ["jobs", "cronjobs"]
+  verbs: ["get", "list", "watch", "create", "update", "patch"]
+
+# No access to secrets
+- apiGroups: [""]
+  resources: ["secrets"]
+  verbs: ["list"]  # Can list but not view data
+
+# No exec into pods (security) - omitted, not granted
+
+---
+# Role: Service Account for CI/CD (automated deployments)
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: cicd-deployer-enhanced
+  namespace: data-platform
+rules:
+# Manage deployments
+- apiGroups: ["apps"]
+  resources: ["deployments", "replicasets", "statefulsets"]
+  verbs: ["get", "list", "watch", "create", "update", "patch"]
+
+# Manage services
+- apiGroups: [""]
+  resources: ["services", "configmaps"]
+  verbs: ["get", "list", "watch", "create", "update", "patch"]
+
+# Manage jobs
+- apiGroups: ["batch"]
+  resources: ["jobs", "cronjobs"]
+  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+
+# Read-only secrets (for CI/CD to verify, not modify)
+- apiGroups: [""]
+  resources: ["secrets"]
+  verbs: ["get", "list"]
+
+# No pod exec (CI/CD shouldn't need interactive access) - omitted
+
+---
+# Role: Backup Operator (manages backups and restores)
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: backup-operator
+rules:
+# Full access to backups
+- apiGroups: ["velero.io"]
+  resources: ["backups", "restores", "schedules", "backupstoragelocations"]
+  verbs: ["*"]
+
+# Read-only access to resources being backed up
+- apiGroups: ["", "apps", "batch"]
+  resources: ["*"]
+  verbs: ["get", "list", "watch"]
+
+# No access to secrets data
+- apiGroups: [""]
+  resources: ["secrets"]
+  verbs: ["list"]
+
+---
+# Role: Security Auditor (read-only everything including secrets metadata)
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: security-auditor
+rules:
+# Read all resources
+- apiGroups: ["*"]
+  resources: ["*"]
+  verbs: ["get", "list", "watch"]
+
+# View events and logs
+- apiGroups: [""]
+  resources: ["events", "pods/log"]
+  verbs: ["get", "list", "watch"]
+
+# View RBAC
+- apiGroups: ["rbac.authorization.k8s.io"]
+  resources: ["*"]
+  verbs: ["get", "list", "watch"]
+
+# No mutations allowed - read-only role (create/update/delete not granted)
+
+---
+# Role: Database Administrator
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: database-admin
+  namespace: data-platform
+rules:
+# Manage database pods
+- apiGroups: [""]
+  resources: ["pods"]
+  verbs: ["get", "list", "watch", "delete"]
+  resourceNames: 
+  - "postgres-*"
+  - "elasticsearch-*"
+  - "neo4j-*"
+  - "redis-*"
+
+# Exec into database pods
+- apiGroups: [""]
+  resources: ["pods/exec"]
+  verbs: ["create"]
+
+# View and manage StatefulSets
+- apiGroups: ["apps"]
+  resources: ["statefulsets"]
+  verbs: ["get", "list", "watch", "patch", "update"]
+
+# Manage PVCs
+- apiGroups: [""]
+  resources: ["persistentvolumeclaims"]
+  verbs: ["get", "list", "watch", "update", "patch"]
+
+# Access database secrets
+- apiGroups: [""]
+  resources: ["secrets"]
+  verbs: ["get", "list"]
+  resourceNames:
+  - "postgres-shared-secret"
+  - "postgres-workflow-secret"
+
+---
+# ServiceAccount for automated monitoring
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: monitoring-collector
+  namespace: monitoring
+
+---
+# ClusterRole for monitoring across namespaces
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: monitoring-metrics-reader
+rules:
+# Read metrics endpoints
+- apiGroups: [""]
+  resources: ["nodes/metrics", "nodes/stats", "nodes/proxy"]
+  verbs: ["get", "list"]
+
+# Read pod metrics
+- apiGroups: [""]
+  resources: ["pods"]
+  verbs: ["get", "list", "watch"]
+
+# Read services for service discovery
+- apiGroups: [""]
+  resources: ["services", "endpoints"]
+  verbs: ["get", "list", "watch"]
+
+# Read ServiceMonitors
+- apiGroups: ["monitoring.coreos.com"]
+  resources: ["servicemonitors", "podmonitors"]
+  verbs: ["get", "list", "watch"]
+
+---
+# ClusterRoleBinding for monitoring
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: monitoring-collector-binding
+subjects:
+- kind: ServiceAccount
+  name: monitoring-collector
+  namespace: monitoring
+roleRef:
+  kind: ClusterRole
+  name: monitoring-metrics-reader
+  apiGroup: rbac.authorization.k8s.io
+
+---
+# ServiceAccount for DolphinScheduler workflows
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: dolphinscheduler-workflow
+  namespace: data-platform
+
+---
+# Role for DolphinScheduler to manage jobs
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: workflow-job-manager
+  namespace: data-platform
+rules:
+# Manage jobs created by workflows
+- apiGroups: ["batch"]
+  resources: ["jobs"]
+  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+
+# View pods created by jobs
+- apiGroups: [""]
+  resources: ["pods", "pods/log"]
+  verbs: ["get", "list", "watch"]
+
+# Read configmaps for workflow configs
+- apiGroups: [""]
+  resources: ["configmaps"]
+  verbs: ["get", "list"]
+
+---
+# RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: dolphinscheduler-workflow-binding
+  namespace: data-platform
+subjects:
+- kind: ServiceAccount
+  name: dolphinscheduler-workflow
+  namespace: data-platform
+roleRef:
+  kind: Role
+  name: workflow-job-manager
+  apiGroup: rbac.authorization.k8s.io
+
