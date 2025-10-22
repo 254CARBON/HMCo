@@ -175,6 +175,8 @@ spec:
       kind: CustomResourceDefinition
     - group: 'kyverno.io'
       kind: ClusterPolicy
+    - group: 'configuration.konghq.com'
+      kind: KongClusterPlugin
   namespaceResourceBlacklist:
     - group: ''
       kind: ResourceQuota
