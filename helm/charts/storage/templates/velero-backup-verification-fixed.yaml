@@ -1,0 +1,53 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: verify-backups
+  namespace: velero
+  labels:
+    app: backup-verification
+spec:
+  schedule: "0 6 * * *"
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          serviceAccountName: velero
+          restartPolicy: Never
+          containers:
+          - name: verify
+            image: velero/velero:v1.13.0
+            command:
+            - /bin/sh
+            - -c
+            - |
+              echo "===== Daily Backup Verification ====="
+              echo ""
+
+              # Check if daily backup ran
+              LATEST_DAILY=$(velero backup get | grep daily-backup | grep Completed | head -1 | awk '{print $1}')
+
+              if [ -z "$LATEST_DAILY" ]; then
+                echo "❌ ERROR: No completed daily backup found!"
+                exit 1
+              fi
+
+              echo "✓ Latest daily backup: $LATEST_DAILY"
+
+              # Check backup age
+              BACKUP_TIME=$(velero backup describe $LATEST_DAILY | grep Completed | awk '{print $2,$3,$4,$5,$6}')
+              echo "✓ Backup completed: $BACKUP_TIME"
+
+              # Check for errors
+              ERRORS=$(velero backup describe $LATEST_DAILY | grep "Errors:" | awk '{print $2}')
+
+              if [ "$ERRORS" != "0" ]; then
+                echo "⚠️  WARNING: Backup has $ERRORS errors"
+                exit 1
+              fi
+
+              echo "✓ Backup has no errors"
+              echo ""
+              echo "===== Verification Complete ====="
+

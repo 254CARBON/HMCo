@@ -1,0 +1,24 @@
+# Velero restore rehearsal
+# Creates a temporary namespace that maps the latest daily backup contents.
+
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: restore-test
+  labels:
+    purpose: velero-restore-test
+
+---
+apiVersion: velero.io/v1
+kind: Restore
+metadata:
+  generateName: test-restore-
+  namespace: velero
+spec:
+  scheduleName: daily-backup
+  namespaceMapping:
+    data-platform: restore-test
+  restorePVs: true
+  existingResourcePolicy: update
+  includeClusterResources: false

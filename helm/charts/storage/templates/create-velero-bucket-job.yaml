@@ -1,0 +1,57 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: create-velero-bucket
+  namespace: data-platform
+spec:
+  ttlSecondsAfterFinished: 600
+  template:
+    spec:
+      restartPolicy: Never
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+      - name: mc
+        image: minio/mc:latest
+        securityContext:
+          allowPrivilegeEscalation: false
+          runAsNonRoot: true
+          runAsUser: 1000
+          capabilities:
+            drop:
+            - ALL
+          seccompProfile:
+            type: RuntimeDefault
+        env:
+        - name: MC_CONFIG_DIR
+          value: /tmp/.mc
+        volumeMounts:
+        - name: mc-config
+          mountPath: /tmp
+        command:
+        - /bin/sh
+        - -c
+        - |
+          set -e
+          echo "Configuring MinIO client..."
+          mc alias set myminio http://minio-service:9000 minioadmin minioadmin123
+          
+          echo "Creating velero-backups bucket..."
+          mc mb myminio/velero-backups 2>/dev/null || echo "Bucket already exists"
+          
+          echo "Verifying bucket..."
+          mc ls myminio/ | grep velero-backups
+          
+          echo "Setting bucket versioning..."
+          mc version enable myminio/velero-backups || echo "Versioning may already be enabled"
+          
+          echo "Bucket creation complete!"
+          mc ls myminio/
+      volumes:
+      - name: mc-config
+        emptyDir: {}
+

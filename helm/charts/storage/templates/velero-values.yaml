@@ -1,0 +1,143 @@
+# Velero Helm values for backup and disaster recovery
+# Configured to use MinIO as S3-compatible backup storage
+
+configuration:
+  # Backup storage location
+  backupStorageLocation:
+  - name: default
+    provider: aws
+    bucket: velero-backups
+    default: true
+    config:
+      region: us-east-1
+      s3ForcePathStyle: "true"
+      s3Url: http://minio-service.data-platform.svc.cluster.local:9000
+      publicUrl: https://minio.254carbon.com
+  
+  # Volume snapshot location (optional, for CSI snapshots)
+  volumeSnapshotLocation:
+  - name: default
+    provider: aws
+    config:
+      region: us-east-1
+
+  # Backup configuration
+  defaultBackupStorageLocation: default
+  defaultVolumeSnapshotLocations: aws:default
+  
+  # Backup TTL (time to live)
+  defaultBackupTTL: 720h  # 30 days
+  
+  # Resource filters
+  defaultVolumesToFsBackup: false
+  
+  # Features
+  features: EnableCSI
+
+# Credentials for MinIO
+credentials:
+  useSecret: true
+  name: velero-minio-credentials
+  secretContents:
+    cloud: |
+      [default]
+      aws_access_key_id=$(kubectl get secret minio-secret -n data-platform -o jsonpath='{.data.access-key}' | base64 -d)
+      aws_secret_access_key=$(kubectl get secret minio-secret -n data-platform -o jsonpath='{.data.secret-key}' | base64 -d)
+
+# Deployment configuration
+deployNodeAgent: true  # For file-system backup
+nodeAgent:
+  podVolumePath: /var/lib/kubelet/pods
+  privileged: false
+  resources:
+    requests:
+      cpu: 500m
+      memory: 512Mi
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+
+# Velero server configuration
+resources:
+  requests:
+    cpu: 500m
+    memory: 128Mi
+  limits:
+    cpu: 1000m
+    memory: 512Mi
+
+# Init containers
+initContainers:
+- name: velero-plugin-for-aws
+  image: velero/velero-plugin-for-aws:v1.10.0
+  imagePullPolicy: IfNotPresent
+  volumeMounts:
+  - mountPath: /target
+    name: plugins
+
+# Backup schedules
+schedules:
+  # Daily backup of all resources
+  daily-backup:
+    disabled: false
+    schedule: "0 2 * * *"  # 2 AM daily
+    useOwnerReferencesInBackup: false
+    template:
+      ttl: "720h"  # 30 days
+      includedNamespaces:
+      - data-platform
+      - monitoring
+      - registry
+      excludedResources:
+      - events
+      - events.events.k8s.io
+      snapshotVolumes: true
+  
+  # Weekly full backup
+  weekly-full-backup:
+    disabled: false
+    schedule: "0 3 * * 0"  # 3 AM every Sunday
+    useOwnerReferencesInBackup: false
+    template:
+      ttl: "2160h"  # 90 days
+      snapshotVolumes: true
+
+# Metrics
+metrics:
+  enabled: true
+  scrapeInterval: 30s
+  scrapeTimeout: 10s
+  service:
+    annotations:
+      prometheus.io/scrape: "true"
+      prometheus.io/port: "8085"
+      prometheus.io/path: "/metrics"
+  serviceMonitor:
+    enabled: true
+    additionalLabels:
+      release: kube-prometheus-stack
+
+# Service account
+rbac:
+  create: true
+  clusterAdministrator: true
+
+# Image
+image:
+  repository: velero/velero
+  tag: v1.14.1
+  pullPolicy: IfNotPresent
+
+# Kubectl image for CRD upgrade job
+kubectl:
+  image:
+    repository: bitnami/kubectl
+    tag: 1.31.4
+
+# Logging
+logLevel: info
+logFormat: text
+
+# Cleanup on CRD uninstall
+cleanUpCRDs: false
+

@@ -1,0 +1,240 @@
+# Volume Snapshot Policies for Backup
+# Enables point-in-time backups of critical persistent volumes
+
+---
+# Daily PostgreSQL Shared backup
+apiVersion: snapshot.storage.k8s.io/v1
+kind: VolumeSnapshot
+metadata:
+  name: postgres-shared-daily-backup
+  namespace: data-platform
+  labels:
+    app: postgres-shared
+    backup-type: daily
+spec:
+  volumeSnapshotClassName: local-storage-snapshot
+  source:
+    persistentVolumeClaimName: postgres-data
+
+---
+# Weekly PostgreSQL Shared backup
+apiVersion: snapshot.storage.k8s.io/v1
+kind: VolumeSnapshot
+metadata:
+  name: postgres-shared-weekly-backup
+  namespace: data-platform
+  labels:
+    app: postgres-shared
+    backup-type: weekly
+spec:
+  volumeSnapshotClassName: local-storage-snapshot
+  source:
+    persistentVolumeClaimName: postgres-data
+
+---
+# Daily Elasticsearch backup
+apiVersion: snapshot.storage.k8s.io/v1
+kind: VolumeSnapshot
+metadata:
+  name: elasticsearch-daily-backup
+  namespace: data-platform
+  labels:
+    app: elasticsearch
+    backup-type: daily
+spec:
+  volumeSnapshotClassName: local-storage-snapshot
+  source:
+    persistentVolumeClaimName: elasticsearch-data
+
+---
+# Daily Kafka backup
+apiVersion: snapshot.storage.k8s.io/v1
+kind: VolumeSnapshot
+metadata:
+  name: kafka-daily-backup
+  namespace: data-platform
+  labels:
+    app: kafka
+    backup-type: daily
+spec:
+  volumeSnapshotClassName: local-storage-snapshot
+  source:
+    persistentVolumeClaimName: kafka-data
+
+---
+# Daily MinIO backup
+apiVersion: snapshot.storage.k8s.io/v1
+kind: VolumeSnapshot
+metadata:
+  name: minio-daily-backup
+  namespace: data-platform
+  labels:
+    app: minio
+    backup-type: daily
+spec:
+  volumeSnapshotClassName: local-storage-snapshot
+  source:
+    persistentVolumeClaimName: minio-data
+
+---
+# Daily Vault backup (production)
+apiVersion: snapshot.storage.k8s.io/v1
+kind: VolumeSnapshot
+metadata:
+  name: vault-daily-backup
+  namespace: vault-prod
+  labels:
+    app: vault
+    backup-type: daily
+spec:
+  volumeSnapshotClassName: local-storage-snapshot
+  source:
+    persistentVolumeClaimName: vault-data
+
+---
+# Restore Point - PostgreSQL restore example (manual trigger)
+# Uncomment to restore from snapshot
+# apiVersion: v1
+# kind: PersistentVolumeClaim
+# metadata:
+#   name: postgres-data-restored
+#   namespace: data-platform
+# spec:
+#   dataSource:
+#     name: postgres-shared-weekly-backup
+#     kind: VolumeSnapshot
+#     apiGroup: snapshot.storage.k8s.io
+#   accessModes:
+#     - ReadWriteOnce
+#   resources:
+#     requests:
+#       storage: 100Gi
+#   storageClassName: local-storage-standard
+
+---
+# Backup Retention Policy (implemented via CronJob)
+# This CronJob cleans up old snapshots automatically
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: snapshot-retention-cleanup
+  namespace: data-platform
+spec:
+  schedule: "0 2 * * *"  # Daily at 2 AM
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          serviceAccountName: backup-admin
+          containers:
+          - name: cleanup
+            image: bitnami/kubectl:latest
+            command:
+            - /bin/sh
+            - -c
+            - |
+              # Delete snapshots older than 30 days (daily)
+              kubectl delete volumesnapshot -n data-platform \
+                --field-selector=metadata.creationTimestamp=older-30d \
+                -l backup-type=daily || true
+              
+              # Keep weekly backups for 90 days
+              kubectl delete volumesnapshot -n data-platform \
+                --field-selector=metadata.creationTimestamp=older-90d \
+                -l backup-type=weekly || true
+              
+              # Keep vault backups for 180 days
+              kubectl delete volumesnapshot -n vault-prod \
+                --field-selector=metadata.creationTimestamp=older-180d || true
+          restartPolicy: OnFailure
+
+---
+# ServiceAccount for backup operations
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: backup-admin
+  namespace: data-platform
+
+---
+# ClusterRole for backup operations
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: backup-admin
+rules:
+- apiGroups:
+  - snapshot.storage.k8s.io
+  resources:
+  - volumesnapshots
+  - volumesnapshotclasses
+  - volumesnapshotcontents
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - delete
+  - deletecollection
+- apiGroups:
+  - ""
+  resources:
+  - persistentvolumeclaims
+  - persistentvolumes
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - events
+  verbs:
+  - create
+  - patch
+
+---
+# ClusterRoleBinding for backup operations
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: backup-admin
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: backup-admin
+subjects:
+- kind: ServiceAccount
+  name: backup-admin
+  namespace: data-platform
+
+---
+# Backup Verification Job (manual trigger)
+# Verify snapshots are healthy
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: verify-backups
+  namespace: data-platform
+spec:
+  ttlSecondsAfterFinished: 600
+  template:
+    spec:
+      serviceAccountName: backup-admin
+      containers:
+      - name: verify
+        image: bitnami/kubectl:latest
+        command:
+        - /bin/sh
+        - -c
+        - |
+          echo "=== VolumeSnapshot Status ==="
+          kubectl get volumesnapshot -n data-platform -o wide
+          kubectl get volumesnapshot -n vault-prod -o wide
+          
+          echo ""
+          echo "=== Snapshot Details ==="
+          kubectl describe volumesnapshot -n data-platform
+          kubectl describe volumesnapshot -n vault-prod
+      restartPolicy: Never
+  backoffLimit: 1
