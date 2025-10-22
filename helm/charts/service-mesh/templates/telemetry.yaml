@@ -1,0 +1,193 @@
+# Telemetry Configuration for Istio
+# Metrics, logs, and traces configuration
+
+---
+# Enable metrics collection for all services
+apiVersion: telemetry.istio.io/v1alpha1
+kind: Telemetry
+metadata:
+  name: default-metrics
+  namespace: data-platform
+spec:
+  metrics:
+  - providers:
+    - name: prometheus
+    overrides:
+    - match:
+        metric: ALL_METRICS
+      tagOverrides:
+        source_cluster:
+          value: "254carbon-primary"
+        destination_cluster:
+          value: "254carbon-primary"
+
+---
+# Configure distributed tracing
+apiVersion: telemetry.istio.io/v1alpha1
+kind: Telemetry
+metadata:
+  name: default-tracing
+  namespace: data-platform
+spec:
+  tracing:
+  - providers:
+    - name: jaeger
+    randomSamplingPercentage: 10.0
+    customTags:
+      environment:
+        literal:
+          value: "production"
+      platform:
+        literal:
+          value: "254carbon"
+
+---
+# Access logging configuration
+apiVersion: telemetry.istio.io/v1alpha1
+kind: Telemetry
+metadata:
+  name: access-logging
+  namespace: data-platform
+spec:
+  accessLogging:
+  - providers:
+    - name: envoy
+    filter:
+      expression: "response.code >= 400"
+
+---
+# Istio-system namespace telemetry
+apiVersion: telemetry.istio.io/v1alpha1
+kind: Telemetry
+metadata:
+  name: istio-telemetry
+  namespace: istio-system
+spec:
+  metrics:
+  - providers:
+    - name: prometheus
+  tracing:
+  - providers:
+    - name: jaeger
+    randomSamplingPercentage: 100.0  # Sample all control plane traffic
+
+---
+# Monitoring namespace telemetry
+apiVersion: telemetry.istio.io/v1alpha1
+kind: Telemetry
+metadata:
+  name: monitoring-telemetry
+  namespace: monitoring
+spec:
+  metrics:
+  - providers:
+    - name: prometheus
+    overrides:
+    - match:
+        metric: REQUEST_COUNT
+      disabled: false
+    - match:
+        metric: REQUEST_DURATION
+      disabled: false
+    - match:
+        metric: REQUEST_SIZE
+      disabled: false
+    - match:
+        metric: RESPONSE_SIZE
+      disabled: false
+
+---
+# Disable telemetry for specific workloads (performance optimization)
+# Note: disabled field not supported in v1alpha1, use randomSamplingPercentage: 0.0 instead
+apiVersion: telemetry.istio.io/v1alpha1
+kind: Telemetry
+metadata:
+  name: disable-tracing-redis
+  namespace: data-platform
+spec:
+  selector:
+    matchLabels:
+      app: redis
+  tracing:
+  - randomSamplingPercentage: 0.0  # Redis has high traffic, disable tracing
+
+---
+# Custom metrics for DataHub (simplified - complex tagOverrides not supported in v1alpha1)
+apiVersion: telemetry.istio.io/v1alpha1
+kind: Telemetry
+metadata:
+  name: datahub-metrics
+  namespace: data-platform
+spec:
+  selector:
+    matchLabels:
+      app: datahub-gms
+  metrics:
+  - providers:
+    - name: prometheus
+
+---
+# ServiceMonitor for Envoy sidecar metrics
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: istio-envoy-sidecars
+  namespace: data-platform
+  labels:
+    monitoring: istio-proxies
+spec:
+  selector:
+    matchLabels:
+      istio-prometheus-ignore: "false"
+  endpoints:
+  - port: http-envoy-prom
+    path: /stats/prometheus
+    interval: 30s
+    relabelings:
+    - sourceLabels: [__meta_kubernetes_pod_name]
+      action: replace
+      targetLabel: pod_name
+    - sourceLabels: [__meta_kubernetes_namespace]
+      action: replace
+      targetLabel: namespace
+  namespaceSelector:
+    matchNames:
+    - data-platform
+
+---
+# ServiceMonitor for Istiod metrics
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: istiod
+  namespace: istio-system
+  labels:
+    app: istiod
+spec:
+  selector:
+    matchLabels:
+      app: istiod
+  endpoints:
+  - port: http-monitoring
+    interval: 30s
+
+---
+# Grafana dashboard ConfigMap for Istio
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: istio-grafana-dashboards
+  namespace: monitoring
+  labels:
+    grafana_dashboard: "1"
+data:
+  istio-mesh-dashboard.json: |
+    {
+      "dashboard": {
+        "title": "Istio Service Mesh",
+        "tags": ["istio", "service-mesh"],
+        "timezone": "browser",
+        "panels": []
+      }
+    }
+

@@ -1,0 +1,143 @@
+# Mutual TLS Authentication Policies
+# Enforces secure communication between services
+
+---
+# Default mTLS policy for data-platform namespace (PERMISSIVE mode for migration)
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: default
+  namespace: data-platform
+spec:
+  mtls:
+    mode: PERMISSIVE  # Allow both mTLS and plaintext during migration
+
+---
+# Strict mTLS for istio-system namespace
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: default
+  namespace: istio-system
+spec:
+  mtls:
+    mode: STRICT
+
+---
+# Strict mTLS for monitoring namespace
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: default
+  namespace: monitoring
+spec:
+  mtls:
+    mode: PERMISSIVE  # Monitoring tools may not support mTLS initially
+
+---
+# Strict mTLS for sensitive services (Vault)
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: vault-mtls
+  namespace: vault-prod
+spec:
+  selector:
+    matchLabels:
+      app: vault
+  mtls:
+    mode: STRICT
+
+---
+# Port-specific mTLS configuration for services with mixed protocols
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: postgres-mtls
+  namespace: data-platform
+spec:
+  selector:
+    matchLabels:
+      app: postgres-shared
+  mtls:
+    mode: PERMISSIVE
+  portLevelMtls:
+    5432:
+      mode: DISABLE  # PostgreSQL uses its own TLS
+
+---
+# Kafka broker mTLS configuration
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: kafka-mtls
+  namespace: data-platform
+spec:
+  selector:
+    matchLabels:
+      app: kafka
+  mtls:
+    mode: PERMISSIVE
+  portLevelMtls:
+    9092:
+      mode: DISABLE  # Kafka uses SASL/SSL
+    9093:
+      mode: DISABLE  # Kafka internal
+
+---
+# Redis mTLS configuration
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: redis-mtls
+  namespace: data-platform
+spec:
+  selector:
+    matchLabels:
+      app: redis
+  mtls:
+    mode: PERMISSIVE
+  portLevelMtls:
+    6379:
+      mode: DISABLE  # Redis uses AUTH
+
+---
+# Elasticsearch mTLS configuration
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: elasticsearch-mtls
+  namespace: data-platform
+spec:
+  selector:
+    matchLabels:
+      app: elasticsearch
+  mtls:
+    mode: PERMISSIVE
+  portLevelMtls:
+    9200:
+      mode: PERMISSIVE  # HTTP API
+    9300:
+      mode: DISABLE  # Transport protocol
+
+---
+# MinIO mTLS configuration
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: minio-mtls
+  namespace: data-platform
+spec:
+  selector:
+    matchLabels:
+      app: minio
+  mtls:
+    mode: PERMISSIVE
+  portLevelMtls:
+    9000:
+      mode: PERMISSIVE  # S3 API
+    9001:
+      mode: PERMISSIVE  # Console
+
+
+

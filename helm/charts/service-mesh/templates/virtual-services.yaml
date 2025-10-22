@@ -1,0 +1,347 @@
+# Virtual Services
+# Advanced traffic routing, retries, and timeouts
+
+---
+# DataHub GMS - Retry and timeout configuration
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: datahub-gms
+  namespace: data-platform
+spec:
+  hosts:
+  - datahub-gms.data-platform.svc.cluster.local
+  http:
+  - match:
+    - headers:
+        x-datahub-operation:
+          prefix: "search"
+    route:
+    - destination:
+        host: datahub-gms.data-platform.svc.cluster.local
+        port:
+          number: 8080
+    timeout: 30s
+    retries:
+      attempts: 3
+      perTryTimeout: 10s
+      retryOn: "5xx,reset,connect-failure,refused-stream"
+  
+  - route:
+    - destination:
+        host: datahub-gms.data-platform.svc.cluster.local
+        port:
+          number: 8080
+    timeout: 60s
+    retries:
+      attempts: 2
+      perTryTimeout: 20s
+      retryOn: "5xx,reset,connect-failure"
+
+---
+# Trino - Query routing with timeouts
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: trino-coordinator
+  namespace: data-platform
+spec:
+  hosts:
+  - trino-coordinator.data-platform.svc.cluster.local
+  http:
+  - match:
+    - uri:
+        prefix: "/v1/statement"
+    route:
+    - destination:
+        host: trino-coordinator.data-platform.svc.cluster.local
+        port:
+          number: 8080
+    timeout: 3600s  # 1 hour for long-running queries
+    retries:
+      attempts: 0  # Don't retry queries
+  
+  - match:
+    - uri:
+        prefix: "/ui"
+    route:
+    - destination:
+        host: trino-coordinator.data-platform.svc.cluster.local
+        port:
+          number: 8080
+    timeout: 30s
+    retries:
+      attempts: 3
+      perTryTimeout: 10s
+
+---
+# Superset - Session affinity
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: superset-web
+  namespace: data-platform
+spec:
+  hosts:
+  - superset-web.data-platform.svc.cluster.local
+  http:
+  - match:
+    - uri:
+        prefix: "/api/"
+    route:
+    - destination:
+        host: superset-web.data-platform.svc.cluster.local
+        port:
+          number: 8088
+    timeout: 60s
+    retries:
+      attempts: 2
+      perTryTimeout: 30s
+      retryOn: "5xx,reset,connect-failure"
+  
+  - route:
+    - destination:
+        host: superset-web.data-platform.svc.cluster.local
+        port:
+          number: 8088
+    timeout: 30s
+
+---
+# DolphinScheduler API - Workflow operations
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: dolphinscheduler-api
+  namespace: data-platform
+spec:
+  hosts:
+  - dolphinscheduler-api-service.data-platform.svc.cluster.local
+  http:
+  - match:
+    - uri:
+        prefix: "/dolphinscheduler/projects"
+    route:
+    - destination:
+        host: dolphinscheduler-api-service.data-platform.svc.cluster.local
+        port:
+          number: 12345
+    timeout: 120s
+    retries:
+      attempts: 2
+      perTryTimeout: 60s
+      retryOn: "5xx,reset"
+  
+  - route:
+    - destination:
+        host: dolphinscheduler-api-service.data-platform.svc.cluster.local
+        port:
+          number: 12345
+    timeout: 30s
+    retries:
+      attempts: 3
+      perTryTimeout: 10s
+
+---
+# MinIO - S3 API with retries
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: minio
+  namespace: data-platform
+spec:
+  hosts:
+  - minio.data-platform.svc.cluster.local
+  http:
+  - match:
+    - uri:
+        prefix: "/"
+    route:
+    - destination:
+        host: minio.data-platform.svc.cluster.local
+        port:
+          number: 9000
+    timeout: 300s  # 5 minutes for large file uploads
+    retries:
+      attempts: 3
+      perTryTimeout: 100s
+      retryOn: "5xx,reset,connect-failure"
+
+---
+# MLflow - Model operations
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: mlflow
+  namespace: data-platform
+spec:
+  hosts:
+  - mlflow-service.data-platform.svc.cluster.local
+  http:
+  - match:
+    - uri:
+        prefix: "/api/2.0/mlflow/experiments"
+    route:
+    - destination:
+        host: mlflow-service.data-platform.svc.cluster.local
+        port:
+          number: 5000
+    timeout: 60s
+    retries:
+      attempts: 2
+      perTryTimeout: 30s
+  
+  - route:
+    - destination:
+        host: mlflow-service.data-platform.svc.cluster.local
+        port:
+          number: 5000
+    timeout: 30s
+    retries:
+      attempts: 3
+      perTryTimeout: 10s
+
+---
+# Iceberg REST Catalog - Table operations
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: iceberg-rest-catalog
+  namespace: data-platform
+spec:
+  hosts:
+  - iceberg-rest-catalog.data-platform.svc.cluster.local
+  http:
+  - match:
+    - uri:
+        prefix: "/v1/"
+    route:
+    - destination:
+        host: iceberg-rest-catalog.data-platform.svc.cluster.local
+        port:
+          number: 8181
+    timeout: 120s
+    retries:
+      attempts: 2
+      perTryTimeout: 60s
+      retryOn: "5xx,reset,connect-failure"
+
+---
+# Portal Services - Service registry API
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: portal-services
+  namespace: data-platform
+spec:
+  hosts:
+  - portal-services.data-platform.svc.cluster.local
+  http:
+  - match:
+    - uri:
+        prefix: "/api/services/status"
+    route:
+    - destination:
+        host: portal-services.data-platform.svc.cluster.local
+        port:
+          number: 8080
+    timeout: 10s
+    retries:
+      attempts: 1
+      perTryTimeout: 5s
+  
+  - route:
+    - destination:
+        host: portal-services.data-platform.svc.cluster.local
+        port:
+          number: 8080
+    timeout: 5s
+    retries:
+      attempts: 3
+      perTryTimeout: 2s
+
+---
+# Grafana - Monitoring dashboards
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: grafana
+  namespace: monitoring
+spec:
+  hosts:
+  - grafana.monitoring.svc.cluster.local
+  http:
+  - match:
+    - uri:
+        prefix: "/api/datasources/proxy"
+    route:
+    - destination:
+        host: grafana.monitoring.svc.cluster.local
+        port:
+          number: 3000
+    timeout: 60s
+    retries:
+      attempts: 2
+      perTryTimeout: 30s
+  
+  - route:
+    - destination:
+        host: grafana.monitoring.svc.cluster.local
+        port:
+          number: 3000
+    timeout: 30s
+    retries:
+      attempts: 3
+      perTryTimeout: 10s
+
+---
+# Fault injection example (disabled by default)
+# apiVersion: networking.istio.io/v1beta1
+# kind: VirtualService
+# metadata:
+#   name: test-fault-injection
+#   namespace: data-platform
+# spec:
+#   hosts:
+#   - test-service.data-platform.svc.cluster.local
+#   http:
+#   - match:
+#     - headers:
+#         x-test-fault:
+#           exact: "true"
+#     fault:
+#       delay:
+#         percentage:
+#           value: 10
+#         fixedDelay: 5s
+#       abort:
+#         percentage:
+#           value: 5
+#         httpStatus: 503
+#     route:
+#     - destination:
+#         host: test-service.data-platform.svc.cluster.local
+
+---
+# Traffic mirroring example (disabled by default)
+# apiVersion: networking.istio.io/v1beta1
+# kind: VirtualService
+# metadata:
+#   name: test-traffic-mirror
+#   namespace: data-platform
+# spec:
+#   hosts:
+#   - test-service.data-platform.svc.cluster.local
+#   http:
+#   - route:
+#     - destination:
+#         host: test-service.data-platform.svc.cluster.local
+#         subset: v1
+#       weight: 100
+#     mirror:
+#       host: test-service.data-platform.svc.cluster.local
+#       subset: v2
+#     mirrorPercentage:
+#       value: 10
+
+
+
