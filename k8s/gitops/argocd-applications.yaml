@@ -24,6 +24,8 @@ spec:
         value: "true"
       - name: "datahub.enabled"
         value: "true"
+      - name: "spark-operator.enabled"
+        value: "true"
   destination:
     server: https://kubernetes.default.svc
     namespace: data-platform
