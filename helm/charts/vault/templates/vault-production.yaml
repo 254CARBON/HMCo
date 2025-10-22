@@ -1,0 +1,241 @@
+# Production-Ready Vault Deployment
+# This configuration uses PostgreSQL backend and includes TLS setup
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: vault-prod
+---
+# PostgreSQL ConfigMap for Vault storage
+apiVersion: v1
+kind: Secret
+metadata:
+  name: vault-postgres
+  namespace: vault-prod
+type: Opaque
+stringData:
+  username: vault
+  password: "vault-secure-password-change-me"
+  database: vault
+---
+# Vault Configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: vault-config
+  namespace: vault-prod
+data:
+  vault.hcl: |
+    # Storage backend - PostgreSQL
+    storage "postgresql" {
+      connection_url = "postgresql://vault:vault-secure-password-change-me@postgres-shared-service.data-platform.svc.cluster.local:5432/vault?sslmode=disable"
+    }
+
+    # Listener configuration
+    listener "tcp" {
+      address       = "0.0.0.0:8200"
+      tls_cert_file = "/vault/tls/tls.crt"
+      tls_key_file  = "/vault/tls/tls.key"
+    }
+
+    # UI configuration
+    ui = true
+    
+    # Logging
+    log_level = "info"
+    
+    # High availability configuration (when using Consul or PostgreSQL)
+    ha_storage "postgresql" {
+      connection_url = "postgresql://vault:vault-secure-password-change-me@postgres-shared-service.data-platform.svc.cluster.local:5432/vault?sslmode=disable"
+      ha_enabled    = "true"
+    }
+
+    # API address
+    api_addr = "https://vault.vault-prod.svc.cluster.local:8200"
+---
+# TLS Certificate (self-signed for demo - use real certificates in production)
+apiVersion: v1
+kind: Secret
+metadata:
+  name: vault-tls
+  namespace: vault-prod
+type: kubernetes.io/tls
+data:
+  tls.crt: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSURVVENDQWptZ0F3SUJBZ0lVYkRid3JRZ1BaMWFDMGZaaGZUdElBTUlBV2V3RHdZRFZSMFRBUUgvQkFVdwpBd0VCL3pBdkJnTlZIUTRFR0FRVWJ5aHpzTFBIdFR1dzVzQUZwSFAzcjhZPQotLS0tLUVORCBDRVJUSUZJQ0FURS0tLS0tCg==
+  tls.key: LS0tLS1CRUdJTiBQUklWQVRFIEtFWS0tLS0tCk1JSUV2UUlCQURBTkJna3Foa2lHOXcwQkFRRUZBQVNDQktjd2dnU2pBZ0VBQW9JQkFRQzBpQm81RXpaMGZQWG0KQUE5SU5kbDFhZVhPPQotLS0tLUVORCBQUklWQVRFIEtFWS0tLS0tCg==
+---
+# Vault Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vault
+  namespace: vault-prod
+  labels:
+    app: vault
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: vault
+  template:
+    metadata:
+      labels:
+        app: vault
+    spec:
+      serviceAccountName: vault
+      containers:
+      - name: vault
+        image: vault:1.13.3
+        imagePullPolicy: IfNotPresent
+        args:
+          - server
+          - -config=/vault/config/vault.hcl
+        ports:
+        - containerPort: 8200
+          name: vault-api
+        - containerPort: 8201
+          name: cluster-port
+        env:
+        - name: VAULT_ADDR
+          value: "http://127.0.0.1:8200"
+        - name: VAULT_API_ADDR
+          value: "http://vault.vault-prod.svc.cluster.local:8200"
+        - name: VAULT_CLUSTER_ADDR
+          value: "http://$(POD_IP):8201"
+        - name: SKIP_SETCAP
+          value: "true"
+        - name: POD_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
+        volumeMounts:
+        - name: config
+          mountPath: /vault/config
+        - name: data
+          mountPath: /vault/data
+        - name: tls
+          mountPath: /vault/tls
+        resources:
+          limits:
+            memory: "2Gi"
+            cpu: "1000m"
+          requests:
+            memory: "1Gi"
+            cpu: "500m"
+        # Health probes disabled for initialization
+        # Uncomment after Vault is initialized and unsealed
+        # livenessProbe:
+        #   httpGet:
+        #     path: /v1/sys/health?standbyok=true&sealedcode=200&uninitcode=200
+        #     port: 8200
+        #     scheme: HTTPS
+        #   initialDelaySeconds: 120
+        #   periodSeconds: 30
+        #   failureThreshold: 5
+        # readinessProbe:
+        #   httpGet:
+        #     path: /v1/sys/health?standbyok=true&sealedcode=200&uninitcode=200
+        #     port: 8200
+        #     scheme: HTTPS
+        #   initialDelaySeconds: 60
+        #   periodSeconds: 10
+        #   failureThreshold: 3
+      volumes:
+      - name: config
+        configMap:
+          name: vault-config
+      - name: data
+        persistentVolumeClaim:
+          claimName: vault-data
+      - name: tls
+        secret:
+          secretName: vault-tls
+---
+# Vault Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: vault
+  namespace: vault-prod
+  labels:
+    app: vault
+spec:
+  ports:
+  - port: 8200
+    targetPort: 8200
+    name: vault-api
+  - port: 8201
+    targetPort: 8201
+    name: cluster-port
+  selector:
+    app: vault
+  type: ClusterIP
+---
+# Vault Internal Service for clustering
+apiVersion: v1
+kind: Service
+metadata:
+  name: vault-internal
+  namespace: vault-prod
+  labels:
+    app: vault
+spec:
+  clusterIP: None
+  ports:
+  - port: 8200
+    name: vault-api
+  - port: 8201
+    name: cluster-port
+  selector:
+    app: vault
+---
+# PersistentVolumeClaim for Vault data
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: vault-data
+  namespace: vault-prod
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 50Gi
+  storageClassName: local-path
+---
+# ServiceAccount
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: vault
+  namespace: vault-prod
+---
+# ClusterRole for Vault
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: vault
+rules:
+- apiGroups: [""]
+  resources: ["configmaps", "secrets"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: [""]
+  resources: ["pods"]
+  verbs: ["get", "list"]
+---
+# ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: vault
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: vault
+subjects:
+- kind: ServiceAccount
+  name: vault
+  namespace: vault-prod
+- apiGroup: rbac.authorization.k8s.io
+  kind: Group
+  name: system:auth-delegator
