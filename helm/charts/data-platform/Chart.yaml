@@ -20,5 +20,9 @@ dependencies:
     version: "0.1.0"
     repository: "file://./charts/dolphinscheduler"
     condition: dolphinscheduler.enabled
+  - name: trino
+    version: "0.1.0"
+    repository: "file://./charts/trino"
+    condition: trino.enabled
 
 
