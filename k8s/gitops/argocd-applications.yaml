@@ -26,6 +26,8 @@ spec:
         value: "true"
       - name: "spark-operator.enabled"
         value: "true"
+      - name: "dolphinscheduler.enabled"
+        value: "true"
   destination:
     server: https://kubernetes.default.svc
     namespace: data-platform

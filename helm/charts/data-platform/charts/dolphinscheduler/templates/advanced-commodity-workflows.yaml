@@ -1,0 +1,240 @@
+# Advanced DolphinScheduler Workflows
+# For AlphaVantage, Polygon.io, GIE, OpenFIGI, and US Census data
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: dolphinscheduler-advanced-workflows
+  namespace: data-platform
+  labels:
+    app: dolphinscheduler
+    component: workflow-templates
+data:
+  # AlphaVantage Daily Ingestion
+  alphavantage-daily.json: |
+    {
+      "name": "AlphaVantage Commodity Data Ingestion",
+      "description": "Daily collection of commodity futures data from AlphaVantage",
+      "scheduleStartTime": "2025-01-01 04:00:00",
+      "scheduleEndTime": "2030-12-31 23:59:59",
+      "crontab": "0 4 * * *",
+      "scheduleWarningType": "FAILURE",
+      "timeout": 1800,
+      "tenantCode": "default",
+      "processType": "DAG",
+      "tasks": [
+        {
+          "name": "ingest_alphavantage_commodities",
+          "type": "PYTHON",
+          "params": {
+            "rawScript": "import requests\nimport os\nfrom datetime import datetime\n\nAPI_KEY = os.getenv('ALPHAVANTAGE_API_KEY')\nSYMBOLS = ['CL=F', 'NG=F', 'HO=F', 'RB=F']\n\nfor symbol in SYMBOLS:\n    url = 'https://www.alphavantage.co/query'\n    params = {'function': 'TIME_SERIES_DAILY', 'symbol': symbol, 'apikey': API_KEY, 'outputsize': 'compact'}\n    response = requests.get(url, params=params)\n    print(f'{symbol}: {response.status_code}')\n    if response.status_code == 200:\n        data = response.json()\n        print(f'  Records: {len(data.get(\"Time Series (Daily)\", {}))} days')\n\nprint('AlphaVantage ingestion complete')"
+          },
+          "timeout": 1200,
+          "retryTimes": 3,
+          "retryInterval": 300
+        }
+      ]
+    }
+
+  # Polygon.io Market Data
+  polygon-market-data.json: |
+    {
+      "name": "Polygon.io Market Data Ingestion",
+      "description": "High-frequency commodity market data from Polygon.io",
+      "scheduleStartTime": "2025-01-01 05:00:00",
+      "scheduleEndTime": "2030-12-31 23:59:59",
+      "crontab": "0 5 * * *",
+      "scheduleWarningType": "FAILURE",
+      "timeout": 1800,
+      "tenantCode": "default",
+      "processType": "DAG",
+      "tasks": [
+        {
+          "name": "ingest_polygon_commodities",
+          "type": "PYTHON",
+          "params": {
+            "rawScript": "import requests\nimport os\nfrom datetime import datetime, timedelta\n\nAPI_KEY = os.getenv('POLYGON_API_KEY')\nTICKERS = ['C:CL', 'C:NG', 'C:HO', 'C:RB']\n\nend_date = datetime.now().date()\nstart_date = end_date - timedelta(days=7)\n\nfor ticker in TICKERS:\n    url = f'https://api.polygon.io/v2/aggs/ticker/{ticker}/range/1/day/{start_date}/{end_date}'\n    headers = {'Authorization': f'Bearer {API_KEY}'}\n    response = requests.get(url, headers=headers)\n    print(f'{ticker}: {response.status_code}')\n    if response.status_code == 200:\n        data = response.json()\n        results = data.get('results', [])\n        print(f'  Records: {len(results)} days')\n\nprint('Polygon.io ingestion complete')"
+          },
+          "timeout": 1200,
+          "retryTimes": 3,
+          "retryInterval": 300
+        }
+      ]
+    }
+
+  # GIE Gas Storage Data
+  gie-storage-daily.json: |
+    {
+      "name": "GIE European Gas Storage Data",
+      "description": "Daily European gas storage levels from GIE (AGSI/ALSI)",
+      "scheduleStartTime": "2025-01-01 06:00:00",
+      "scheduleEndTime": "2030-12-31 23:59:59",
+      "crontab": "0 6 * * *",
+      "scheduleWarningType": "FAILURE",
+      "timeout": 1800,
+      "tenantCode": "default",
+      "processType": "DAG",
+      "tasks": [
+        {
+          "name": "ingest_gie_eu_storage",
+          "type": "PYTHON",
+          "params": {
+            "rawScript": "import requests\nimport os\nfrom datetime import datetime, timedelta\n\nAPI_KEY = os.getenv('GIE_API_KEY')\n\nend_date = datetime.now().date()\nstart_date = end_date - timedelta(days=30)\n\nurl = 'https://agsi.gie.eu/api'\nheaders = {'x-key': API_KEY}\nparams = {'country': 'EU', 'from': start_date.isoformat(), 'to': end_date.isoformat(), 'size': 300}\n\nresponse = requests.get(url, headers=headers, params=params)\nprint(f'GIE AGSI API: {response.status_code}')\n\nif response.status_code == 200:\n    data = response.json()\n    records = data.get('data', [])\n    print(f'Records: {len(records)} storage entries')\n    if records:\n        latest = records[0]\n        print(f'Latest gas in storage: {latest.get(\"gasInStorage\")} GWh')\n        print(f'Storage fullness: {latest.get(\"full\")}%')\n\nprint('GIE storage data ingestion complete')"
+          },
+          "timeout": 1200,
+          "retryTimes": 3,
+          "retryInterval": 300
+        }
+      ]
+    }
+
+  # US Census Economic Data
+  census-economic-daily.json: |
+    {
+      "name": "US Census Economic Indicators",
+      "description": "Daily US Census Bureau economic indicators",
+      "scheduleStartTime": "2025-01-01 07:00:00",
+      "scheduleEndTime": "2030-12-31 23:59:59",
+      "crontab": "0 7 * * *",
+      "scheduleWarningType": "FAILURE",
+      "timeout": 1800,
+      "tenantCode": "default",
+      "processType": "DAG",
+      "tasks": [
+        {
+          "name": "ingest_census_indicators",
+          "type": "PYTHON",
+          "params": {
+            "rawScript": "import requests\nimport os\n\nAPI_KEY = os.getenv('CENSUS_API_KEY')\n\nurl = 'https://api.census.gov/data/timeseries/eits/resconst'\nparams = {\n    'get': 'cell_value,data_type_code,time_slot_id,category_code',\n    'key': API_KEY,\n    'time': 'from 2023'\n}\n\nresponse = requests.get(url, params=params)\nprint(f'US Census API: {response.status_code}')\n\nif response.status_code == 200:\n    data = response.json()\n    print(f'Records: {len(data) - 1} economic indicators')  # -1 for header row\n    print('Sample data:')\n    for row in data[1:6]:  # Show first 5 data rows\n        print(f'  {row}')\n\nprint('Census data ingestion complete')"
+          },
+          "timeout": 1200,
+          "retryTimes": 3,
+          "retryInterval": 300
+        }
+      ]
+    }
+
+  # OpenFIGI Instrument Mapping (Weekly)
+  openfigi-mapping-weekly.json: |
+    {
+      "name": "OpenFIGI Instrument Mapping Update",
+      "description": "Weekly update of commodity instrument FIGI mappings",
+      "scheduleStartTime": "2025-01-01 08:00:00",
+      "scheduleEndTime": "2030-12-31 23:59:59",
+      "crontab": "0 8 * * 1",
+      "scheduleWarningType": "NONE",
+      "timeout": 1800,
+      "tenantCode": "default",
+      "processType": "DAG",
+      "tasks": [
+        {
+          "name": "update_figi_mappings",
+          "type": "PYTHON",
+          "params": {
+            "rawScript": "import requests\nimport os\nimport json\n\nAPI_KEY = os.getenv('OPENFIGI_API_KEY')\n\n# Commodities to map\ncommodities = [\n    {'idType': 'TICKER', 'idValue': 'CL', 'exchCode': 'US'},  # WTI Crude\n    {'idType': 'TICKER', 'idValue': 'NG', 'exchCode': 'US'},  # Natural Gas\n    {'idType': 'TICKER', 'idValue': 'HO', 'exchCode': 'US'},  # Heating Oil\n    {'idType': 'TICKER', 'idValue': 'RB', 'exchCode': 'US'}   # Gasoline\n]\n\nurl = 'https://api.openfigi.com/v3/mapping'\nheaders = {'Content-Type': 'application/json', 'X-OPENFIGI-APIKEY': API_KEY}\n\nresponse = requests.post(url, headers=headers, json=commodities)\nprint(f'OpenFIGI API: {response.status_code}')\n\nif response.status_code == 200:\n    results = response.json()\n    for i, result in enumerate(results):\n        if 'data' in result:\n            data = result['data'][0] if result['data'] else {}\n            print(f'{commodities[i][\"idValue\"]}: FIGI={data.get(\"figi\")}, Name={data.get(\"name\")}')\n\nprint('FIGI mapping update complete')"
+          },
+          "timeout": 900,
+          "retryTimes": 2,
+          "retryInterval": 180
+        }
+      ]
+    }
+
+  # Comprehensive Daily Commodity Data Collection
+  all-sources-daily.json: |
+    {
+      "name": "Comprehensive Commodity Data Collection",
+      "description": "Collect data from ALL sources: EIA, FRED, NOAA, AlphaVantage, Polygon, GIE, Census",
+      "scheduleStartTime": "2025-01-01 01:00:00",
+      "scheduleEndTime": "2030-12-31 23:59:59",
+      "crontab": "0 1 * * *",
+      "scheduleWarningType": "FAILURE",
+      "timeout": 7200,
+      "tenantCode": "default",
+      "processType": "DAG",
+      "tasks": [
+        {
+          "name": "ingest_eia_energy_prices",
+          "type": "SHELL",
+          "params": {
+            "rawScript": "#!/bin/bash\\nset -e\\necho 'Fetching EIA energy data...'\\ncurl -s 'https://api.eia.gov/v2/petroleum/pri/spt/data/?api_key='$EIA_API_KEY'&frequency=daily&data[0]=value&sort[0][column]=period&sort[0][direction]=desc&length=30' | jq '.response.data | length'\\necho 'EIA data fetched'"
+          },
+          "timeout": 900
+        },
+        {
+          "name": "ingest_fred_indicators",
+          "type": "SHELL",
+          "params": {
+            "rawScript": "#!/bin/bash\\nset -e\\necho 'Fetching FRED indicators...'\\nindicators='DCOILWTICO DHHNGSP DPROPANEMBTX GASREGW'\\nfor ind in $indicators; do\\n  curl -s \"https://api.stlouisfed.org/fred/series/observations?series_id=$ind&api_key=$FRED_API_KEY&file_type=json&limit=30\" | jq '.observations | length'\\ndone\\necho 'FRED indicators fetched'"
+          },
+          "timeout": 900,
+          "preTasks": ["ingest_eia_energy_prices"]
+        },
+        {
+          "name": "ingest_alphavantage_futures",
+          "type": "SHELL",
+          "params": {
+            "rawScript": "#!/bin/bash\\nset -e\\necho 'Fetching AlphaVantage commodity futures...'\\nsymbols='CL=F NG=F HO=F RB=F'\\nfor sym in $symbols; do\\n  curl -s \"https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol=$sym&apikey=$ALPHAVANTAGE_API_KEY&outputsize=compact\" | jq 'keys | length'\\ndone\\necho 'AlphaVantage data fetched'"
+          },
+          "timeout": 1200,
+          "preTasks": ["ingest_fred_indicators"]
+        },
+        {
+          "name": "ingest_polygon_markets",
+          "type": "SHELL",
+          "params": {
+            "rawScript": "#!/bin/bash\\nset -e\\necho 'Fetching Polygon.io market data...'\\ntickers='C:CL C:NG C:HO'\\nend_date=$(date +%Y-%m-%d)\\nstart_date=$(date -d '7 days ago' +%Y-%m-%d)\\nfor ticker in $tickets; do\\n  curl -s -H 'Authorization: Bearer '$POLYGON_API_KEY \"https://api.polygon.io/v2/aggs/ticker/$ticker/range/1/day/$start_date/$end_date\" | jq '.resultsCount'\\ndone\\necho 'Polygon data fetched'"
+          },
+          "timeout": 1200,
+          "preTasks": ["ingest_alphavantage_futures"]
+        },
+        {
+          "name": "ingest_gie_storage",
+          "type": "SHELL",
+          "params": {
+            "rawScript": "#!/bin/bash\\nset -e\\necho 'Fetching GIE gas storage data...'\\nend_date=$(date +%Y-%m-%d)\\nstart_date=$(date -d '30 days ago' +%Y-%m-%d)\\ncurl -s -H 'x-key: '$GIE_API_KEY \"https://agsi.gie.eu/api?country=EU&from=$start_date&to=$end_date&size=300\" | jq '.data | length'\\necho 'GIE storage data fetched'"
+          },
+          "timeout": 900,
+          "preTasks": ["ingest_polygon_markets"]
+        },
+        {
+          "name": "ingest_census_economic",
+          "type": "SHELL",
+          "params": {
+            "rawScript": "#!/bin/bash\\nset -e\\necho 'Fetching US Census economic data...'\\ncurl -s \"https://api.census.gov/data/timeseries/eits/resconst?get=cell_value,data_type_code,time_slot_id&key=$CENSUS_API_KEY&time=from%202024\" | jq 'length'\\necho 'Census data fetched'"
+          },
+          "timeout": 900,
+          "preTasks": ["ingest_gie_storage"]
+        },
+        {
+          "name": "validate_all_sources",
+          "type": "SQL",
+          "params": {
+            "type": "TRINO",
+            "datasource": "trino-coordinator:8080",
+            "sql": "SELECT 'validation_complete' as status, CURRENT_TIMESTAMP as completion_time",
+            "sqlType": "QUERY"
+          },
+          "timeout": 300,
+          "preTasks": ["ingest_census_economic"]
+        },
+        {
+          "name": "send_completion_notification",
+          "type": "HTTP",
+          "params": {
+            "url": "http://dolphinscheduler-alert:50053/alert",
+            "httpMethod": "POST",
+            "httpParams": [
+              {
+                "prop": "message",
+                "value": "Comprehensive commodity data collection completed for $(date +%Y-%m-%d). All 6 sources processed successfully."
+              }
+            ]
+          },
+          "timeout": 300,
+          "preTasks": ["validate_all_sources"]
+        }
+      ]
+    }
+

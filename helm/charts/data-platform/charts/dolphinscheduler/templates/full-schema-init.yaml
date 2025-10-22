@@ -1,0 +1,237 @@
+# Complete DolphinScheduler Schema Initialization
+# Creates all required tables including t_ds_user for login
+
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: dolphinscheduler-full-schema-init
+  namespace: data-platform
+spec:
+  ttlSecondsAfterFinished: 300
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+      - name: init-schema
+        image: postgres:14
+        env:
+        - name: PGPASSWORD
+          value: "dolphinscheduler"
+        command:
+        - sh
+        - -c
+        - |
+          echo "Creating complete DolphinScheduler schema..."
+          
+          psql -h postgres-workflow-service -U dolphinscheduler -d dolphinscheduler <<'EOSQL'
+          
+          -- Create user table (CRITICAL for login)
+          CREATE TABLE IF NOT EXISTS t_ds_user (
+            id serial NOT NULL,
+            user_name varchar(64) NULL,
+            user_password varchar(64) NULL,
+            user_type int4 NULL,
+            email varchar(64) NULL,
+            phone varchar(11) NULL,
+            tenant_id int4 NULL,
+            create_time timestamp NULL,
+            update_time timestamp NULL,
+            queue varchar(64) NULL,
+            state int4 NULL DEFAULT 1,
+            time_zone varchar(32) NULL,
+            CONSTRAINT t_ds_user_pk PRIMARY KEY (id),
+            CONSTRAINT t_ds_user_name_unique UNIQUE (user_name)
+          );
+          
+          -- Insert default admin user (password: dolphinscheduler123)
+          -- Password is MD5 hash of "dolphinscheduler123"
+          INSERT INTO t_ds_user (user_name, user_password, user_type, email, phone, tenant_id, create_time, update_time, queue, state)
+          VALUES ('admin', '7ad2410b2f4c074479a8937a28a22b8f', 0, 'admin@dolphinscheduler.com', '', 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 'default', 1)
+          ON CONFLICT (user_name) DO UPDATE SET
+            user_password = '7ad2410b2f4c074479a8937a28a22b8f',
+            user_type = 0,
+            state = 1;
+          
+          -- Create tenant table
+          CREATE TABLE IF NOT EXISTS t_ds_tenant (
+            id serial NOT NULL,
+            tenant_code varchar(64) NOT NULL,
+            description varchar(255) NULL,
+            queue_id int4 NULL DEFAULT 1,
+            create_time timestamp NULL,
+            update_time timestamp NULL,
+            CONSTRAINT t_ds_tenant_pk PRIMARY KEY (id),
+            CONSTRAINT t_ds_tenant_code_unique UNIQUE (tenant_code)
+          );
+          
+          INSERT INTO t_ds_tenant (tenant_code, description, queue_id, create_time, update_time)
+          VALUES ('default', 'default tenant', 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+          ON CONFLICT (tenant_code) DO NOTHING;
+          
+          -- Create queue table
+          CREATE TABLE IF NOT EXISTS t_ds_queue (
+            id serial NOT NULL,
+            queue_name varchar(64) NOT NULL,
+            queue varchar(64) NOT NULL,
+            create_time timestamp NULL,
+            update_time timestamp NULL,
+            CONSTRAINT t_ds_queue_pk PRIMARY KEY (id),
+            CONSTRAINT t_ds_queue_name_unique UNIQUE (queue_name)
+          );
+          
+          INSERT INTO t_ds_queue (queue_name, queue, create_time, update_time)
+          VALUES ('default', 'default', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+          ON CONFLICT (queue_name) DO NOTHING;
+          
+          -- Create project table
+          CREATE TABLE IF NOT EXISTS t_ds_project (
+            id serial NOT NULL,
+            name varchar(100) NULL,
+            code int8 NOT NULL,
+            description varchar(200) NULL,
+            user_id int4 NULL,
+            flag int4 NULL DEFAULT 1,
+            create_time timestamp NULL,
+            update_time timestamp NULL,
+            CONSTRAINT t_ds_project_pk PRIMARY KEY (id),
+            CONSTRAINT t_ds_project_code_unique UNIQUE (code)
+          );
+          
+          -- Create process definition table
+          CREATE TABLE IF NOT EXISTS t_ds_process_definition (
+            id serial NOT NULL,
+            code int8 NOT NULL,
+            name varchar(255) NULL,
+            version int4 NULL DEFAULT 1,
+            description text NULL,
+            project_code int8 NULL,
+            release_state int4 NULL,
+            user_id int4 NULL,
+            global_params text NULL,
+            flag int4 NULL,
+            locations text NULL,
+            warning_group_id int4 NULL,
+            timeout int4 NULL DEFAULT 0,
+            tenant_id int4 NULL DEFAULT -1,
+            execution_type int4 NULL,
+            create_time timestamp NULL,
+            update_time timestamp NULL,
+            CONSTRAINT t_ds_process_definition_pk PRIMARY KEY (id),
+            CONSTRAINT t_ds_process_definition_unique UNIQUE (name,project_code)
+          );
+          
+          -- Create task definition table
+          CREATE TABLE IF NOT EXISTS t_ds_task_definition (
+            id serial NOT NULL,
+            code int8 NOT NULL,
+            name varchar(200) NULL,
+            version int4 NULL DEFAULT 1,
+            description text NULL,
+            project_code int8 NULL,
+            user_id int4 NULL,
+            task_type varchar(50) NULL,
+            task_params text NULL,
+            task_param_list text NULL,
+            task_param_map text NULL,
+            flag int4 NULL,
+            task_priority int4 NULL,
+            worker_group varchar(200) NULL,
+            environment_code int8 NULL DEFAULT -1,
+            fail_retry_times int4 NULL,
+            fail_retry_interval int4 NULL,
+            timeout_flag int4 NULL,
+            timeout_notify_strategy int4 NULL,
+            timeout int4 NULL,
+            delay_time int4 NULL,
+            resource_ids text NULL,
+            cpu_quota int4 NULL DEFAULT -1,
+            memory_max int4 NULL DEFAULT -1,
+            create_time timestamp NULL,
+            update_time timestamp NULL,
+            CONSTRAINT t_ds_task_definition_pk PRIMARY KEY (id),
+            CONSTRAINT t_ds_task_definition_code_unique UNIQUE (code,version)
+          );
+          
+          -- Create process instance table
+          CREATE TABLE IF NOT EXISTS t_ds_process_instance (
+            id serial NOT NULL,
+            name varchar(255) NULL,
+            process_definition_code int8 NULL,
+            process_definition_version int4 NULL,
+            state int4 NULL,
+            state_history text NULL,
+            recovery int4 NULL,
+            start_time timestamp NULL,
+            end_time timestamp NULL,
+            run_times int4 NULL,
+            host varchar(135) NULL,
+            command_type int4 NULL,
+            command_param text NULL,
+            task_depend_type int4 NULL,
+            max_try_times int4 NULL DEFAULT 0,
+            failure_strategy int4 NULL DEFAULT 0,
+            warning_type int4 NULL DEFAULT 0,
+            warning_group_id int4 NULL,
+            schedule_time timestamp NULL,
+            command_start_time timestamp NULL,
+            global_params text NULL,
+            flag int4 NULL DEFAULT 1,
+            update_time timestamp NULL,
+            is_sub_process int4 NULL DEFAULT 0,
+            executor_id int4 NOT NULL,
+            history_cmd text NULL,
+            process_instance_priority int4 NULL DEFAULT 2,
+            worker_group varchar(64) NULL,
+            environment_code int8 NULL DEFAULT -1,
+            timeout int4 NULL DEFAULT 0,
+            tenant_id int4 NOT NULL DEFAULT -1,
+            var_pool text NULL,
+            dry_run int4 NULL DEFAULT 0,
+            next_process_instance_id int4 NULL DEFAULT 0,
+            restart_time timestamp NULL,
+            CONSTRAINT t_ds_process_instance_pk PRIMARY KEY (id)
+          );
+          
+          -- Create task instance table
+          CREATE TABLE IF NOT EXISTS t_ds_task_instance (
+            id serial NOT NULL,
+            name varchar(255) NULL,
+            task_type varchar(50) NULL,
+            task_code int8 NULL,
+            task_definition_version int4 NULL,
+            process_instance_id int4 NULL,
+            state int4 NULL,
+            submit_time timestamp NULL,
+            start_time timestamp NULL,
+            end_time timestamp NULL,
+            host varchar(135) NULL,
+            execute_path varchar(200) NULL,
+            log_path text NULL,
+            alert_flag int4 NULL,
+            retry_times int4 NULL DEFAULT 0,
+            pid int4 NULL,
+            app_link text NULL,
+            task_params text NULL,
+            flag int4 NULL DEFAULT 1,
+            retry_interval int4 NULL,
+            max_retry_times int4 NULL,
+            task_instance_priority int4 NULL,
+            worker_group varchar(64) NULL,
+            environment_code int8 NULL DEFAULT -1,
+            environment_config text NULL,
+            executor_id int4 NULL,
+            first_submit_time timestamp NULL,
+            delay_time int4 NULL DEFAULT 0,
+            var_pool text NULL,
+            dry_run int4 NULL DEFAULT 0,
+            cpu_quota int4 NULL DEFAULT -1,
+            memory_max int4 NULL DEFAULT -1,
+            CONSTRAINT t_ds_task_instance_pk PRIMARY KEY (id)
+          );
+          
+          EOSQL
+          
+          echo "Schema creation complete!"
+          echo "Verifying user table..."
+          psql -h postgres-workflow-service -U dolphinscheduler -d dolphinscheduler -c "SELECT COUNT(*) FROM t_ds_user;"
+
