@@ -77,8 +77,8 @@ spec:
   - ReadWriteOnce
   resources:
     requests:
-      storage: 100Gi
-  storageClassName: local-storage-standard
+      storage: 10Gi
+  storageClassName: local-path
 
 ---
 # Daily backup CronJob
@@ -308,7 +308,10 @@ spec:
       containers:
       - name: restore
         image: postgres:15
-        imagePullPolicy: IfNotPresent
+        securityContext:
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
+          runAsUser: 1001
         env:
         - name: PGPASSWORD
           valueFrom:
