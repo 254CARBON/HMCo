@@ -142,4 +142,7 @@ superset:
     host: redis-service
     port: 6379
 
+data-lake:
+  enabled: false
+
 
