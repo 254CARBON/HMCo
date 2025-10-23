@@ -46,6 +46,123 @@ export EIA_API_KEY="your-key"
 
 ---
 
+### DolphinScheduler Workflow Automation
+
+#### `setup-dolphinscheduler-complete.sh` ⭐
+**Complete DolphinScheduler setup automation**
+
+One command to set up all workflows, API keys, and verification.
+
+```bash
+# Full setup (recommended)
+./setup-dolphinscheduler-complete.sh
+
+# Skip specific steps
+./setup-dolphinscheduler-complete.sh --skip-test
+./setup-dolphinscheduler-complete.sh --verify-only
+```
+
+**What it does**:
+1. Configure API credentials (6 data sources)
+2. Import 11 workflow definitions
+3. Run comprehensive test workflow (optional)
+4. Verify data ingestion in Trino
+
+**Time**: 5-50 minutes (depending on options)
+
+---
+
+#### `configure-dolphinscheduler-credentials.sh`
+**Configure API credentials for DolphinScheduler workflows**
+
+Sets up Kubernetes secrets and mounts to worker pods.
+
+```bash
+./configure-dolphinscheduler-credentials.sh
+./configure-dolphinscheduler-credentials.sh --namespace data-platform
+```
+
+**API Keys configured**:
+- AlphaVantage
+- Polygon.io
+- EIA (Energy Information Administration)
+- GIE (European Gas Infrastructure)
+- US Census Bureau
+- NOAA
+
+**Time**: 1 minute
+
+---
+
+#### `import-workflows-from-files.py`
+**Import workflows from local JSON files**
+
+Python script to bulk import workflow definitions.
+
+```bash
+# Auto port-forward
+python3 import-workflows-from-files.py --port-forward
+
+# Custom directory
+python3 import-workflows-from-files.py --workflow-dir /path/to/workflows
+
+# Skip existing workflows
+python3 import-workflows-from-files.py --skip-existing
+```
+
+**Features**:
+- Reads from `/home/m/tff/254CARBON/HMCo/workflows/`
+- Validates JSON structure
+- Creates project if needed
+- Handles multipart file upload
+- Auto port-forward support
+
+**Time**: 2 minutes
+
+---
+
+#### `test-dolphinscheduler-workflows.sh`
+**Test workflow execution**
+
+Runs comprehensive test workflow and monitors progress.
+
+```bash
+./test-dolphinscheduler-workflows.sh
+./test-dolphinscheduler-workflows.sh --workflow-name "Comprehensive Commodity Data Collection"
+```
+
+**Monitoring**:
+- Real-time task progress
+- Success/failure status
+- Execution duration
+- Failed task details
+- Log extraction
+
+**Time**: 30-45 minutes (workflow execution)
+
+---
+
+#### `verify-workflow-data-ingestion.sh`
+**Verify data landed in Trino/Iceberg**
+
+Connects to Trino and validates data ingestion.
+
+```bash
+./verify-workflow-data-ingestion.sh
+./verify-workflow-data-ingestion.sh --catalog iceberg --schema commodity_data
+```
+
+**Checks**:
+- Schema and table existence
+- Record counts per table
+- Data freshness (<48 hours)
+- Date ranges
+- Generates summary report
+
+**Time**: 1 minute
+
+---
+
 ### API Configuration
 
 #### `configure-api-keys.sh`

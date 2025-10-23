@@ -91,7 +91,30 @@
 
 ## Import Instructions
 
-### Method 1: File Upload (Easiest)
+### Method 1: Automated Import (Recommended) ⭐
+
+**One-command setup:**
+
+```bash
+cd /home/m/tff/254CARBON/HMCo
+./scripts/setup-dolphinscheduler-complete.sh
+```
+
+This automation:
+- ✅ Configures all API credentials
+- ✅ Imports all 11 workflows automatically
+- ✅ Tests execution (optional)
+- ✅ Verifies data ingestion
+
+**Or import workflows only:**
+
+```bash
+python3 ./scripts/import-workflows-from-files.py --port-forward
+```
+
+---
+
+### Method 2: File Upload (Manual)
 
 1. In DolphinScheduler UI, go to: Project > Workflow Definition
 2. Click "Import Workflow"
@@ -100,7 +123,7 @@
 5. Click "Import"
 6. Repeat for all 11 files
 
-### Method 2: Copy/Paste
+### Method 3: Copy/Paste (Manual)
 
 1. Open a JSON file in your editor (they're in this directory)
 2. Copy the entire contents
@@ -229,8 +252,44 @@ All workflows are pre-configured with schedules:
 
 ---
 
+## Automation Scripts
+
+Complete automation tools are available in `../scripts/`:
+
+### Quick Start (One Command)
+```bash
+# Complete setup: credentials + import + test + verify
+./scripts/setup-dolphinscheduler-complete.sh
+
+# Or step-by-step:
+./scripts/configure-dolphinscheduler-credentials.sh  # 1. API keys
+python3 ./scripts/import-workflows-from-files.py --port-forward  # 2. Import
+./scripts/test-dolphinscheduler-workflows.sh  # 3. Test
+./scripts/verify-workflow-data-ingestion.sh  # 4. Verify
+```
+
+### Available Scripts
+
+| Script | Purpose | Duration |
+|--------|---------|----------|
+| `setup-dolphinscheduler-complete.sh` | Master automation (all steps) | 5-50 min |
+| `configure-dolphinscheduler-credentials.sh` | Configure 6 API keys | 1 min |
+| `import-workflows-from-files.py` | Import all 11 workflows | 2 min |
+| `test-dolphinscheduler-workflows.sh` | Run test workflow | 30-45 min |
+| `verify-workflow-data-ingestion.sh` | Verify data in Trino | 1 min |
+
+See [`WORKFLOW_IMPORT_GUIDE.md`](../WORKFLOW_IMPORT_GUIDE.md) for detailed documentation.
+
+---
+
 ## Next Steps
 
+### Automated (Recommended)
+```bash
+./scripts/setup-dolphinscheduler-complete.sh
+```
+
+### Manual
 1. **Import workflow #11** (Comprehensive Collection)
 2. **Run it manually** to test all APIs
 3. **Check execution logs** for any errors
@@ -241,8 +300,9 @@ All workflows are pre-configured with schedules:
 ---
 
 **Files Ready**: `/home/m/tff/254CARBON/HMCo/workflows/`  
-**Documentation**: `COMMODITY_QUICKSTART.md` (full import guide)  
+**Automation**: `/home/m/tff/254CARBON/HMCo/scripts/`  
+**Documentation**: [`WORKFLOW_IMPORT_GUIDE.md`](../WORKFLOW_IMPORT_GUIDE.md)  
 **Status**: ✅ Ready for import!
 
-🎊 Log in to DolphinScheduler and start importing! 🎊
+🎊 Run `./scripts/setup-dolphinscheduler-complete.sh` or log in to DolphinScheduler! 🎊
 

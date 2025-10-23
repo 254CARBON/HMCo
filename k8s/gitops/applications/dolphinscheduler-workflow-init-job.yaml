@@ -1,0 +1,150 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: dolphinscheduler-workflow-init
+  namespace: data-platform
+  labels:
+    app: dolphinscheduler
+    component: workflow-init
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"  # Run after DolphinScheduler is deployed
+    argocd.argoproj.io/hook: PostSync
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+spec:
+  ttlSecondsAfterFinished: 86400  # Keep for 24 hours for debugging
+  backoffLimit: 3
+  template:
+    metadata:
+      labels:
+        app: dolphinscheduler
+        component: workflow-init
+    spec:
+      restartPolicy: OnFailure
+      serviceAccountName: dolphinscheduler-workflow-init
+      initContainers:
+      - name: wait-for-api
+        image: curlimages/curl:latest
+        command:
+        - sh
+        - -c
+        - |
+          echo "Waiting for DolphinScheduler API to be ready..."
+          until curl -s -f http://dolphinscheduler-api.data-platform:12345/dolphinscheduler/ui/ > /dev/null; do
+            echo "API not ready, waiting 10s..."
+            sleep 10
+          done
+          echo "API is ready!"
+      containers:
+      - name: import-workflows
+        image: python:3.11-slim
+        workingDir: /workspace
+        command:
+        - /bin/bash
+        - -c
+        - |
+          set -e
+          echo "Installing dependencies..."
+          pip install --quiet --no-cache-dir requests pyyaml
+          
+          echo "Loading workflow JSON files..."
+          cd /workflows
+          
+          echo "Running workflow import script..."
+          python3 /scripts/import-workflows-from-files.py \
+            --dolphin-url http://dolphinscheduler-api.data-platform:12345 \
+            --workflow-dir /workflows \
+            --project-name "Commodity Data Platform" \
+            --skip-existing
+          
+          echo "Workflow import complete!"
+        env:
+        - name: PYTHONUNBUFFERED
+          value: "1"
+        - name: DOLPHIN_USER
+          value: "admin"
+        - name: DOLPHIN_PASS
+          valueFrom:
+            secretKeyRef:
+              name: dolphinscheduler-admin
+              key: password
+              optional: true
+        # API keys auto-loaded from secret
+        envFrom:
+        - secretRef:
+            name: dolphinscheduler-api-keys
+            optional: true
+        volumeMounts:
+        - name: workflow-files
+          mountPath: /workflows
+          readOnly: true
+        - name: import-script
+          mountPath: /scripts
+          readOnly: true
+      volumes:
+      - name: workflow-files
+        configMap:
+          name: dolphinscheduler-workflows
+      - name: import-script
+        configMap:
+          name: dolphinscheduler-import-script
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: dolphinscheduler-workflow-init
+  namespace: data-platform
+  labels:
+    app: dolphinscheduler
+    component: workflow-init
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: dolphinscheduler-workflow-init
+  namespace: data-platform
+rules:
+- apiGroups: [""]
+  resources: ["secrets", "configmaps"]
+  verbs: ["get", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: dolphinscheduler-workflow-init
+  namespace: data-platform
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: dolphinscheduler-workflow-init
+subjects:
+- kind: ServiceAccount
+  name: dolphinscheduler-workflow-init
+  namespace: data-platform
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: dolphinscheduler-workflows
+  namespace: data-platform
+  labels:
+    app: dolphinscheduler
+    component: workflows
+data:
+  # Workflows will be synced from /workflows/*.json via Kustomize or similar
+  # Or loaded from git repository
+  .gitkeep: ""
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: dolphinscheduler-import-script
+  namespace: data-platform
+  labels:
+    app: dolphinscheduler
+    component: import-script
+data:
+  import-workflows-from-files.py: |
+    # Import script will be embedded here via kustomize
+    # Or reference from git repository
+    .gitkeep: ""
+

@@ -6,7 +6,40 @@
 
 ## Quick Start
 
-### 1. Access DolphinScheduler
+### Fully Automated Setup (Zero Touch) ⭐
+
+**The workflows are automatically deployed and configured via GitOps/ArgoCD.**
+
+If DolphinScheduler is running in your cluster, workflows are already available at:
+- **URL:** https://dolphin.254carbon.com
+- **Project:** "Commodity Data Platform"
+- **Workflows:** All 11 definitions pre-loaded
+
+### API Keys Auto-Detection
+
+The system automatically detects API keys from multiple sources (in priority order):
+
+1. **Kubernetes Secrets** (production)  
+   Already configured if you deployed via ArgoCD
+
+2. **Environment Variables** (CI/CD)  
+   Automatically loaded from pipeline secrets
+
+3. **HashiCorp Vault** (enterprise)  
+   Auto-fetched if Vault is configured
+
+4. **Local File** (development only)  
+   Falls back to `api-keys.env` if present
+
+**No manual configuration needed** - the platform handles everything automatically.
+
+---
+
+### Manual Setup (Alternative)
+
+If you prefer manual control or troubleshooting:
+
+#### 1. Access DolphinScheduler
 
 DolphinScheduler is accessible at: **https://dolphin.254carbon.com**
 
@@ -14,7 +47,7 @@ Default credentials (if not changed):
 - Username: `admin`
 - Password: `dolphinscheduler123`
 
-### 2. Recommended Import Order
+#### 2. Recommended Import Order
 
 **Start with the comprehensive workflow to test all APIs at once:**
 
@@ -111,33 +144,60 @@ curl -X POST "$DOLPHIN_API/dolphinscheduler/projects/$PROJECT_CODE/process/impor
 
 ## Configuration Requirements
 
-### API Credentials
+### API Credentials Setup
 
-Before running workflows, configure these API keys in DolphinScheduler:
+**Automated Method (Recommended):**
 
-1. **Global Variables** (Project Settings → Variables):
-   - `EIA_API_KEY` - EIA data access
-   - `FRED_API_KEY` - Federal Reserve data
-   - `ALPHAVANTAGE_API_KEY` - Market data
-   - `POLYGON_API_KEY` - Real-time data
-   - `GIE_API_KEY` - European gas storage
-   - `CENSUS_API_KEY` - US Census data
+```bash
+# 1. Copy the example file
+cp api-keys.env.example api-keys.env
 
-2. **Connection Settings**:
+# 2. Edit with your actual API keys
+nano api-keys.env  # or use your preferred editor
+
+# 3. Load the keys
+source api-keys.env
+
+# 4. Run setup
+./scripts/setup-dolphinscheduler-complete.sh
+```
+
+**Required API Keys:**
+
+| Service | Environment Variable | Get Your Key |
+|---------|---------------------|--------------|
+| AlphaVantage | `ALPHAVANTAGE_API_KEY` | https://www.alphavantage.co/support/#api-key |
+| Polygon.io | `POLYGON_API_KEY` | https://polygon.io/dashboard/api-keys |
+| EIA | `EIA_API_KEY` | https://www.eia.gov/opendata/ |
+| GIE | `GIE_API_KEY` | https://www.gie.eu/transparency/ |
+| US Census | `CENSUS_API_KEY` | https://api.census.gov/data/key_signup.html |
+| NOAA | `NOAA_API_KEY` | https://www.ncdc.noaa.gov/cdo-web/token |
+| FRED (Optional) | `FRED_API_KEY` | https://fred.stlouisfed.org/docs/api/api_key.html |
+
+**Manual Method:**
+
+Export each key individually:
+```bash
+export ALPHAVANTAGE_API_KEY="your-key-here"
+export POLYGON_API_KEY="your-key-here"
+export EIA_API_KEY="your-key-here"
+export GIE_API_KEY="your-key-here"
+export CENSUS_API_KEY="your-key-here"
+export NOAA_API_KEY="your-key-here"
+```
+
+**Connection Settings:**
    - Kafka broker: `kafka.data-platform:9092`
    - Iceberg catalog: `iceberg-rest-catalog.data-platform:8181`
    - Trino coordinator: `trino-coordinator.data-platform:8080`
 
-### How to Set Variables
+### Security Best Practices
 
-1. Go to Project Settings → Variables
-2. Click "Create Variable"
-3. Set:
-   - Variable Name: `EIA_API_KEY`
-   - Variable Value: `your-api-key-here`
-   - Variable Type: `VARCHAR`
-   - Click "Submit"
-4. Repeat for all API keys
+⚠️ **Important:**
+- Never commit `api-keys.env` to version control
+- The file is already in `.gitignore`
+- Use `api-keys.env.example` as a template
+- Store actual keys in secure secrets management (Vault, AWS Secrets Manager, etc.) for production
 
 ## Testing Workflow Execution
 
@@ -272,6 +332,118 @@ Relevant dashboards:
 - Set up automated data validation
 - Create alerts for data quality issues
 
+## Automation Scripts
+
+The following automation scripts are available in `/home/m/tff/254CARBON/HMCo/scripts/`:
+
+### 1. Complete Setup (Master Script)
+**File:** `setup-dolphinscheduler-complete.sh`
+
+One-command setup for everything:
+```bash
+./scripts/setup-dolphinscheduler-complete.sh
+```
+
+Options:
+- `--skip-credentials` - Skip API key configuration
+- `--skip-import` - Skip workflow import
+- `--skip-test` - Skip test execution
+- `--verify-only` - Only run data verification
+
+### 2. Configure API Credentials
+**File:** `configure-dolphinscheduler-credentials.sh`
+
+Set up API keys for 6 data sources:
+```bash
+./scripts/configure-dolphinscheduler-credentials.sh
+```
+
+Creates Kubernetes secret `dolphinscheduler-api-keys` with:
+- AlphaVantage API Key
+- Polygon.io API Key
+- EIA API Key
+- GIE API Key
+- US Census API Key
+- NOAA API Key
+
+### 3. Import Workflows
+**File:** `import-workflows-from-files.py`
+
+Import all 11 workflows from JSON files:
+```bash
+python3 ./scripts/import-workflows-from-files.py --port-forward
+```
+
+Options:
+- `--workflow-dir DIR` - Custom workflow directory
+- `--port-forward` - Auto port-forward to DolphinScheduler
+- `--skip-existing` - Skip already imported workflows
+
+### 4. Test Workflow Execution
+**File:** `test-dolphinscheduler-workflows.sh`
+
+Run comprehensive test workflow and monitor:
+```bash
+./scripts/test-dolphinscheduler-workflows.sh
+```
+
+Monitors workflow execution in real-time and reports:
+- Task progress
+- Success/failure status
+- Execution duration
+- Failed task details
+
+### 5. Verify Data Ingestion
+**File:** `verify-workflow-data-ingestion.sh`
+
+Query Trino to verify data landed correctly:
+```bash
+./scripts/verify-workflow-data-ingestion.sh
+```
+
+Checks:
+- Table existence
+- Record counts
+- Data freshness (<48 hours)
+- Date ranges
+
+### 6. Validate Setup
+**File:** `validate-dolphinscheduler-setup.sh`
+
+Quick health check before running automation:
+```bash
+./scripts/validate-dolphinscheduler-setup.sh
+```
+
+Validates:
+- Prerequisites (kubectl, curl, jq, python3)
+- Kubernetes resources (namespace, secrets, pods)
+- Automation scripts (existence, executable)
+- Workflow JSON files (all 11 present)
+- DolphinScheduler API connectivity
+
+### Script Workflow
+
+```
+┌─────────────────────────────────────────────────┐
+│  setup-dolphinscheduler-complete.sh (Master)   │
+└─────────────────────────────────────────────────┘
+                      │
+        ┌─────────────┼─────────────┐
+        ▼             ▼             ▼
+  ┌─────────┐  ┌──────────┐  ┌──────────┐
+  │Configure│  │  Import  │  │   Test   │
+  │   API   │→ │Workflows │→ │ Workflow │
+  │  Keys   │  │          │  │          │
+  └─────────┘  └──────────┘  └──────────┘
+                                    │
+                                    ▼
+                            ┌───────────────┐
+                            │Verify Data in │
+                            │     Trino     │
+                            └───────────────┘
+```
+
 ## Next Steps After Import
 
 1. ✅ Import workflow #11 (comprehensive)
@@ -282,6 +454,8 @@ Relevant dashboards:
 6. ✅ Set up monitoring alerts
 7. ✅ Import remaining workflows as needed
 8. ✅ Document any custom modifications
+
+**Or simply run:** `./scripts/setup-dolphinscheduler-complete.sh` to automate steps 1-4!
 
 ## Support
 
