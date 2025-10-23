@@ -86,4 +86,12 @@ autoscaling:
     maxReplicas: 8
     targetCPUUtilizationPercentage: 70
 
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+httpRoute:
+  enabled: false
+
 

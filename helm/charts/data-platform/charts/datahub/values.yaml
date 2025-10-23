@@ -62,4 +62,15 @@ resources:
       cpu: 4000m
       memory: 8Gi
 
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+httpRoute:
+  enabled: false
+
+autoscaling:
+  enabled: false
+
 

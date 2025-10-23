@@ -70,4 +70,12 @@ config:
     max-worker-threads: 32
     min-drivers: 2
 
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+httpRoute:
+  enabled: false
+
 

@@ -71,66 +71,64 @@ data:
           "name": "deequ_quality_check",
           "type": "PYTHON",
           "params": {
-            "rawScript": "
-import requests
-import json
-from datetime import datetime
+            "rawScript": |
+              import requests
+              import json
+              from datetime import datetime
 
-# Submit quality check SparkApplication
-spark_app = {
-    'apiVersion': 'sparkoperator.k8s.io/v1beta2',
-    'kind': 'SparkApplication',
-    'metadata': {
-        'name': f'deequ-quality-check-{datetime.now().strftime(\"%Y%m%d-%H%M%S\")}',
-        'namespace': 'data-platform'
-    },
-    'spec': {
-        'type': 'Python',
-        'mode': 'cluster',
-        'image': 'apache/spark:3.5.0',
-        'mainApplicationFile': 's3a://spark-code/quality/deequ_quality_check.py',
-        'arguments': [
-            '--constraint-file', 's3a://deequ-config/constraints.json',
-            '--output-database', 'monitoring',
-            '--output-table', 'deequ_quality_checks'
-        ],
-        'driver': {
-            'cores': 2,
-            'memory': '2g'
-        },
-        'executor': {
-            'cores': 2,
-            'instances': 2,
-            'memory': '2g'
-        }
-    }
-}
+              # Submit quality check SparkApplication
+              spark_app = {
+                  'apiVersion': 'sparkoperator.k8s.io/v1beta2',
+                  'kind': 'SparkApplication',
+                  'metadata': {
+                      'name': f'deequ-quality-check-{datetime.now().strftime("%Y%m%d-%H%M%S")}',
+                      'namespace': 'data-platform'
+                  },
+                  'spec': {
+                      'type': 'Python',
+                      'mode': 'cluster',
+                      'image': 'apache/spark:3.5.0',
+                      'mainApplicationFile': 's3a://spark-code/quality/deequ_quality_check.py',
+                      'arguments': [
+                          '--constraint-file', 's3a://deequ-config/constraints.json',
+                          '--output-database', 'monitoring',
+                          '--output-table', 'deequ_quality_checks'
+                      ],
+                      'driver': {
+                          'cores': 2,
+                          'memory': '2g'
+                      },
+                      'executor': {
+                          'cores': 2,
+                          'instances': 2,
+                          'memory': '2g'
+                      }
+                  }
+              }
 
-# Apply to Kubernetes
-import subprocess
-result = subprocess.run(
-    ['kubectl', 'apply', '-f', '-'],
-    input=json.dumps(spark_app).encode(),
-    capture_output=True
-)
+              # Apply to Kubernetes
+              import subprocess
+              result = subprocess.run(
+                  ['kubectl', 'apply', '-f', '-'],
+                  input=json.dumps(spark_app).encode(),
+                  capture_output=True
+              )
 
-if result.returncode == 0:
-    print('Quality check SparkApplication submitted successfully')
-    exit(0)
-else:
-    print(f'Error submitting quality check: {result.stderr.decode()}')
-    exit(1)
-            "
+              if result.returncode == 0:
+                  print('Quality check SparkApplication submitted successfully')
+                  exit(0)
+              else:
+                  print(f'Error submitting quality check: {result.stderr.decode()}')
+                  exit(1)
           }
         },
         {
           "name": "wait_for_completion",
           "type": "SHELL",
           "params": {
-            "rawScript": "
-job_name=$(kubectl get sparkapplications -n data-platform -o jsonpath='{.items[-1].metadata.name}')
-kubectl wait --for=condition=Succeeded sparkapplication/$job_name -n data-platform --timeout=3600s
-            "
+            "rawScript": |
+              job_name=$(kubectl get sparkapplications -n data-platform -o jsonpath='{.items[-1].metadata.name}')
+              kubectl wait --for=condition=Succeeded sparkapplication/$job_name -n data-platform --timeout=3600s
           }
         }
       ],
@@ -139,11 +137,10 @@ kubectl wait --for=condition=Succeeded sparkapplication/$job_name -n data-platfo
           "name": "quality_check_summary",
           "type": "SHELL",
           "params": {
-            "rawScript": "
-# Query quality check results
-kubectl exec -n data-platform $(kubectl get pods -n data-platform -l app=spark-history-server -o jsonpath='{.items[0].metadata.name}') -- \
-  trino --server https://trino:8443 --user admin --execute 'SELECT table_name, COUNT(*) as check_count, COUNTIF(status=\"PASSED\") as passed FROM monitoring.deequ_quality_checks WHERE check_date = CURRENT_DATE GROUP BY table_name'
-            "
+            "rawScript": |
+              # Query quality check results
+              kubectl exec -n data-platform $(kubectl get pods -n data-platform -l app=spark-history-server -o jsonpath='{.items[0].metadata.name}') -- \
+                trino --server https://trino:8443 --user admin --execute 'SELECT table_name, COUNT(*) as check_count, COUNTIF(status=\"PASSED\") as passed FROM monitoring.deequ_quality_checks WHERE check_date = CURRENT_DATE GROUP BY table_name'
           }
         }
       ]
@@ -200,11 +197,10 @@ data:
           "name": "export_results",
           "type": "SHELL",
           "params": {
-            "rawScript": "
-# Export analytics results to multiple formats
-kubectl exec -n data-platform $(kubectl get pods -n data-platform -l app=trino-coordinator -o jsonpath='{.items[0].metadata.name}') -- \
-  trino --server https://trino:8443 --user admin --execute 'EXPORT TABLE analytics.summary TO PARQUET s3a://analytics-export/summary-${DATE}/'
-            "
+            "rawScript": |
+              # Export analytics results to multiple formats
+              kubectl exec -n data-platform $(kubectl get pods -n data-platform -l app=trino-coordinator -o jsonpath='{.items[0].metadata.name}') -- \
+                trino --server https://trino:8443 --user admin --execute 'EXPORT TABLE analytics.summary TO PARQUET s3a://analytics-export/summary-${DATE}/'
           }
         }
       ]
@@ -247,11 +243,10 @@ data:
           "name": "publish_profile_results",
           "type": "SHELL",
           "params": {
-            "rawScript": "
-# Push profiling results to Kafka for real-time monitoring
-kubectl exec -n data-platform $(kubectl get pods -n data-platform -l app=kafka -o jsonpath='{.items[0].metadata.name}') -- \
-  /opt/kafka/bin/kafka-console-producer.sh --broker-list localhost:9092 --topic data-profiling-results < /tmp/profile_results.json
-            "
+            "rawScript": |
+              # Push profiling results to Kafka for real-time monitoring
+              kubectl exec -n data-platform $(kubectl get pods -n data-platform -l app=kafka -o jsonpath='{.items[0].metadata.name}') -- \
+                /opt/kafka/bin/kafka-console-producer.sh --broker-list localhost:9092 --topic data-profiling-results < /tmp/profile_results.json
           }
         }
       ]
