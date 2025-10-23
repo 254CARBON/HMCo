@@ -311,13 +311,11 @@ spec:
     chart: kuberay-operator
     targetRevision: 1.0.0
     helm:
-      skipCrds: true
       values: |
         image:
           tag: v1.0.0
         rbac:
           create: true
-        # Webhook/CRDs are part of the chart
   destination:
     server: https://kubernetes.default.svc
     namespace: ray-system
