@@ -265,3 +265,628 @@ spec:
       port: 53
     - protocol: TCP
       port: 53
+# Network Policies for Istio Service Mesh
+# Update existing policies to allow Istio sidecar communication
+
+---
+# Allow Istio control plane communication
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-istio-control-plane
+  namespace: data-platform
+spec:
+  podSelector: {}
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  # Allow from Istio control plane
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: istio-system
+    ports:
+    - protocol: TCP
+      port: 15012  # xDS API
+    - protocol: TCP
+      port: 15017  # Webhook
+  egress:
+  # Allow to Istio control plane
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          name: istio-system
+    ports:
+    - protocol: TCP
+      port: 15012  # xDS API
+    - protocol: TCP
+      port: 443
+
+---
+# Allow Envoy sidecar metrics scraping
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-envoy-metrics
+  namespace: data-platform
+spec:
+  podSelector: {}
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: monitoring
+    - namespaceSelector:
+        matchLabels:
+          name: istio-system
+    ports:
+    - protocol: TCP
+      port: 15090  # Envoy Prometheus metrics
+    - protocol: TCP
+      port: 15020  # Merged Prometheus metrics
+
+---
+# Allow Envoy health checks
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-envoy-health
+  namespace: data-platform
+spec:
+  podSelector: {}
+  policyTypes:
+  - Ingress
+  ingress:
+  - ports:
+    - protocol: TCP
+      port: 15021  # Health check port
+
+---
+# Istio system namespace policies
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-istio-system-ingress
+  namespace: istio-system
+spec:
+  podSelector: {}
+  policyTypes:
+  - Ingress
+  ingress:
+  # Allow from all namespaces for control plane
+  - from:
+    - namespaceSelector: {}
+    ports:
+    - protocol: TCP
+      port: 15012  # xDS
+    - protocol: TCP
+      port: 15017  # Webhook
+    - protocol: TCP
+      port: 443    # Webhook HTTPS
+  
+  # Allow monitoring
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: monitoring
+    ports:
+    - protocol: TCP
+      port: 8080   # Metrics
+    - protocol: TCP
+      port: 15014  # Control plane monitoring
+  
+  # Allow Kiali and Jaeger UI access
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: ingress-nginx
+    ports:
+    - protocol: TCP
+      port: 20001  # Kiali
+    - protocol: TCP
+      port: 16686  # Jaeger
+
+---
+# Istio system egress
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-istio-system-egress
+  namespace: istio-system
+spec:
+  podSelector: {}
+  policyTypes:
+  - Egress
+  egress:
+  # Allow DNS
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: kube-system
+    ports:
+    - protocol: UDP
+      port: 53
+    - protocol: TCP
+      port: 53
+  
+  # Allow to all namespaces for webhook validation
+  - to:
+    - namespaceSelector: {}
+    ports:
+    - protocol: TCP
+      port: 443
+  
+  # Allow to Prometheus and Jaeger
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          name: monitoring
+    ports:
+    - protocol: TCP
+      port: 9090  # Prometheus
+  
+  - to:
+    - podSelector:
+        matchLabels:
+          app: jaeger
+    ports:
+    - protocol: TCP
+      port: 9411  # Zipkin endpoint
+    - protocol: TCP
+      port: 14250 # gRPC
+
+---
+# Allow service-to-service via Envoy
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-envoy-interception
+  namespace: data-platform
+spec:
+  podSelector: {}
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  # Allow all traffic on application ports (Envoy will handle mTLS)
+  - from:
+    - podSelector: {}
+  egress:
+  # Allow all egress (Envoy will enforce policies)
+  - to:
+    - podSelector: {}
+  - to:
+    - namespaceSelector: {}
+
+---
+# Updated PostgreSQL policy to allow Envoy traffic
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: postgres-istio-access
+  namespace: data-platform
+spec:
+  podSelector:
+    matchLabels:
+      app: postgres-shared
+  policyTypes:
+  - Ingress
+  ingress:
+  # Allow from pods in data-platform (via Envoy sidecars)
+  - from:
+    - podSelector: {}
+    ports:
+    - protocol: TCP
+      port: 5432
+
+---
+# Updated Kafka policy for Envoy traffic
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: kafka-istio-access
+  namespace: data-platform
+spec:
+  podSelector:
+    matchLabels:
+      app: kafka
+  policyTypes:
+  - Ingress
+  ingress:
+  # Allow from pods in data-platform (via Envoy sidecars)
+  - from:
+    - podSelector: {}
+    ports:
+    - protocol: TCP
+      port: 9092
+    - protocol: TCP
+      port: 9093
+
+---
+# Updated MinIO policy for Envoy traffic
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: minio-istio-access
+  namespace: data-platform
+spec:
+  podSelector:
+    matchLabels:
+      app: minio
+  policyTypes:
+  - Ingress
+  ingress:
+  # Allow from pods in data-platform (via Envoy sidecars)
+  - from:
+    - podSelector: {}
+    ports:
+    - protocol: TCP
+      port: 9000
+    - protocol: TCP
+      port: 9001
+  
+  # Allow from Velero
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: velero
+    ports:
+    - protocol: TCP
+      port: 9000
+
+---
+# Allow external egress (for external APIs)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-istio-external-egress
+  namespace: data-platform
+spec:
+  podSelector: {}
+  policyTypes:
+  - Egress
+  egress:
+  # Allow all external traffic (Envoy handles this)
+  - to:
+    - podSelector: {}
+  - to:
+    - namespaceSelector: {}
+  - ports:
+    - protocol: TCP
+      port: 443
+    - protocol: TCP
+      port: 80
+
+
+
+# NetworkPolicy for Spark Operator
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: spark-operator-network
+  namespace: data-platform
+  labels:
+    app: spark
+    component: networking
+spec:
+  podSelector:
+    matchLabels:
+      app: spark-operator
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  # Allow Kubernetes API access
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: kube-system
+    ports:
+    - protocol: TCP
+      port: 443
+  # Allow access from DolphinScheduler
+  - from:
+    - podSelector:
+        matchLabels:
+          app: dolphinscheduler
+    ports:
+    - protocol: TCP
+      port: 8080
+  egress:
+  # Allow Kubernetes API
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          name: kube-system
+    ports:
+    - protocol: TCP
+      port: 443
+  # Allow pod creation/management in data-platform
+  - to:
+    - podSelector: {}
+    ports:
+    - protocol: TCP
+      port: 443
+  # Allow DNS
+  - to:
+    - namespaceSelector: {}
+    ports:
+    - protocol: UDP
+      port: 53
+---
+# NetworkPolicy for Spark Application Pods (Drivers/Executors)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: spark-app-network
+  namespace: data-platform
+  labels:
+    app: spark
+    component: networking
+spec:
+  podSelector:
+    matchLabels:
+      spark-role: driver
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  # Allow access from Spark History Server
+  - from:
+    - podSelector:
+        matchLabels:
+          app: spark-history-server
+    ports:
+    - protocol: TCP
+      port: 7077
+  # Allow executor to driver communication
+  - from:
+    - podSelector:
+        matchLabels:
+          spark-role: executor
+    ports:
+    - protocol: TCP
+      port: 7077
+    - protocol: TCP
+      port: 8081
+  egress:
+  # Allow Iceberg REST Catalog
+  - to:
+    - podSelector:
+        matchLabels:
+          app: iceberg-rest-catalog
+    ports:
+    - protocol: TCP
+      port: 8181
+  # Allow MinIO access
+  - to:
+    - podSelector:
+        matchLabels:
+          app: minio
+    ports:
+    - protocol: TCP
+      port: 9000
+  # Allow Kafka access
+  - to:
+    - podSelector:
+        matchLabels:
+          app: kafka
+    ports:
+    - protocol: TCP
+      port: 9092
+  # Allow PostgreSQL access
+  - to:
+    - podSelector:
+        matchLabels:
+          app: postgres-shared
+    ports:
+    - protocol: TCP
+      port: 5432
+  # Allow MLFlow access
+  - to:
+    - podSelector:
+        matchLabels:
+          app: mlflow
+    ports:
+    - protocol: TCP
+      port: 5000
+  # Allow DNS
+  - to:
+    - namespaceSelector: {}
+    ports:
+    - protocol: UDP
+      port: 53
+  # Allow external internet (for package downloads)
+  - to:
+    - namespaceSelector: {}
+    ports:
+    - protocol: TCP
+      port: 443
+---
+# NetworkPolicy for Spark Executors
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: spark-executor-network
+  namespace: data-platform
+  labels:
+    app: spark
+    component: networking
+spec:
+  podSelector:
+    matchLabels:
+      spark-role: executor
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  # Allow driver to executor communication
+  - from:
+    - podSelector:
+        matchLabels:
+          spark-role: driver
+    ports:
+    - protocol: TCP
+      port: 8081
+  # Allow executor to executor communication
+  - from:
+    - podSelector:
+        matchLabels:
+          spark-role: executor
+    ports:
+    - protocol: TCP
+      port: 8081
+  egress:
+  # Allow driver communication
+  - to:
+    - podSelector:
+        matchLabels:
+          spark-role: driver
+    ports:
+    - protocol: TCP
+      port: 7077
+    - protocol: TCP
+      port: 8081
+  # Allow Iceberg REST Catalog
+  - to:
+    - podSelector:
+        matchLabels:
+          app: iceberg-rest-catalog
+    ports:
+    - protocol: TCP
+      port: 8181
+  # Allow MinIO access
+  - to:
+    - podSelector:
+        matchLabels:
+          app: minio
+    ports:
+    - protocol: TCP
+      port: 9000
+  # Allow Kafka access
+  - to:
+    - podSelector:
+        matchLabels:
+          app: kafka
+    ports:
+    - protocol: TCP
+      port: 9092
+  # Allow PostgreSQL access
+  - to:
+    - podSelector:
+        matchLabels:
+          app: postgres-shared
+    ports:
+    - protocol: TCP
+      port: 5432
+  # Allow MLFlow access
+  - to:
+    - podSelector:
+        matchLabels:
+          app: mlflow
+    ports:
+    - protocol: TCP
+      port: 5000
+  # Allow DNS
+  - to:
+    - namespaceSelector: {}
+    ports:
+    - protocol: UDP
+      port: 53
+  # Allow external internet
+  - to:
+    - namespaceSelector: {}
+    ports:
+    - protocol: TCP
+      port: 443
+---
+# NetworkPolicy for Spark History Server
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: spark-history-network
+  namespace: data-platform
+  labels:
+    app: spark
+    component: networking
+spec:
+  podSelector:
+    matchLabels:
+      app: spark-history-server
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  # Allow NGINX Ingress
+  - from:
+    - podSelector:
+        matchLabels:
+          app.kubernetes.io/name: ingress-nginx
+    ports:
+    - protocol: TCP
+      port: 18080
+  # Allow browser/user access through ingress
+  - from:
+    - podSelector:
+        matchLabels:
+          app.kubernetes.io/name: ingress-nginx
+    ports:
+    - protocol: TCP
+      port: 18080
+  egress:
+  # Allow MinIO access for logs
+  - to:
+    - podSelector:
+        matchLabels:
+          app: minio
+    ports:
+    - protocol: TCP
+      port: 9000
+  # Allow DNS
+  - to:
+    - namespaceSelector: {}
+    ports:
+    - protocol: UDP
+      port: 53
+---
+# Service Discovery for Spark Driver
+apiVersion: v1
+kind: Service
+metadata:
+  name: spark-driver-discovery
+  namespace: data-platform
+  labels:
+    app: spark
+    component: discovery
+spec:
+  selector:
+    spark-role: driver
+  ports:
+  - name: driver
+    port: 7077
+    targetPort: 7077
+  - name: driver-ui
+    port: 4040
+    targetPort: 4040
+  clusterIP: None
+---
+# Service Discovery for Spark Executor
+apiVersion: v1
+kind: Service
+metadata:
+  name: spark-executor-discovery
+  namespace: data-platform
+  labels:
+    app: spark
+    component: discovery
+spec:
+  selector:
+    spark-role: executor
+  ports:
+  - name: executor
+    port: 8081
+    targetPort: 8081
+  clusterIP: None
