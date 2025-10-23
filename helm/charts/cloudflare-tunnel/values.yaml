@@ -1,0 +1,51 @@
+replicaCount: 2
+
+image:
+  repository: cloudflare/cloudflared
+  tag: latest
+  pullPolicy: IfNotPresent
+
+tokenSecret:
+  # If true, chart will create a Secret from .Values.tokenSecret.token
+  create: false
+  name: cloudflare-tunnel-token
+  key: token
+  # token: "" # Do NOT set in Git; supply via external secret or existing Secret
+
+metrics:
+  enabled: true
+  port: 2000
+  path: /metrics
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
+
+podAnnotations:
+  prometheus.io/scrape: "true"
+  prometheus.io/port: "2000"
+  prometheus.io/path: "/metrics"
+
+nodeSelector: {}
+affinity: {}
+tolerations: []
+
+serviceAccount:
+  create: true
+  name: cloudflared
+
+podSecurityContext: {}
+
+securityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL
+
+extraArgs: []
+  # - "--loglevel"
+  # - "info"
