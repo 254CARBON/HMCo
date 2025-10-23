@@ -1,0 +1,396 @@
+# NGINX Ingress Controller Deployment
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ingress-nginx
+  labels:
+    app.kubernetes.io/name: ingress-nginx
+    app.kubernetes.io/part-of: data-infrastructure
+---
+# Service Account for NGINX Ingress Controller
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: nginx-ingress-serviceaccount
+  namespace: ingress-nginx
+  labels:
+    app.kubernetes.io/name: ingress-nginx
+---
+# ClusterRole for NGINX Ingress Controller
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: nginx-ingress-clusterrole
+  labels:
+    app.kubernetes.io/name: ingress-nginx
+rules:
+  - apiGroups:
+      - ""
+    resources:
+      - configmaps
+      - endpoints
+      - nodes
+      - pods
+      - secrets
+      - namespaces
+    verbs:
+      - list
+      - watch
+  - apiGroups:
+      - ""
+    resources:
+      - nodes
+    verbs:
+      - get
+  - apiGroups:
+      - ""
+    resources:
+      - services
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - "networking.k8s.io"
+    resources:
+      - ingresses
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - "networking.k8s.io"
+    resources:
+      - ingresses/status
+    verbs:
+      - update
+  - apiGroups:
+      - "networking.k8s.io"
+    resources:
+      - ingressclasses
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - "discovery.k8s.io"
+    resources:
+      - endpointslices
+    verbs:
+      - get
+      - list
+      - watch
+---
+# ClusterRoleBinding for NGINX Ingress Controller
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: nginx-ingress-clusterrolebinding
+  labels:
+    app.kubernetes.io/name: ingress-nginx
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: nginx-ingress-clusterrole
+subjects:
+  - kind: ServiceAccount
+    name: nginx-ingress-serviceaccount
+    namespace: ingress-nginx
+---
+# Role for NGINX Ingress Controller
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: nginx-ingress-role
+  namespace: ingress-nginx
+  labels:
+    app.kubernetes.io/name: ingress-nginx
+rules:
+  - apiGroups:
+      - ""
+    resources:
+      - configmaps
+      - pods
+      - secrets
+      - namespaces
+    verbs:
+      - get
+  - apiGroups:
+      - ""
+    resources:
+      - configmaps
+    resourceNames:
+      - ingress-controller-leader
+    verbs:
+      - get
+      - update
+  - apiGroups:
+      - ""
+    resources:
+      - configmaps
+    verbs:
+      - create
+  - apiGroups:
+      - ""
+    resources:
+      - endpoints
+    verbs:
+      - get
+      - create
+      - update
+  - apiGroups:
+      - coordination.k8s.io
+    resources:
+      - leases
+    verbs:
+      - get
+      - create
+      - update
+  - apiGroups:
+      - ""
+    resources:
+      - events
+    verbs:
+      - create
+      - patch
+---
+# RoleBinding for NGINX Ingress Controller
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: nginx-ingress-rolebinding
+  namespace: ingress-nginx
+  labels:
+    app.kubernetes.io/name: ingress-nginx
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: nginx-ingress-role
+subjects:
+  - kind: ServiceAccount
+    name: nginx-ingress-serviceaccount
+    namespace: ingress-nginx
+---
+# ConfigMap for NGINX Ingress Controller
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nginx-config
+  namespace: ingress-nginx
+  labels:
+    app.kubernetes.io/name: ingress-nginx
+data:
+  # Enable SSL/TLS passthrough for services that need it
+  ssl-protocols: "TLSv1.2 TLSv1.3"
+  # Optimize for data platform workloads
+  worker-processes: "1"
+  worker-connections: "1024"
+---
+# ConfigMap for TCP services
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: tcp-services
+  namespace: ingress-nginx
+  labels:
+    app.kubernetes.io/name: ingress-nginx
+data: {}
+---
+# ConfigMap for UDP services
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: udp-services
+  namespace: ingress-nginx
+  labels:
+    app.kubernetes.io/name: ingress-nginx
+data: {}
+---
+# NGINX Ingress Controller Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx-ingress-controller
+  namespace: ingress-nginx
+  labels:
+    app.kubernetes.io/name: ingress-nginx
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: ingress-nginx
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: ingress-nginx
+      annotations:
+        prometheus.io/port: "10254"
+        prometheus.io/scrape: "true"
+    spec:
+      serviceAccountName: nginx-ingress-serviceaccount
+      nodeSelector:
+        kubernetes.io/os: linux
+      tolerations:
+        - operator: Exists
+          effect: NoSchedule
+        - operator: Exists
+          effect: NoExecute
+      imagePullSecrets: []
+      containers:
+      - name: nginx-ingress-controller
+        image: registry.k8s.io/ingress-nginx/controller:v1.8.1
+        imagePullPolicy: IfNotPresent
+        args:
+          - /nginx-ingress-controller
+          - --configmap=$(POD_NAMESPACE)/nginx-config
+          - --tcp-services-configmap=$(POD_NAMESPACE)/tcp-services
+          - --udp-services-configmap=$(POD_NAMESPACE)/udp-services
+          - --publish-service=$(POD_NAMESPACE)/ingress-nginx-controller
+          - --annotations-prefix=nginx.ingress.kubernetes.io
+          - --enable-ssl-passthrough
+          - --default-ssl-certificate=$(POD_NAMESPACE)/tls-certificate
+        securityContext:
+          allowPrivilegeEscalation: true
+          runAsUser: 101
+          capabilities:
+            drop:
+            - ALL
+            add:
+            - NET_BIND_SERVICE
+        env:
+          - name: POD_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.name
+          - name: POD_NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
+        ports:
+        - name: http
+          containerPort: 80
+          protocol: TCP
+        - name: https
+          containerPort: 443
+          protocol: TCP
+        - name: metrics
+          containerPort: 10254
+          protocol: TCP
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 10254
+            scheme: HTTP
+          initialDelaySeconds: 10
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /healthz
+            port: 10254
+            scheme: HTTP
+          initialDelaySeconds: 10
+          periodSeconds: 10
+        resources:
+          limits:
+            memory: 1Gi
+            cpu: 500m
+          requests:
+            memory: 512Mi
+            cpu: 200m
+---
+# LoadBalancer Service for NGINX Ingress Controller
+apiVersion: v1
+kind: Service
+metadata:
+  name: ingress-nginx-controller
+  namespace: ingress-nginx
+  labels:
+    app.kubernetes.io/name: ingress-nginx
+  annotations:
+    service.beta.kubernetes.io/aws-load-balancer-backend-protocol: "tcp"
+    service.beta.kubernetes.io/aws-load-balancer-ssl-cert: "arn:aws:acm:region:account:certificate/certificate-id"
+    service.beta.kubernetes.io/aws-load-balancer-ssl-ports: "https"
+spec:
+  type: LoadBalancer
+  ports:
+    - name: http
+      port: 80
+      targetPort: 80
+      protocol: TCP
+    - name: https
+      port: 443
+      targetPort: 443
+      protocol: TCP
+  selector:
+    app.kubernetes.io/name: ingress-nginx
+---
+# Default IngressClass
+apiVersion: networking.k8s.io/v1
+kind: IngressClass
+metadata:
+  name: nginx
+  labels:
+    app.kubernetes.io/name: ingress-nginx
+  annotations:
+    ingressclass.kubernetes.io/is-default-class: "true"
+spec:
+  controller: k8s.io/ingress-nginx
+
+---
+# Self-signed default TLS certificate for demo usage
+apiVersion: v1
+kind: Secret
+metadata:
+  name: tls-certificate
+  namespace: ingress-nginx
+type: kubernetes.io/tls
+stringData:
+  tls.crt: |
+    -----BEGIN CERTIFICATE-----
+    MIIDCTCCAfGgAwIBAgIUa1cdWC/3HjzR9FdzLhtkfohTrfEwDQYJKoZIhvcNAQEL
+    BQAwFDESMBAGA1UEAwwJbG9jYWxob3N0MB4XDTI1MTAxODIzNTMzOFoXDTI2MTAx
+    ODIzNTMzOFowFDESMBAGA1UEAwwJbG9jYWxob3N0MIIBIjANBgkqhkiG9w0BAQEF
+    AAOCAQ8AMIIBCgKCAQEA/RgcydwBDP3QPBrLapf6k3/X80ogoK7gQOANdYyEwLua
+    AfYhE31ljXdRS4VGk/pLPzRdUKVXQUG4ku7tzrFrtOMvgmnznrhF4hJ4qowmQ3Tf
+    axsiCqoEq0SasMN0v+I8EDdl+zCIKYL4pYbgwEMMJZ6t+PXM/Tq9L4U9MuzLjUHy
+    kkuCA2uAp6Ha42Jog2GvQXDIODwih+ZvtbjpNKxSOhwZcTx8drRz8XXHcwNOLzlD
+    /9csF8hhCZ4SczarN5T3Ukx0aZEEPV3wnAg2mp9WTz3q3McHQiZL3iaOevSZO7Gt
+    ff85sMVLNTDH5hp6RcJQC61sa2dPPZz7iximJzNxlwIDAQABo1MwUTAdBgNVHQ4E
+    FgQU+A+ZJwXjnFhfGz35JbTgwBsNVdkwHwYDVR0jBBgwFoAU+A+ZJwXjnFhfGz35
+    JbTgwBsNVdkwDwYDVR0TAQH/BAUwAwEB/zANBgkqhkiG9w0BAQsFAAOCAQEAo65h
+    tfyIjRrBBjFluxKokrQvJDDS2nMg5XZ1Aia8lYp4WCpOdpxcEMPtkHNIRdzNyea4
+    VCdgmn7a9lvTQzwenZIldtd0R+6hkv6DdqPsq8q5hBfrVua94B8l/DXMp9+VBL9V
+    5NRZQ0hu+ZDrxZb7sWmlDeuf97F/VD/z88mb02slFrwWNlCQ+zraoCQPn1tMnMo4
+    bUkidtuD69BCW8bSKMhRUJzOOvv4t5Eo25YYmymfx/7LFywXrTceB+Zxe63l7vGb
+    YMVzzaHv2UmJfltXnQGwGeuuRnhxmkQ2jO+MVae9Saj7qB9Hex995IwmenTStAu8
+    6LIxACxpg/HUZxg7Cw==
+    -----END CERTIFICATE-----
+  tls.key: |
+    -----BEGIN PRIVATE KEY-----
+    MIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQD9GBzJ3AEM/dA8
+    Gstql/qTf9fzSiCgruBA4A11jITAu5oB9iETfWWNd1FLhUaT+ks/NF1QpVdBQbiS
+    7u3OsWu04y+CafOeuEXiEniqjCZDdN9rGyIKqgSrRJqww3S/4jwQN2X7MIgpgvil
+    huDAQwwlnq349cz9Or0vhT0y7MuNQfKSS4IDa4CnodrjYmiDYa9BcMg4PCKH5m+1
+    uOk0rFI6HBlxPHx2tHPxdcdzA04vOUP/1ywXyGEJnhJzNqs3lPdSTHRpkQQ9XfCc
+    CDaan1ZPPercxwdCJkveJo569Jk7sa19/zmwxUs1MMfmGnpFwlALrWxrZ089nPuL
+    GKYnM3GXAgMBAAECggEAB6nxwTkMvRh4dEF5dGZau5ms79yIRWVWPBCsx6j0IiPs
+    I3ARC1aKOzDoQMmt2/BB1A2hX75J+JtlW+mpQM+Fi+ovN5s+uckpsJFPnxZ0WCmT
+    VFpzevAwCQGgT4bzo5XVrMYIrAUJsnwZTGXbq2a8WO1HpljHFsnvDZ/SvRaHiWTs
+    6YNx9Tnp1GUtOmZ4Hwe0Ov1Vhd8hrcA46kPCzF3h3smoXzzx/T52rPa+DI3YMIvg
+    RXzV5PfCyMhHEeOpROBTNZdHFoE7YvMc6DgQmpaxyQWYXE5L2X2ZPUj0+1/Stg6V
+    w6PKviEn1UuJWA7Gh+fGlhjKfasDv4Gf82+bDPHy1QKBgQD/3+U/S2bhz+9LKxzA
+    inLU1XXaba03ysW+qfOWGfB/CBB9l/nqmt1VYFZ8QLwGrVrRllU7Fnba5wavgQvW
+    7KF+YLTfO04wNKCu93COxsVKQOQFdv0n1P5Tk75g4G2C7YyYl01r8M69S1WK4tlR
+    qMhHprDtnfqbvWjztRZP/jFfBQKBgQD9N9477JofvO3iqB8lnkTMRXcnbXcLph0v
+    6z160ePZTREzHUQ3qdvnGzofv+8TmVaiOWB7MHKk9eKMRNOKXv+WXdMX0i2vsoDG
+    JbmKddZCA7le/h315lurSvZNKnO55HSykwftG19fF8wQG9BFvmmeX4UHva+ZLqCW
+    44v7JPHY6wKBgQD1szY8UBhLz9KVWKG0VX2s2AjiJR0HDQRTcHjB8siYAtNq9ot5
+    9xmACREjITosIzypMvVG1uxsiRlHX+BRkkoEw7ILBbSv32lIebwwrbf29FbA1KCF
+    JibNdHqEJh2icp7mS6uBcevjozpSMkDCBBPFkdAla+SgtgHYu1PgnlMkTQKBgQCh
+    clJ+UH+ABtyBbAHX4U4qE4xCFjgVtEbdu5XKTjKA5PM3bMyG1QUBF8n6XkyXaWfk
+    LMMIKD6gUKmuF1/s1F8PRykFAhvg7uXN8FWZI0KFeoxhNZJyqvn9f+EEGDIK7s88
+    4CPomFA5eBnCl4k2Po5mzK4r3lQsTZ9UNSaV7NtKGwKBgHmsN3Yj6BzvdzEvtxMM
+    n4V7GYR6vAd1OZ1B9ijN72UpLM8eVKZuIySGINZI471qd67uqjtGstgGFRcLE1wr
+    OrVYnTDB7tzJAJQNLlpNizsNT3uNfz9B8ECWJuL8cKEGTangRg2HJbhbv0pDGLe8
+    TqSNQez75rJDJaQNW0iJPkIR
+    -----END PRIVATE KEY-----
