@@ -12,7 +12,7 @@ The platform is designed to be a scalable and resilient environment for data sci
 
 ## Getting Started
 
-All platform components are managed as Helm charts and deployed via ArgoCD. The ArgoCD applications are defined in `k8s/gitops/argocd-applications.yaml`.
+All platform components are managed as Helm charts and deployed via ArgoCD. The ArgoCD applications are defined in `k8s/gitops/argocd-applications.yaml`. For runbooks, SSO guides, and troubleshooting, start with the curated documentation index at [`docs/index.md`](docs/index.md).
 
 ### Prerequisites
 
@@ -24,7 +24,7 @@ All platform components are managed as Helm charts and deployed via ArgoCD. The 
 ### Deployment
 
 1.  **Install ArgoCD:** Apply the `argocd-install.yaml` manifest to your cluster.
-2.  **Apply the AppProject:** Apply the `argocd-applications.yaml` file to create the `production` AppProject.
+2.  **Apply the AppProject:** Apply the `argocd-applications.yaml` file to create the `production` AppProject (pre-scoped to namespaces including `data-platform`, `monitoring`, `istio-system`, and supporting services).
 3.  **Deploy the Applications:** The applications are configured with `selfHeal: true` and will be automatically deployed by ArgoCD in the correct order.
 
 ## Repository Structure

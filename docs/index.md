@@ -1,69 +1,69 @@
 # 254Carbon Documentation Index
 
-This directory now contains the canonical runbooks, guides, and references for 254Carbon. Use the sections below to find the latest documentation; historical reports live under `docs/history/`.
+This directory now contains the canonical runbooks, guides, and references for 254Carbon. Use the sections below to find the latest documentation; historical reports live under [history/](history/).
 
 ## Getting Started
-- Quickstart: `docs/getting-started/quickstart.md`
-- Production Readiness: `docs/readiness/production-readiness.md`
-- Infrastructure Roadmap 2025: `docs/readiness/infrastructure-roadmap-2025.md`
-- Performance Metrics & Targets: `docs/readiness/performance-metrics.md`
+- [Quickstart](getting-started/quickstart.md)
+- [Production Readiness](readiness/production-readiness.md)
+- [Infrastructure Roadmap 2025](readiness/infrastructure-roadmap-2025.md)
+- [Performance Metrics & Targets](readiness/performance-metrics.md)
 
 ## Cloudflare
-- Overview & Architecture: `docs/cloudflare/overview.md`
-- Deployment Guide: `docs/cloudflare/deployment.md`
-- Credentials & Rotation: `docs/cloudflare/credentials.md`
-- Cloudflare Access Apps: `docs/sso/cloudflare-access.md`
-- Free Tier Capabilities: `docs/cloudflare/free-tier.md`
-- Troubleshooting (incl. Error 1033): `docs/cloudflare/troubleshooting.md`
+- [Overview & Architecture](cloudflare/overview.md)
+- [Deployment Guide](cloudflare/deployment.md)
+- [Credentials & Rotation](cloudflare/credentials.md)
+- [Cloudflare Access Apps](sso/cloudflare-access.md)
+- [Free Tier Capabilities](cloudflare/free-tier.md)
+- [Troubleshooting (incl. Error 1033)](cloudflare/troubleshooting.md)
 
 ## Single Sign-On (SSO)
-- Documentation Hub: `docs/sso/index.md`
-- Overview & Timeline: `docs/sso/overview.md`
-- Phase 2–4 Guide: `docs/sso/guide.md`
-- Quickstart: `docs/sso/quickstart.md`
-- Cloudflare Access Configuration: `docs/sso/cloudflare-access.md`
-- Quick Reference: `docs/sso/quick-reference.md`
-- Implementation Checklist: `docs/sso/checklist.md`
-- Automation & Status: `docs/sso/status.md`
-- Validation & Testing: `docs/sso/validation.md`
+- [Documentation Hub](sso/index.md)
+- [Overview & Timeline](sso/overview.md)
+- [Phase 2–4 Guide](sso/guide.md)
+- [Quickstart](sso/quickstart.md)
+- [Cloudflare Access Configuration](sso/cloudflare-access.md)
+- [Quick Reference](sso/quick-reference.md)
+- [Implementation Checklist](sso/checklist.md)
+- [Automation & Status](sso/status.md)
+- [Validation & Testing](sso/validation.md)
 
 ## Operations
-- Ingress Rules Overview: `docs/operations/ingress.md`
-- Platform Scripts Index: `docs/operations/scripts.md`
-- Portal Integration Notes: `docs/operations/portal-frontend-integration.md`, `docs/operations/portal-services-api.md`
-- Cloudflare Runbook: `docs/operations/cloudflare-runbook.md`
-- Backups: `docs/operations/backup-guide.md`
-- Image Mirroring: `docs/operations/image-mirroring.md`
+- [Ingress Rules Overview](operations/ingress.md)
+- [Platform Scripts Index](operations/scripts.md)
+- Portal Integration Notes: [Frontend](operations/portal-frontend-integration.md), [Services API](operations/portal-services-api.md)
+- [Cloudflare Runbook](operations/cloudflare-runbook.md)
+- [Backups](operations/backup-guide.md)
+- [Image Mirroring](operations/image-mirroring.md)
 - Deployment Hub:
-  - Index: `docs/operations/deployment/index.md`
-  - Automated Deployment: `docs/operations/deployment/automated-deployment.md`
-  - Full Deployment Guide: `docs/operations/deployment/deployment-guide.md`
-  - Operations Runbook: `docs/operations/deployment/operations-runbook.md`
-  - Troubleshooting: `docs/operations/deployment/troubleshooting.md`
-  - Quick Reference: `docs/operations/deployment/quick-reference.md`
-  - Migration Runbook: `docs/operations/deployment/full-migration-runbook.md`
-  - Production Migration Plan: `docs/operations/deployment/production-migration-plan.md`
-  - Start Here: `docs/operations/deployment/start-here.md`
-- Environment Preparation: files under `docs/operations/environment/`
+  - [Index](operations/deployment/index.md)
+  - [Automated Deployment](operations/deployment/automated-deployment.md)
+  - [Full Deployment Guide](operations/deployment/deployment-guide.md)
+  - [Operations Runbook](operations/deployment/operations-runbook.md)
+  - [Troubleshooting](operations/deployment/troubleshooting.md)
+  - [Quick Reference](operations/deployment/quick-reference.md)
+  - [Migration Runbook](operations/deployment/full-migration-runbook.md)
+  - [Production Migration Plan](operations/deployment/production-migration-plan.md)
+  - [Start Here](operations/deployment/start-here.md)
+- Environment Preparation: files under [`operations/environment/`](operations/environment/)
 
 ## Data Platform
 - Iceberg
-  - Integration Overview: `docs/data-platform/iceberg/integration.md`
-  - Testing Guide: `docs/data-platform/iceberg/testing-guide.md`
-  - Monitoring: `docs/data-platform/iceberg/monitoring.md`
-  - Operations Runbook: `docs/data-platform/iceberg/operations-runbook.md`
-  - Security Hardening: `docs/data-platform/iceberg/security-hardening.md`
+  - [Integration Overview](data-platform/iceberg/integration.md)
+  - [Testing Guide](data-platform/iceberg/testing-guide.md)
+  - [Monitoring](data-platform/iceberg/monitoring.md)
+  - [Operations Runbook](data-platform/iceberg/operations-runbook.md)
+  - [Security Hardening](data-platform/iceberg/security-hardening.md)
 - MLFlow
-  - Overview: `docs/mlflow/README.md`
-  - Integration Guide: `docs/mlflow/integration-guide.md`
-  - Operations Runbook: `docs/mlflow/operations-runbook.md`
-  - Troubleshooting: `docs/mlflow/troubleshooting.md`
+  - [Overview](mlflow/README.md)
+  - [Integration Guide](mlflow/integration-guide.md)
+  - [Operations Runbook](mlflow/operations-runbook.md)
+  - [Troubleshooting](mlflow/troubleshooting.md)
 
 ## Troubleshooting
-- Platform incidents, error fixes, and remediation playbooks: `docs/troubleshooting/`
+- Platform incidents, error fixes, and remediation playbooks: [`troubleshooting/`](troubleshooting/)
 
 ## UI / UX
-- Portal design references and shortcuts: `docs/ui-ux/`
+- Portal design references and shortcuts: [`ui-ux/`](ui-ux/)
 
 ## History & Archive
-- Project status reports, implementation summaries, and historical references live under `docs/history/`.
+- Project status reports, implementation summaries, and historical references live under [`history/`](history/).

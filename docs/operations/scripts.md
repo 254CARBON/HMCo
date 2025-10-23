@@ -4,8 +4,9 @@ Purpose and quick usage for operational scripts in `scripts/`.
 
 Cloudflare & SSO
 - `scripts/update-cloudflare-credentials.sh` — Rotates tunnel credentials and restarts cloudflared
-  - docs/cloudflare/credentials.md
+  - See [Cloudflare credentials guide](../cloudflare/credentials.md)
 - `scripts/setup-cloudflare-dns.sh` — Creates/updates Cloudflare DNS records for exposed services
+- `scripts/update-tunnel-routes.sh` — Refreshes Cloudflare tunnel ingress routes via API
 - `scripts/create-cloudflare-access-apps.sh` — Helper to create Access apps (if used)
 - `scripts/sso-setup-phase2.sh` — Applies ingress updates and service-side auth changes after Phase 2
 
@@ -17,5 +18,5 @@ Platform Operations
 - `scripts/verify-tunnel.sh` — Checks tunnel health and common failure modes
 
 See also
-- `docs/operations/deployment/operations-runbook.md` — Operational run procedures
-- `docs/operations/deployment/troubleshooting.md` — Common issues and fixes
+- [Operations runbook](deployment/operations-runbook.md) — Operational procedures
+- [Deployment troubleshooting](deployment/troubleshooting.md) — Common issues and fixes
