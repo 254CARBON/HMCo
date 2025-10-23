@@ -43,20 +43,75 @@ spec:
         - -c
         - |
           set -e
+          
+          # Install dependencies
           echo "Installing dependencies..."
-          pip install --quiet --no-cache-dir requests pyyaml
+          apt-get update -qq && apt-get install -y -qq git curl jq > /dev/null 2>&1
+          pip install --quiet --no-cache-dir requests pyyaml urllib3
           
-          echo "Loading workflow JSON files..."
-          cd /workflows
+          # Clone repository if GIT_REPO is set, otherwise use mounted workflows
+          if [[ -n "${GIT_REPO}" ]]; then
+            echo "Cloning workflows from git: ${GIT_REPO}"
+            git clone --depth 1 --branch ${GIT_BRANCH:-main} ${GIT_REPO} /repo
+            WORKFLOW_DIR="/repo/workflows"
+            SCRIPT_PATH="/repo/scripts/import-workflows-from-files.py"
+          else
+            echo "Using mounted workflow files from ConfigMap"
+            WORKFLOW_DIR="/workflows"
+            SCRIPT_PATH="/scripts/import-workflows-from-files.py"
+          fi
           
-          echo "Running workflow import script..."
-          python3 /scripts/import-workflows-from-files.py \
+          # Verify workflow files exist
+          echo "Checking for workflow files..."
+          if ls ${WORKFLOW_DIR}/*.json 1> /dev/null 2>&1; then
+            echo "Found $(ls ${WORKFLOW_DIR}/*.json | wc -l) workflow files"
+          else
+            echo "ERROR: No workflow JSON files found in ${WORKFLOW_DIR}"
+            echo "Contents of ${WORKFLOW_DIR}:"
+            ls -la ${WORKFLOW_DIR} || true
+            exit 1
+          fi
+          
+          # Check if import script exists
+          if [[ ! -f "${SCRIPT_PATH}" ]]; then
+            echo "WARNING: Import script not found at ${SCRIPT_PATH}"
+            echo "This is expected if using ConfigMap placeholders."
+            echo "Workflows will be imported when GIT_REPO is configured."
+            
+            # Simple validation script as fallback
+            echo "Validating workflow files..."
+            for json_file in ${WORKFLOW_DIR}/*.json; do
+              if [[ -f "$json_file" ]]; then
+                echo "  Checking $(basename $json_file)..."
+                if python3 -c "import json; json.load(open('$json_file'))" 2>/dev/null; then
+                  echo "    ✓ Valid JSON"
+                else
+                  echo "    ✗ Invalid JSON"
+                  exit 1
+                fi
+              fi
+            done
+            
+            echo ""
+            echo "✓ All workflow files validated"
+            echo "Note: To enable automatic import, set GIT_REPO environment variable"
+            echo "      to your repository URL containing workflows and import script."
+            exit 0
+          fi
+          
+          # Run import
+          echo "Running workflow import..."
+          python3 ${SCRIPT_PATH} \
             --dolphin-url http://dolphinscheduler-api.data-platform:12345 \
-            --workflow-dir /workflows \
+            --workflow-dir ${WORKFLOW_DIR} \
             --project-name "Commodity Data Platform" \
-            --skip-existing
+            --skip-existing || \
+          DOLPHIN_URL="http://dolphinscheduler-api.data-platform:12345" \
+          WORKFLOW_DIR="${WORKFLOW_DIR}" \
+          PROJECT_NAME="Commodity Data Platform" \
+          python3 ${SCRIPT_PATH}
           
-          echo "Workflow import complete!"
+          echo "✓ Workflow import complete!"
         env:
         - name: PYTHONUNBUFFERED
           value: "1"
@@ -68,6 +123,11 @@ spec:
               name: dolphinscheduler-admin
               key: password
               optional: true
+        # GitOps: Clone workflows from git repository (recommended)
+        - name: GIT_REPO
+          value: ""  # Set to your repo URL, e.g. https://github.com/org/repo.git
+        - name: GIT_BRANCH
+          value: "main"
         # API keys auto-loaded from secret
         envFrom:
         - secretRef:
