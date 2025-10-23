@@ -23,7 +23,7 @@ spec:
       - name: "data-lake.enabled"
         value: "true"
       - name: "datahub.enabled"
-        value: "true"
+        value: "false"
       - name: "spark-operator.enabled"
         value: "true"
       - name: "dolphinscheduler.enabled"
