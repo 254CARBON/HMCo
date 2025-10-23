@@ -96,12 +96,10 @@ spec:
         - name: SPRING_DATASOURCE_DRIVER_CLASS_NAME
           value: "org.postgresql.Driver"
         - name: REGISTRY_TYPE
-          value: "jdbc"
-        - name: REGISTRY_JDBC_DRIVER_CLASS_NAME
-          value: "org.postgresql.Driver"
-        - name: REGISTRY_JDBC_URL
-          value: "jdbc:postgresql://postgres-workflow-service:5432/dolphinscheduler"
-        - name: REGISTRY_JDBC_USERNAME
+          value: "zookeeper"
+        - name: REGISTRY_ZOOKEEPER_CONNECT_STRING
+          value: "zookeeper-service:2181"
+        - name: REGISTRY_ZOOKEEPER_NAMESPACE
           value: "dolphinscheduler"
         - name: SPRING_JACKSON_TIME_ZONE
           value: "UTC"
@@ -220,12 +218,10 @@ spec:
         - name: SPRING_DATASOURCE_DRIVER_CLASS_NAME
           value: "org.postgresql.Driver"
         - name: REGISTRY_TYPE
-          value: "jdbc"
-        - name: REGISTRY_JDBC_DRIVER_CLASS_NAME
-          value: "org.postgresql.Driver"
-        - name: REGISTRY_JDBC_URL
-          value: "jdbc:postgresql://postgres-workflow-service:5432/dolphinscheduler"
-        - name: REGISTRY_JDBC_USERNAME
+          value: "zookeeper"
+        - name: REGISTRY_ZOOKEEPER_CONNECT_STRING
+          value: "zookeeper-service:2181"
+        - name: REGISTRY_ZOOKEEPER_NAMESPACE
           value: "dolphinscheduler"
         - name: SPRING_JACKSON_TIME_ZONE
           value: "UTC"
@@ -324,12 +320,10 @@ spec:
         - name: SPRING_DATASOURCE_DRIVER_CLASS_NAME
           value: "org.postgresql.Driver"
         - name: REGISTRY_TYPE
-          value: "jdbc"
-        - name: REGISTRY_JDBC_DRIVER_CLASS_NAME
-          value: "org.postgresql.Driver"
-        - name: REGISTRY_JDBC_URL
-          value: "jdbc:postgresql://postgres-workflow-service:5432/dolphinscheduler"
-        - name: REGISTRY_JDBC_USERNAME
+          value: "zookeeper"
+        - name: REGISTRY_ZOOKEEPER_CONNECT_STRING
+          value: "zookeeper-service:2181"
+        - name: REGISTRY_ZOOKEEPER_NAMESPACE
           value: "dolphinscheduler"
         - name: SPRING_JACKSON_TIME_ZONE
           value: "UTC"
@@ -428,12 +422,10 @@ spec:
         - name: SPRING_DATASOURCE_DRIVER_CLASS_NAME
           value: "org.postgresql.Driver"
         - name: REGISTRY_TYPE
-          value: "jdbc"
-        - name: REGISTRY_JDBC_DRIVER_CLASS_NAME
-          value: "org.postgresql.Driver"
-        - name: REGISTRY_JDBC_URL
-          value: "jdbc:postgresql://postgres-workflow-service:5432/dolphinscheduler"
-        - name: REGISTRY_JDBC_USERNAME
+          value: "zookeeper"
+        - name: REGISTRY_ZOOKEEPER_CONNECT_STRING
+          value: "zookeeper-service:2181"
+        - name: REGISTRY_ZOOKEEPER_NAMESPACE
           value: "dolphinscheduler"
         - name: SPRING_JACKSON_TIME_ZONE
           value: "UTC"
