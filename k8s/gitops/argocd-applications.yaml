@@ -275,6 +275,9 @@ spec:
     targetRevision: main
     path: k8s/ml-platform/ray-serve/kuberay-crds
     kustomize: {}
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: ray-system
   syncPolicy:
     automated: null
 ---
