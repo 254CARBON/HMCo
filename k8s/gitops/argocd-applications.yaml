@@ -275,24 +275,8 @@ spec:
     targetRevision: main
     path: k8s/ml-platform/ray-serve/kuberay-crds
     kustomize: {}
-  destination:
-    server: https://kubernetes.default.svc
-    namespace: ray-system
   syncPolicy:
-    automated:
-      prune: false
-      selfHeal: true
-      allowEmpty: false
-    syncOptions:
-      - CreateNamespace=true
-      - ServerSideApply=true
-      - Replace=true
-    retry:
-      limit: 5
-      backoff:
-        duration: 5s
-        factor: 2
-
+    automated: null
 ---
 # ArgoCD Application: KubeRay Operator via Helm (CRDs included)
 apiVersion: argoproj.io/v1alpha1
