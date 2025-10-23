@@ -68,6 +68,15 @@ spec:
   destination:
     server: https://kubernetes.default.svc
     namespace: cloudflare-tunnel
+  ignoreDifferences:
+    - group: monitoring.coreos.com
+      kind: ServiceMonitor
+      managedFieldsManagers:
+        - prometheus-operator
+      jsonPointers:
+        - /metadata/labels
+        - /metadata/annotations
+        - /spec/endpoints
   syncPolicy:
     automated:
       prune: false
@@ -178,6 +187,22 @@ spec:
       kind: '*'
   orphanedResources:
     warn: true
+    ignore:
+      - group: ""
+        kind: ConfigMap
+        name: kube-root-ca.crt
+      - group: ""
+        kind: ConfigMap
+        name: istio-ca-root-cert
+      - group: ""
+        kind: ServiceAccount
+        name: default
+      - group: ""
+        kind: Secret
+        name: cloudflare-tunnel-token
+      - group: ""
+        kind: Secret
+        name: cloudflare-tunnel-token
 
 ---
 # ArgoCD Application: Ray Serve (RayService)

@@ -144,11 +144,22 @@ spec:
         app: superset
         component: init
     spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
       restartPolicy: OnFailure
       containers:
       - name: superset-init
         image: apache/superset:3.0.0
         imagePullPolicy: IfNotPresent
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop: ["ALL"]
         command:
         - /bin/bash
         - -c
@@ -284,12 +295,19 @@ spec:
         component: web
     spec:
       securityContext:
+        runAsNonRoot: true
         runAsUser: 1000
         runAsGroup: 1000
         fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
       initContainers:
       - name: wait-for-postgres
         image: busybox:1.36
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop: ["ALL"]
         command:
         - sh
         - -c
@@ -300,6 +318,10 @@ spec:
           done
       - name: wait-for-redis
         image: busybox:1.36
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop: ["ALL"]
         command:
         - sh
         - -c
@@ -312,6 +334,10 @@ spec:
       - name: superset
         image: apache/superset:3.0.0
         imagePullPolicy: IfNotPresent
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop: ["ALL"]
         command:
         - /bin/sh
         - -c
@@ -433,10 +459,21 @@ spec:
         app: superset
         component: worker
     spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
       containers:
       - name: superset-worker
         image: apache/superset:3.0.0
         imagePullPolicy: IfNotPresent
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop: ["ALL"]
         command:
         - /bin/sh
         - -c
@@ -544,10 +581,21 @@ spec:
         app: superset
         component: beat
     spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
       containers:
       - name: superset-beat
         image: apache/superset:3.0.0
         imagePullPolicy: IfNotPresent
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop: ["ALL"]
         command:
         - /bin/sh
         - -c

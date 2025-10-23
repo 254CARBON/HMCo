@@ -58,9 +58,10 @@ class DolphinSchedulerClient:
                 result = json.loads(response.read().decode('utf-8'))
                 
             if result.get('code') == 0 and result.get('data'):
-                self.token = result['data'].get('token')
+                # DolphinScheduler 3.x uses sessionId instead of token
+                self.token = result['data'].get('token') or result['data'].get('sessionId')
                 self.user_id = result['data'].get('id')
-                print(f"{Colors.GREEN}✓ Authenticated successfully{Colors.NC}")
+                print(f"{Colors.GREEN}✓ Authenticated successfully (sessionId: {self.token[:20] if self.token else 'N/A'}...){Colors.NC}")
                 return True
             else:
                 print(f"{Colors.RED}✗ Login failed: {result.get('msg', 'Unknown error')}{Colors.NC}")
@@ -83,12 +84,11 @@ class DolphinSchedulerClient:
         
         url = f"{self.base_url}{endpoint}"
         
-        # Add token to URL
-        separator = '&' if '?' in url else '?'
-        url = f"{url}{separator}token={self.token}"
-        
         try:
             req = urllib.request.Request(url, data=data, method=method)
+            
+            # Add sessionId as cookie header (DolphinScheduler 3.x uses session cookies)
+            req.add_header('Cookie', f'sessionId={self.token}')
             
             if headers:
                 for key, value in headers.items():
@@ -109,28 +109,28 @@ class DolphinSchedulerClient:
     
     def get_projects(self) -> List[Dict]:
         """Get list of all projects"""
-        result = self._make_request('/dolphinscheduler/projects/list')
+        result = self._make_request('/dolphinscheduler/projects?pageNo=1&pageSize=100')
         if result and result.get('code') == 0:
-            return result.get('data', [])
+            data = result.get('data', {})
+            if isinstance(data, dict):
+                return data.get('totalList', [])
+            return data if isinstance(data, list) else []
         return []
     
     def create_project(self, name: str, description: str = "") -> Optional[int]:
         """Create a new project"""
-        endpoint = '/dolphinscheduler/projects/create'
-        params = urllib.parse.urlencode({
+        endpoint = '/dolphinscheduler/projects'
+        data = urllib.parse.urlencode({
             'projectName': name,
             'description': description
-        })
+        }).encode('utf-8')
         
-        result = self._make_request(f"{endpoint}?{params}", method='POST')
+        headers = {'Content-Type': 'application/x-www-form-urlencoded'}
+        result = self._make_request(endpoint, method='POST', data=data, headers=headers)
         if result and result.get('code') == 0:
             print(f"{Colors.GREEN}✓ Created project: {name}{Colors.NC}")
-            time.sleep(1)
-            projects = self.get_projects()
-            for proj in projects:
-                if proj.get('name') == name:
-                    return proj.get('code')
-            return None
+            project_data = result.get('data', {})
+            return project_data.get('code')
         else:
             msg = result.get('msg', 'Unknown error') if result else 'No response'
             print(f"{Colors.RED}✗ Failed to create project: {msg}{Colors.NC}")

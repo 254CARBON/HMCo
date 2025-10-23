@@ -4,14 +4,18 @@ kind: ServiceMonitor
 metadata:
   name: cloudflare-tunnel
   namespace: {{ ternary .Release.Namespace .Values.serviceMonitor.namespace (eq .Values.serviceMonitor.namespace "") }}
+  {{- if .Values.serviceMonitor.labels }}
   labels:
     {{- range $k, $v := .Values.serviceMonitor.labels }}
     {{ $k }}: {{ $v | quote }}
     {{- end }}
+  {{- end }}
+  {{- if .Values.serviceMonitor.annotations }}
   annotations:
     {{- range $k, $v := .Values.serviceMonitor.annotations }}
     {{ $k }}: {{ $v | quote }}
     {{- end }}
+  {{- end }}
 spec:
   selector:
     matchLabels:
