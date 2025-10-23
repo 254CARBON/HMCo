@@ -1,0 +1,96 @@
+# Grafana Configuration for 254Carbon Platform
+# Optimized for on-premise deployment with Victoria Metrics
+
+# Admin credentials
+adminUser: admin
+adminPassword: grafana123
+
+# Persistence
+persistence:
+  enabled: true
+  storageClassName: local-path
+  size: 10Gi
+
+# Resources
+resources:
+  requests:
+    cpu: 200m
+    memory: 512Mi
+  limits:
+    cpu: 1000m
+    memory: 2Gi
+
+# Ingress
+ingress:
+  enabled: true
+  ingressClassName: nginx
+  hosts:
+    - grafana.254carbon.com
+  annotations:
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"
+
+# Data sources
+datasources:
+  datasources.yaml:
+    apiVersion: 1
+    datasources:
+    - name: VictoriaMetrics
+      type: prometheus
+      url: http://victoria-metrics.victoria-metrics:8428
+      access: proxy
+      isDefault: true
+      editable: true
+      jsonData:
+        timeInterval: 30s
+
+# Dashboard providers
+dashboardProviders:
+  dashboardproviders.yaml:
+    apiVersion: 1
+    providers:
+    - name: 'default'
+      orgId: 1
+      folder: ''
+      type: file
+      disableDeletion: false
+      editable: true
+      options:
+        path: /var/lib/grafana/dashboards/default
+
+# Pre-configured dashboards
+dashboardsConfigMaps:
+  default: grafana-dashboards
+
+# Plugins
+plugins:
+  - grafana-piechart-panel
+  - grafana-clock-panel
+
+# Security
+securityContext:
+  runAsUser: 472
+  runAsNonRoot: true
+  fsGroup: 472
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+    - ALL
+  seccompProfile:
+    type: RuntimeDefault
+
+# Service
+service:
+  type: ClusterIP
+  port: 3000
+
+# Enable anonymous access for dashboards (disable for production)
+grafana.ini:
+  server:
+    root_url: https://grafana.254carbon.com
+  auth:
+    disable_login_form: false
+  auth.anonymous:
+    enabled: false
+  users:
+    allow_sign_up: false
+

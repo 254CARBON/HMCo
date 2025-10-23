@@ -44,8 +44,13 @@ spec:
         - containerPort: 9010
           name: fe-http
         env:
+        # Use Pod IP to satisfy Doris FE requirement of name:ip:port
+        - name: POD_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
         - name: FE_SERVERS
-          value: "fe1:doris-fe-0.doris-fe-headless.data-platform.svc.cluster.local:9010"
+          value: "fe1:$(POD_IP):9010"
         - name: FE_ID
           value: "1"
         volumeMounts:
