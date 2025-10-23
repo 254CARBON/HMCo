@@ -159,3 +159,10 @@ nodeSelector: {}
 tolerations: []
 
 affinity: {}
+
+# Apache Hudi configuration
+hudi:
+  enabled: false
+  tableName: "default_table"
+  database: "default"
+  sourcePath: "s3a://data-lake/raw/"
