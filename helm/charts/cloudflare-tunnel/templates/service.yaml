@@ -1,0 +1,19 @@
+{{- if .Values.service.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.service.name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- range $k, $v := .Values.service.labels }}
+    {{ $k }}: {{ $v | quote }}
+    {{- end }}
+spec:
+  selector:
+    app.kubernetes.io/name: cloudflare-tunnel
+  ports:
+    - name: metrics
+      port: {{ .Values.service.port | int }}
+      targetPort: {{ .Values.service.targetPort | int }}
+      protocol: TCP
+{{- end }}

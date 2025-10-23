@@ -1,0 +1,32 @@
+{{- if .Values.serviceMonitor.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: cloudflare-tunnel
+  namespace: {{ ternary .Release.Namespace .Values.serviceMonitor.namespace (eq .Values.serviceMonitor.namespace "") }}
+  labels:
+    {{- range $k, $v := .Values.serviceMonitor.labels }}
+    {{ $k }}: {{ $v | quote }}
+    {{- end }}
+  annotations:
+    {{- range $k, $v := .Values.serviceMonitor.annotations }}
+    {{ $k }}: {{ $v | quote }}
+    {{- end }}
+spec:
+  selector:
+    matchLabels:
+      app: cloudflare-tunnel
+  namespaceSelector:
+    matchNames:
+      - {{ .Release.Namespace }}
+  {{- if .Values.serviceMonitor.jobLabel }}
+  jobLabel: {{ .Values.serviceMonitor.jobLabel | quote }}
+  {{- end }}
+  endpoints:
+    - port: metrics
+      interval: {{ .Values.serviceMonitor.interval }}
+      path: {{ .Values.metrics.path }}
+{{- if gt (int .Values.serviceMonitor.sampleLimit) 0 }}
+      sampleLimit: {{ .Values.serviceMonitor.sampleLimit }}
+{{- end }}
+{{- end }}
