@@ -38,19 +38,7 @@ spec:
     server: https://kubernetes.default.svc
     namespace: data-platform
   syncPolicy:
-    automated:
-      prune: false  # Don't auto-delete resources
-      selfHeal: true  # Auto-sync when drift detected
-      allowEmpty: false
-    syncOptions:
-      - CreateNamespace=true
-      - PrunePropagationPolicy=foreground
-      - PruneLast=true
-    retry:
-      limit: 5
-      backoff:
-        duration: 5s
-        factor: 2
+    automated: null
 
 ---
 # ArgoCD Application: ML Platform

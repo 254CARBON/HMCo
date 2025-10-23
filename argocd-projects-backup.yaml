@@ -1,0 +1,53 @@
+apiVersion: v1
+items:
+- apiVersion: argoproj.io/v1alpha1
+  kind: AppProject
+  metadata:
+    creationTimestamp: "2025-10-22T17:42:42Z"
+    generation: 1
+    name: default
+    namespace: argocd
+    resourceVersion: "1117826"
+    uid: 3a05529e-bbe1-4749-a73e-bc27b0855dff
+  spec:
+    clusterResourceWhitelist:
+    - group: '*'
+      kind: '*'
+    destinations:
+    - namespace: '*'
+      server: '*'
+    sourceRepos:
+    - '*'
+  status: {}
+- apiVersion: argoproj.io/v1alpha1
+  kind: AppProject
+  metadata:
+    annotations:
+      argocd.argoproj.io/refresh: hard
+      kubectl.kubernetes.io/last-applied-configuration: |
+        {"apiVersion":"argoproj.io/v1alpha1","kind":"AppProject","metadata":{"annotations":{},"name":"production","namespace":"argocd"},"spec":{"clusterResourceWhitelist":[{"group":"*","kind":"*"}],"description":"Production environment applications","destinations":[{"namespace":"*","server":"https://kubernetes.default.svc"}],"orphanedResources":{"warn":true},"sourceRepos":["https://github.com/254CARBON/HMCo.git","https://charts.helm.sh/stable","https://ray-project.github.io/kuberay-helm/","https://kyverno.github.io/kyverno/"]}}
+    creationTimestamp: "2025-10-22T19:42:20Z"
+    generation: 9
+    name: production
+    namespace: argocd
+    resourceVersion: "1570545"
+    uid: 6826bbb6-7814-4433-a7a8-36aebbfcff0e
+  spec:
+    clusterResourceWhitelist:
+    - group: '*'
+      kind: '*'
+    description: Production environment applications
+    destinations:
+    - namespace: '*'
+      server: https://kubernetes.default.svc
+    orphanedResources:
+      warn: true
+    sourceRepos:
+    - https://github.com/254CARBON/HMCo.git
+    - https://charts.helm.sh/stable
+    - https://ray-project.github.io/kuberay-helm/
+    - https://kyverno.github.io/kyverno/
+  status: {}
+kind: List
+metadata:
+  resourceVersion: ""

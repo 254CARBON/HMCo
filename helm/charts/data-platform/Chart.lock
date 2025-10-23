@@ -1,0 +1,9 @@
+dependencies:
+- name: datahub
+  repository: file://./charts/datahub
+  version: 0.1.0
+- name: trino
+  repository: file://./charts/trino
+  version: 0.1.0
+digest: sha256:f92985b57d6bd0f763a6c0c385e564894c2c70520f8046390459b2278b7757af
+generated: "2025-10-23T05:59:50.438741923Z"
