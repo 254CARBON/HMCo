@@ -151,11 +151,6 @@ spec:
   clusterResourceWhitelist:
     - group: '*'
       kind: '*'
-  namespaceResourceBlacklist:
-    - group: ''
-      kind: ResourceQuota
-    - group: ''
-      kind: LimitRange
   orphanedResources:
     warn: true
 
