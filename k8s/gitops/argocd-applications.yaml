@@ -465,7 +465,7 @@ spec:
   source:
     repoURL: https://github.com/254CARBON/HMCo.git
     targetRevision: main
-    path: helm/charts/vault
+    path: helm/charts/storage
     helm:
       valueFiles:
         - values.yaml
