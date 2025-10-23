@@ -56,7 +56,7 @@ spec:
           value: "mix"
         volumeMounts:
         - name: doris-be-data
-          mountPath: /opt/apache-doris/be
+          mountPath: /opt/apache-doris/be/storage
         - name: doris-be-logs
           mountPath: /opt/apache-doris/be/log
         resources:

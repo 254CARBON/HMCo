@@ -51,7 +51,7 @@ spec:
           value: "1"
         volumeMounts:
         - name: doris-fe-data
-          mountPath: /opt/apache-doris/fe
+          mountPath: /opt/apache-doris/fe/doris-meta
         - name: doris-fe-logs
           mountPath: /opt/apache-doris/fe/log
         resources:
