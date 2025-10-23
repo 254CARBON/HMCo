@@ -414,9 +414,6 @@ spec:
     helm:
       valueFiles:
         - values.yaml
-  destination:
-    server: https://kubernetes.default.svc
-    namespace: data-platform
   syncPolicy:
     automated: null
 ---
@@ -439,9 +436,6 @@ spec:
     helm:
       valueFiles:
         - values.yaml
-  destination:
-    server: https://kubernetes.default.svc
-    namespace: istio-system
   syncPolicy:
     automated: null
 ---
@@ -464,9 +458,6 @@ spec:
     helm:
       valueFiles:
         - values.yaml
-  destination:
-    server: https://kubernetes.default.svc
-    namespace: vault
   syncPolicy:
     automated: null
 ---
@@ -489,20 +480,8 @@ spec:
     helm:
       valueFiles:
         - values.yaml
-  destination:
-    server: https://kubernetes.default.svc
-    namespace: vault
   syncPolicy:
-    automated:
-      prune: false
-      selfHeal: true
-    syncOptions:
-      - CreateNamespace=true
-    retry:
-      limit: 5
-      backoff:
-        duration: 5s
-        factor: 2
+    automated: null
 ---
 # ArgoCD Application: Networking
 apiVersion: argoproj.io/v1alpha1
@@ -523,22 +502,8 @@ spec:
     helm:
       valueFiles:
         - values.yaml
-  destination:
-    server: https://kubernetes.default.svc
-    namespace: kube-system
   syncPolicy:
-    automated:
-      prune: false
-      selfHeal: true
-      allowEmpty: true
-    syncOptions:
-      - CreateNamespace=true
-    retry:
-      limit: 5
-      backoff:
-        duration: 5s
-        factor: 2
-
+    automated: null
 ---
 # ArgoCD Application: Platform Policies
 apiVersion: argoproj.io/v1alpha1
@@ -559,18 +524,5 @@ spec:
     helm:
       valueFiles:
         - values.yaml
-  destination:
-    server: https://kubernetes.default.svc
-    namespace: kube-system
   syncPolicy:
-    automated:
-      prune: false
-      selfHeal: true
-      allowEmpty: true
-    syncOptions:
-      - CreateNamespace=true
-    retry:
-      limit: 5
-      backoff:
-        duration: 5s
-        factor: 2
+    automated: null
