@@ -419,6 +419,9 @@ spec:
     helm:
       valueFiles:
         - values.yaml
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: data-platform
   syncPolicy:
     automated: null
 ---
@@ -441,6 +444,9 @@ spec:
     helm:
       valueFiles:
         - values.yaml
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: istio-system
   syncPolicy:
     automated: null
 ---
@@ -463,6 +469,9 @@ spec:
     helm:
       valueFiles:
         - values.yaml
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: vault
   syncPolicy:
     automated: null
 ---
@@ -519,6 +528,9 @@ spec:
     helm:
       valueFiles:
         - values.yaml
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: kube-system
   syncPolicy:
     automated: null
 ---
@@ -541,5 +553,8 @@ spec:
     helm:
       valueFiles:
         - values.yaml
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: kube-system
   syncPolicy:
     automated: null
