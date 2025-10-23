@@ -16,7 +16,10 @@ spec:
         image: postgres:14
         env:
         - name: PGPASSWORD
-          value: "dolphinscheduler"
+          valueFrom:
+            secretKeyRef:
+              name: postgres-workflow-secret
+              key: password
         command:
         - sh
         - -c
