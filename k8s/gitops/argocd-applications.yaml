@@ -12,7 +12,7 @@ metadata:
 spec:
   project: production
   source:
-    repoURL: https://github.com/254carbon/hmco  # Update with your repo
+    repoURL: https://github.com/254CARBON/HMCo.git
     targetRevision: main
     path: helm/charts/data-platform
     helm:
@@ -66,7 +66,7 @@ metadata:
 spec:
   project: production
   source:
-    repoURL: https://github.com/254carbon/hmco
+    repoURL: https://github.com/254CARBON/HMCo.git
     targetRevision: main
     path: helm/charts/ml-platform
     helm:
@@ -109,7 +109,7 @@ metadata:
 spec:
   project: production
   source:
-    repoURL: https://github.com/254carbon/hmco
+    repoURL: https://github.com/254CARBON/HMCo.git
     targetRevision: main
     path: helm/charts/monitoring
     helm:
@@ -141,7 +141,7 @@ metadata:
 spec:
   description: Production environment applications
   sourceRepos:
-    - 'https://github.com/254carbon/hmco'
+    - 'https://github.com/254CARBON/HMCo.git'
     - 'https://charts.helm.sh/stable'
     - 'https://ray-project.github.io/kuberay-helm/'
     - 'https://kyverno.github.io/kyverno/'
@@ -201,7 +201,7 @@ metadata:
 spec:
   project: production
   source:
-    repoURL: https://github.com/254carbon/hmco
+    repoURL: https://github.com/254CARBON/HMCo.git
     targetRevision: main
     path: k8s/ml-platform/ray-serve/service
     kustomize: {}
@@ -236,7 +236,7 @@ metadata:
 spec:
   project: production
   source:
-    repoURL: https://github.com/254carbon/hmco
+    repoURL: https://github.com/254CARBON/HMCo.git
     targetRevision: main
     path: k8s/ml-platform/ray-serve/prepull
     kustomize: {}
@@ -270,7 +270,7 @@ metadata:
 spec:
   project: production
   source:
-    repoURL: https://github.com/254carbon/hmco
+    repoURL: https://github.com/254CARBON/HMCo.git
     targetRevision: main
     path: k8s/security/kyverno
     kustomize: {}
@@ -304,7 +304,7 @@ metadata:
 spec:
   project: production
   source:
-    repoURL: https://github.com/254carbon/hmco
+    repoURL: https://github.com/254CARBON/HMCo.git
     targetRevision: main
     path: k8s/ml-platform/ray-serve/kuberay-crds
     kustomize: {}
@@ -393,19 +393,25 @@ spec:
         replicaCount: 1
         cleanupJobs:
           admissionReports:
+            enabled: true
             image:
               registry: docker.io
               repository: bitnami/kubectl
-              tag: "1.28"
+              tag: "1.28.0"
+              pullPolicy: IfNotPresent
             securityContext:
               runAsNonRoot: false
+              runAsUser: 0
           clusterAdmissionReports:
+            enabled: true
             image:
               registry: docker.io
               repository: bitnami/kubectl
-              tag: "1.28"
+              tag: "1.28.0"
+              pullPolicy: IfNotPresent
             securityContext:
               runAsNonRoot: false
+              runAsUser: 0
   destination:
     server: https://kubernetes.default.svc
     namespace: kyverno
@@ -435,7 +441,7 @@ metadata:
 spec:
   project: production
   source:
-    repoURL: https://github.com/254carbon/hmco
+    repoURL: https://github.com/254CARBON/HMCo.git
     targetRevision: main
     path: helm/charts/api-gateway
     helm:
@@ -469,7 +475,7 @@ metadata:
 spec:
   project: production
   source:
-    repoURL: https://github.com/254carbon/hmco
+    repoURL: https://github.com/254CARBON/HMCo.git
     targetRevision: main
     path: helm/charts/service-mesh
     helm:
@@ -503,7 +509,7 @@ metadata:
 spec:
   project: production
   source:
-    repoURL: https://github.com/254carbon/hmco
+    repoURL: https://github.com/254CARBON/HMCo.git
     targetRevision: main
     path: helm/charts/storage
     helm:
@@ -537,7 +543,7 @@ metadata:
 spec:
   project: production
   source:
-    repoURL: https://github.com/254carbon/hmco
+    repoURL: https://github.com/254CARBON/HMCo.git
     targetRevision: main
     path: helm/charts/vault
     helm:
@@ -571,7 +577,7 @@ metadata:
 spec:
   project: production
   source:
-    repoURL: https://github.com/254carbon/hmco
+    repoURL: https://github.com/254CARBON/HMCo.git
     targetRevision: main
     path: helm/charts/networking
     helm:
@@ -605,7 +611,7 @@ metadata:
 spec:
   project: production
   source:
-    repoURL: https://github.com/254carbon/hmco
+    repoURL: https://github.com/254CARBON/HMCo.git
     targetRevision: main
     path: helm/charts/platform-policies
     helm:

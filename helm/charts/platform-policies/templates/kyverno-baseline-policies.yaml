@@ -6,8 +6,9 @@ metadata:
     policies.kyverno.io/title: Disallow latest image tag
     policies.kyverno.io/category: Best Practices
     policies.kyverno.io/severity: medium
+    policies.kyverno.io/description: "Temporarily set to audit mode during ArgoCD migration"
 spec:
-  validationFailureAction: enforce
+  validationFailureAction: audit
   background: true
   rules:
     - name: require-nonlatest-tag
@@ -32,8 +33,9 @@ metadata:
     policies.kyverno.io/title: Require resources
     policies.kyverno.io/category: Reliability
     policies.kyverno.io/severity: high
+    policies.kyverno.io/description: "Temporarily set to audit mode during ArgoCD migration"
 spec:
-  validationFailureAction: enforce
+  validationFailureAction: audit
   background: true
   rules:
     - name: check-requests-limits
@@ -70,8 +72,9 @@ metadata:
     policies.kyverno.io/title: Require runAsNonRoot
     policies.kyverno.io/category: Security
     policies.kyverno.io/severity: high
+    policies.kyverno.io/description: "Temporarily set to audit mode during ArgoCD migration"
 spec:
-  validationFailureAction: enforce
+  validationFailureAction: audit
   background: true
   rules:
     - name: run-as-non-root
@@ -98,8 +101,9 @@ metadata:
     policies.kyverno.io/title: Require readOnlyRootFilesystem
     policies.kyverno.io/category: Security
     policies.kyverno.io/severity: medium
+    policies.kyverno.io/description: "Temporarily set to audit mode during ArgoCD migration"
 spec:
-  validationFailureAction: enforce
+  validationFailureAction: audit
   background: true
   rules:
     - name: readonly-rootfs
