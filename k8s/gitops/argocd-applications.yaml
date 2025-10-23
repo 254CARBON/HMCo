@@ -38,7 +38,12 @@ spec:
     server: https://kubernetes.default.svc
     namespace: data-platform
   syncPolicy:
-    automated: null
+    automated:
+      prune: false
+      selfHeal: true
+      allowEmpty: false
+    syncOptions:
+      - CreateNamespace=true
 
 ---
 # ArgoCD Application: ML Platform
@@ -416,7 +421,12 @@ spec:
     server: https://kubernetes.default.svc
     namespace: istio-system
   syncPolicy:
-    automated: null
+    automated:
+      prune: false
+      selfHeal: true
+      allowEmpty: false
+    syncOptions:
+      - CreateNamespace=true
 ---
 # ArgoCD Application: Storage
 apiVersion: argoproj.io/v1alpha1
@@ -441,7 +451,12 @@ spec:
     server: https://kubernetes.default.svc
     namespace: kube-system
   syncPolicy:
-    automated: null
+    automated:
+      prune: false
+      selfHeal: true
+      allowEmpty: false
+    syncOptions:
+      - CreateNamespace=true
 ---
 # ArgoCD Application: Vault
 apiVersion: argoproj.io/v1alpha1
@@ -466,7 +481,12 @@ spec:
     server: https://kubernetes.default.svc
     namespace: vault
   syncPolicy:
-    automated: null
+    automated:
+      prune: false
+      selfHeal: true
+      allowEmpty: false
+    syncOptions:
+      - CreateNamespace=true
 ---
 # ArgoCD Application: Networking
 apiVersion: argoproj.io/v1alpha1
@@ -491,7 +511,12 @@ spec:
     server: https://kubernetes.default.svc
     namespace: kube-system
   syncPolicy:
-    automated: null
+    automated:
+      prune: false
+      selfHeal: true
+      allowEmpty: false
+    syncOptions:
+      - CreateNamespace=true
 ---
 # ArgoCD Application: Platform Policies
 apiVersion: argoproj.io/v1alpha1
@@ -516,4 +541,9 @@ spec:
     server: https://kubernetes.default.svc
     namespace: kube-system
   syncPolicy:
-    automated: null
+    automated:
+      prune: false
+      selfHeal: true
+      allowEmpty: false
+    syncOptions:
+      - CreateNamespace=true
