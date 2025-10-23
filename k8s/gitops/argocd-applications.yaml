@@ -156,6 +156,8 @@ spec:
       server: https://kubernetes.default.svc
     - namespace: 'kube-system'
       server: https://kubernetes.default.svc
+    - namespace: 'istio-system'
+      server: https://kubernetes.default.svc
     - namespace: 'kyverno'
       server: https://kubernetes.default.svc
     - namespace: 'kong'
@@ -623,4 +625,3 @@ spec:
       backoff:
         duration: 5s
         factor: 2
-
