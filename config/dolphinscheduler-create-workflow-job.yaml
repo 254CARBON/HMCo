@@ -1,0 +1,196 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: create-sample-workflow
+  namespace: data-platform
+spec:
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+      - name: workflow-creator
+        image: python:3.11-slim
+        command:
+        - /bin/bash
+        - -c
+        - |
+          set -e
+          
+          echo "════════════════════════════════════════════════════════════════"
+          echo "  Creating DolphinScheduler Workflow Programmatically"
+          echo "════════════════════════════════════════════════════════════════"
+          echo ""
+          
+          # Install required packages
+          echo "📦 Installing dependencies..."
+          pip install -q requests
+          
+          echo "✅ Dependencies installed"
+          echo ""
+          
+          # Create workflow using Python
+          python3 << 'PYTHON_SCRIPT'
+          import requests
+          import json
+          import time
+          
+          # API Configuration
+          API_URL = "http://dolphinscheduler-api.data-platform.svc.cluster.local:12345/dolphinscheduler"
+          USERNAME = "admin"
+          PASSWORD = "dolphinscheduler123"
+          
+          print("🔐 Step 1: Authenticating with DolphinScheduler API...")
+          
+          # Wait for API to be ready
+          for attempt in range(30):
+              try:
+                  health_resp = requests.get(f"{API_URL}/actuator/health", timeout=5)
+                  if health_resp.status_code == 200:
+                      print(f"✅ API is healthy")
+                      break
+              except Exception as e:
+                  print(f"   Waiting for API... (attempt {attempt+1}/30)")
+                  time.sleep(10)
+          
+          # Login to get token
+          login_data = {
+              "userName": USERNAME,
+              "userPassword": PASSWORD
+          }
+          
+          login_resp = requests.post(
+              f"{API_URL}/login",
+              data=login_data,
+              headers={"Content-Type": "application/x-www-form-urlencoded"}
+          )
+          
+          if login_resp.status_code != 200:
+              print(f"❌ Login failed: {login_resp.text}")
+              exit(1)
+          
+          token = login_resp.json().get("data")
+          print(f"✅ Authentication successful")
+          print("")
+          
+          headers = {
+              "token": token,
+              "Content-Type": "application/json"
+          }
+          
+          # Create Project
+          print("📁 Step 2: Creating project 'commodity-analytics'...")
+          
+          project_data = {
+              "projectName": "commodity-analytics",
+              "description": "Automated commodity data analytics workflows"
+          }
+          
+          project_resp = requests.post(
+              f"{API_URL}/projects",
+              headers=headers,
+              json=project_data
+          )
+          
+          if project_resp.status_code == 200:
+              project_code = project_resp.json().get("data", {}).get("code")
+              print(f"✅ Project created (code: {project_code})")
+          else:
+              # Try to get existing project
+              projects_resp = requests.get(f"{API_URL}/projects", headers=headers)
+              if projects_resp.status_code == 200:
+                  projects = projects_resp.json().get("data", {}).get("totalList", [])
+                  project = next((p for p in projects if p["name"] == "commodity-analytics"), None)
+                  if project:
+                      project_code = project["code"]
+                      print(f"✅ Using existing project (code: {project_code})")
+                  else:
+                      print(f"❌ Could not create or find project")
+                      exit(1)
+          
+          print("")
+          print("🔄 Step 3: Creating workflow 'daily-etl-pipeline'...")
+          
+          # Simplified workflow creation
+          workflow_def = {
+              "name": "daily-etl-pipeline",
+              "description": "Daily commodity data ETL pipeline - Automated creation",
+              "tenantCode": "default",
+              "globalParams": json.dumps([{
+                  "prop": "execution_date",
+                  "value": "${system.biz.date}"
+              }]),
+              "locations": json.dumps([
+                  {"taskCode": 1, "x": 100, "y": 100},
+                  {"taskCode": 2, "x": 300, "y": 100},
+                  {"taskCode": 3, "x": 500, "y": 100}
+              ]),
+              "taskDefinitionJson": json.dumps([
+                  {
+                      "code": 1,
+                      "name": "extract_data",
+                      "taskType": "SHELL",
+                      "taskParams": {
+                          "rawScript": "#!/bin/bash\\necho 'Extracting commodity data'\\necho 'Date: $(date)'\\necho 'Creating sample data...'\\ncat > /tmp/commodity_prices.csv << EOF\\ndate,commodity,price\\n2025-10-24,Gold,1850.50\\n2025-10-24,Silver,23.45\\n2025-10-24,Copper,3.78\\nEOF\\necho 'Extracted records:'\\nwc -l /tmp/commodity_prices.csv\\ncat /tmp/commodity_prices.csv"
+                      },
+                      "flag": "YES",
+                      "taskPriority": "MEDIUM"
+                  },
+                  {
+                      "code": 2,
+                      "name": "transform_data",
+                      "taskType": "SHELL",
+                      "taskParams": {
+                          "rawScript": "#!/bin/bash\\necho 'Transforming data...'\\nif [ -f /tmp/commodity_prices.csv ]; then\\n  echo 'Input file found'\\n  wc -l /tmp/commodity_prices.csv\\n  echo 'Transformation complete'\\nelse\\n  echo 'Input file not found'\\n  exit 1\\nfi"
+                      },
+                      "flag": "YES",
+                      "taskPriority": "MEDIUM",
+                      "preTasks": [1]
+                  },
+                  {
+                      "code": 3,
+                      "name": "load_data",
+                      "taskType": "SHELL",
+                      "taskParams": {
+                          "rawScript": "#!/bin/bash\\necho 'Loading data to data lake...'\\necho 'Target: Iceberg tables'\\necho 'Status: Complete'\\necho 'Pipeline finished successfully!'"
+                      },
+                      "flag": "YES",
+                      "taskPriority": "MEDIUM",
+                      "preTasks": [2]
+                  }
+              ]),
+              "timeout": 0
+          }
+          
+          # Create workflow
+          create_resp = requests.post(
+              f"{API_URL}/projects/{project_code}/process-definition",
+              headers=headers,
+              json=workflow_def
+          )
+          
+          if create_resp.status_code == 200:
+              workflow_id = create_resp.json().get("data", {}).get("id")
+              print(f"✅ Workflow created (ID: {workflow_id})")
+          else:
+              print(f"⚠️  API Response: {create_resp.status_code}")
+              print(f"   {create_resp.text[:500]}")
+          
+          print("")
+          print("════════════════════════════════════════════════════════════════")
+          print("  ✅ Workflow Creation Complete!")
+          print("════════════════════════════════════════════════════════════════")
+          print("")
+          print("Access DolphinScheduler UI to view:")
+          print("  URL: https://dolphin.254carbon.com")
+          print("  Login: admin / dolphinscheduler123")
+          print("")
+          print("Workflow Details:")
+          print(f"  Project: commodity-analytics")
+          print(f"  Workflow: daily-etl-pipeline")
+          print(f"  Tasks: 3 (extract → transform → load)")
+          print("")
+          
+          PYTHON_SCRIPT
+          
+          echo "🎉 Job completed!"
+

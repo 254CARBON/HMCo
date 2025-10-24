@@ -1,0 +1,115 @@
+{
+  "projectName": "commodity-analytics",
+  "processDefinitionName": "daily-data-pipeline",
+  "description": "Sample workflow: Extract commodity data, transform, and load to Iceberg",
+  "globalParams": [
+    {
+      "prop": "target_date",
+      "direct": "IN",
+      "type": "VARCHAR",
+      "value": "${system.biz.date}"
+    }
+  ],
+  "tasks": [
+    {
+      "name": "extract_commodity_data",
+      "description": "Extract commodity price data from API",
+      "taskType": "SHELL",
+      "taskParams": {
+        "rawScript": "#!/bin/bash\necho \"Extracting commodity data for date: ${target_date}\"\n\n# Simulate data extraction\ncat > /tmp/commodity_data.csv << 'DATA'\ndate,commodity,price,volume\n2025-10-24,Gold,1850.50,1200\n2025-10-24,Silver,23.45,5400\n2025-10-24,Copper,3.78,8900\n2025-10-24,Oil,75.20,15000\nDATA\n\necho \"✅ Extracted $(wc -l < /tmp/commodity_data.csv) records\"\ncat /tmp/commodity_data.csv"
+      },
+      "flag": "YES",
+      "taskPriority": "MEDIUM",
+      "workerGroup": "default",
+      "failRetryTimes": 2,
+      "failRetryInterval": 1,
+      "timeoutFlag": "CLOSE",
+      "timeoutNotifyStrategy": "",
+      "timeout": 0
+    },
+    {
+      "name": "transform_data",
+      "description": "Transform and enrich commodity data",
+      "taskType": "PYTHON",
+      "taskParams": {
+        "rawScript": "import pandas as pd\nimport json\nfrom datetime import datetime\n\nprint(\"🔄 Transforming commodity data...\")\n\n# Read data\ndf = pd.read_csv('/tmp/commodity_data.csv')\n\n# Add calculated fields\ndf['value_usd'] = df['price'] * df['volume']\ndf['processed_at'] = datetime.now().isoformat()\ndf['quarter'] = 'Q4-2025'\n\n# Summary statistics\nprint(f\"\\n📊 Summary:\")\nprint(f\"  Total commodities: {len(df)}\")\nprint(f\"  Total value: ${df['value_usd'].sum():,.2f}\")\nprint(f\"  Avg price: ${df['price'].mean():.2f}\")\n\n# Save transformed data\ndf.to_parquet('/tmp/commodity_transformed.parquet', index=False)\nprint(f\"\\n✅ Saved {len(df)} records to parquet\")\n\n# Show sample\nprint(\"\\nSample data:\")\nprint(df.head())"
+      },
+      "flag": "YES",
+      "taskPriority": "MEDIUM",
+      "workerGroup": "default",
+      "failRetryTimes": 2,
+      "failRetryInterval": 1,
+      "dependence": {
+        "relation": "AND",
+        "dependTaskList": [
+          {
+            "name": "extract_commodity_data"
+          }
+        ]
+      }
+    },
+    {
+      "name": "load_to_iceberg",
+      "description": "Load transformed data to Iceberg table via Trino",
+      "taskType": "SHELL",
+      "taskParams": {
+        "rawScript": "#!/bin/bash\necho \"📥 Loading data to Iceberg table...\"\n\n# Simulate data load\necho \"Target table: iceberg.commodities.daily_prices\"\necho \"Source file: /tmp/commodity_transformed.parquet\"\necho \"Records to load: $(wc -l < /tmp/commodity_data.csv)\"\n\necho \"\"\necho \"✅ Data loaded successfully\"\necho \"💾 Table updated: iceberg.commodities.daily_prices\"\necho \"📊 Ready for analysis in Trino and Superset\""
+      },
+      "flag": "YES",
+      "taskPriority": "MEDIUM",
+      "workerGroup": "default",
+      "failRetryTimes": 2,
+      "failRetryInterval": 1,
+      "dependence": {
+        "relation": "AND",
+        "dependTaskList": [
+          {
+            "name": "transform_data"
+          }
+        ]
+      }
+    },
+    {
+      "name": "send_notification",
+      "description": "Send completion notification",
+      "taskType": "SHELL",
+      "taskParams": {
+        "rawScript": "#!/bin/bash\necho \"📧 Workflow completed successfully!\"\necho \"\"\necho \"Pipeline: daily-data-pipeline\"\necho \"Date: $(date)\"\necho \"Status: SUCCESS ✅\"\necho \"\"\necho \"Next steps:\"\necho \"  1. Query data in Trino\"\necho \"  2. Create dashboard in Superset\"\necho \"  3. Check DataHub for lineage\""
+      },
+      "flag": "YES",
+      "taskPriority": "MEDIUM",
+      "workerGroup": "default",
+      "dependence": {
+        "relation": "AND",
+        "dependTaskList": [
+          {
+            "name": "load_to_iceberg"
+          }
+        ]
+      }
+    }
+  ],
+  "schedule": {
+    "startTime": "2025-10-24 00:00:00",
+    "endTime": "2025-12-31 23:59:59",
+    "crontab": "0 2 * * *",
+    "timezoneId": "UTC"
+  },
+  "executionType": "PARALLEL",
+  "locations": [],
+  "connects": [
+    {
+      "endPointSourceId": "extract_commodity_data",
+      "endPointTargetId": "transform_data"
+    },
+    {
+      "endPointSourceId": "transform_data",
+      "endPointTargetId": "load_to_iceberg"
+    },
+    {
+      "endPointSourceId": "load_to_iceberg",
+      "endPointTargetId": "send_notification"
+    }
+  ]
+}
+
