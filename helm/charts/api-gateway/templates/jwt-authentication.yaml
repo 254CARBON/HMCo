@@ -144,7 +144,6 @@ spec:
           capabilities:
             drop:
             - NET_RAW
-            - ALL
           readOnlyRootFilesystem: true
         command:
         - /bin/bash
