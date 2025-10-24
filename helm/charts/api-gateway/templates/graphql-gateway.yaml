@@ -47,6 +47,10 @@ spec:
         - -c
         - |
           mkdir -p /home/node/app
+          export HOME=/tmp/node-home
+          mkdir -p "$HOME"
+          export npm_config_cache=/tmp/npm-cache
+          mkdir -p "$npm_config_cache"
           echo "Installing dependencies..."
           npm install --no-save apollo-server graphql @apollo/federation @apollo/gateway --verbose
           echo "Dependencies installed successfully"
