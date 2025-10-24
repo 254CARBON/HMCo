@@ -1,0 +1,21 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: wait-for-istiod
+  namespace: istio-system
+  annotations:
+    argocd.argoproj.io/hook: PreSync
+    argocd.argoproj.io/sync-wave: "-5"
+spec:
+  backoffLimit: 0
+  template:
+    metadata:
+      annotations:
+        sidecar.istio.io/inject: "false"
+    spec:
+      restartPolicy: Never
+      containers:
+      - name: wait
+        image: bitnami/kubectl:1.28
+        imagePullPolicy: IfNotPresent
+        command: ["/bin/sh", "-c", "kubectl -n istio-system wait --for=condition=available deploy/istiod --timeout=600s"]
