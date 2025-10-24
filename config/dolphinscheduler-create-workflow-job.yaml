@@ -68,8 +68,10 @@ spec:
               print(f"❌ Login failed: {login_resp.text}")
               exit(1)
           
-          token = login_resp.json().get("data")
+          login_data = login_resp.json().get("data", {})
+          token = login_data.get("sessionId", "") or login_data.get("token", "")
           print(f"✅ Authentication successful")
+          print(f"   Token: {token[:20]}...")
           print("")
           
           headers = {

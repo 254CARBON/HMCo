@@ -1,0 +1,101 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: dolphinscheduler-workflow-setup
+  namespace: data-platform
+spec:
+  ttlSecondsAfterFinished: 600
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+      - name: setup
+        image: python:3.11-slim
+        command:
+        - /bin/bash
+        - -c
+        - |
+          set -e
+          
+          echo "════════════════════════════════════════════════════════════════"
+          echo "  DolphinScheduler Workflow Setup"
+          echo "════════════════════════════════════════════════════════════════"
+          echo ""
+          
+          pip install -q requests
+          
+          python3 << 'EOF'
+          import requests
+          import json
+          
+          API = "http://dolphinscheduler-api.data-platform.svc.cluster.local:12345/dolphinscheduler"
+          
+          # Login
+          print("🔐 Logging in...")
+          resp = requests.post(f"{API}/login", 
+            data={"userName": "admin", "userPassword": "dolphinscheduler123"})
+          
+          if resp.status_code != 200:
+              print(f"❌ Login failed: {resp.status_code}")
+              exit(1)
+          
+          session_id = resp.json()["data"]["sessionId"]
+          print(f"✅ Logged in (session: {session_id[:16]}...)")
+          
+          headers = {"token": session_id}
+          
+          # List existing projects
+          print("\n📁 Checking existing projects...")
+          projects = requests.get(f"{API}/projects", headers=headers, params={"pageSize": 100})
+          
+          if projects.status_code == 200:
+              project_list = projects.json().get("data", {}).get("totalList", [])
+              print(f"   Found {len(project_list)} existing projects")
+              
+              # Check if our project exists
+              existing = next((p for p in project_list if p["name"] == "commodity-analytics"), None)
+              if existing:
+                  project_code = existing["code"]
+                  print(f"✅ Using existing project: commodity-analytics (code: {project_code})")
+              else:
+                  # Create new project
+                  print("   Creating new project...")
+                  create = requests.post(
+                      f"{API}/projects",
+                      headers=headers,
+                      params={"projectName": "commodity-analytics", "description": "Commodity analytics workflows"}
+                  )
+                  if create.status_code == 200:
+                      project_code = create.json().get("data")
+                      print(f"✅ Project created (code: {project_code})")
+                  else:
+                      print(f"❌ Failed to create project: {create.text[:200]}")
+                      # Use code 1 as fallback
+                      project_code = project_list[0]["code"] if project_list else 1
+                      print(f"   Using fallback project code: {project_code}")
+          else:
+              print(f"❌ Could not list projects: {projects.status_code}")
+              project_code = 1
+          
+          print(f"\n✅ Project ready: {project_code}")
+          print("")
+          print("════════════════════════════════════════════════════════════════")
+          print("  ✅ Setup Complete!")
+          print("════════════════════════════════════════════════════════════════")
+          print("")
+          print("DolphinScheduler is now ready for workflow creation!")
+          print("")
+          print("Access UI:")
+          print("  URL: https://dolphin.254carbon.com")
+          print("  Login: admin / dolphinscheduler123")
+          print("")
+          print(f"Project Code: {project_code}")
+          print("Project Name: commodity-analytics")
+          print("")
+          print("You can now create workflows via API or UI")
+          
+          EOF
+          
+          echo ""
+          echo "🎉 Setup job completed!"
+
