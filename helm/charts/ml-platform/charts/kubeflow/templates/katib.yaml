@@ -120,14 +120,17 @@ spec:
       labels:
         app: katib-controller
     spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        fsGroup: 65532
       serviceAccountName: katib-controller
       containers:
       - name: katib-controller
         image: docker.io/kubeflowkatib/katib-controller:v0.16.0
         command:
         - ./katib-controller
-        args:
-        - --webhook-port=8443
         ports:
         - containerPort: 8443
           name: webhook
@@ -135,6 +138,11 @@ spec:
         - containerPort: 8080
           name: metrics
           protocol: TCP
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
         env:
         - name: KATIB_CORE_NAMESPACE
           valueFrom:
@@ -172,21 +180,40 @@ spec:
       labels:
         app: katib-db-manager
     spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        fsGroup: 65532
       containers:
       - name: katib-db-manager
         image: docker.io/kubeflowkatib/katib-db-manager:v0.16.0
         ports:
         - containerPort: 6789
           name: api
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
         env:
         - name: DB_NAME
-          value: "mysql"
+          valueFrom:
+            secretKeyRef:
+              name: katib-mysql-secret
+              key: mysql-database
         - name: DB_USER
-          value: "root"
+          valueFrom:
+            secretKeyRef:
+              name: katib-mysql-secret
+              key: mysql-user
         - name: DB_PASSWORD
-          value: "root"
+          valueFrom:
+            secretKeyRef:
+              name: katib-mysql-secret
+              key: mysql-password
         - name: DB_HOST
-          value: "mysql-service.kubeflow.svc.cluster.local"
+          value: "katib-mysql.kubeflow.svc.cluster.local"
         - name: DB_PORT
           value: "3306"
         resources:
@@ -277,6 +304,3 @@ spec:
   - port: metrics
     path: /metrics
     interval: 30s
-
-
-

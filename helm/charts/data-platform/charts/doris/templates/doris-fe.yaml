@@ -45,10 +45,20 @@ spec:
           name: fe-http
         env:
         # Use Pod IP to satisfy Doris FE requirement of name:ip:port
+        - name: POD_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
         - name: FE_SERVERS
-          value: "fe1:127.0.0.1:9010"
+          value: "fe1:$(POD_IP):9010"
         - name: FE_ID
           value: "1"
+        - name: CURRENT_FE_IP
+          value: "$(POD_IP)"
+        - name: MASTER_FE_IP
+          value: "$(POD_IP)"
+        - name: PRIORITY_NETWORKS
+          value: "$(POD_IP)/32"
         volumeMounts:
         - name: doris-fe-data
           mountPath: /opt/apache-doris/fe/doris-meta

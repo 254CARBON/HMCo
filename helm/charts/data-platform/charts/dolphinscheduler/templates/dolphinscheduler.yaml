@@ -101,6 +101,10 @@ spec:
           value: "zookeeper-service.data-platform.svc.cluster.local:2181"
         - name: REGISTRY_ZOOKEEPER_NAMESPACE
           value: "dolphinscheduler"
+        - name: REGISTRY_PLUGIN_NAME
+          value: "zookeeper"
+        - name: REGISTRY_PLUGIN_DIR
+          value: "/opt/dolphinscheduler/plugins/registry"
         - name: SPRING_JACKSON_TIME_ZONE
           value: "UTC"
         - name: TZ

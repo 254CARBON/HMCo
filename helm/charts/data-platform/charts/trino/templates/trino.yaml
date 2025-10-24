@@ -25,6 +25,16 @@ spec:
         ports:
         - containerPort: 8080
           name: trino-api
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+              - ALL
+          runAsNonRoot: true
+          runAsUser: 1000
+          runAsGroup: 1000
+          seccompProfile:
+            type: RuntimeDefault
         env:
         - name: TRINO_NODE_TYPE
           value: "coordinator"
@@ -40,6 +50,24 @@ spec:
           value: "3GB"
         - name: TRINO_MEMORY_HEAP_HEADROOM_PER_NODE
           value: "512MB"
+        - name: AWS_ACCESS_KEY_ID
+          valueFrom:
+            secretKeyRef:
+              name: minio-secret
+              key: access-key
+        - name: AWS_SECRET_ACCESS_KEY
+          valueFrom:
+            secretKeyRef:
+              name: minio-secret
+              key: secret-key
+        - name: AWS_REGION
+          value: "us-east-1"
+        - name: AWS_DEFAULT_REGION
+          value: "us-east-1"
+        - name: AWS_ENDPOINT_URL_S3
+          value: "http://minio-service:9000"
+        - name: AWS_S3_FORCE_PATH_STYLE
+          value: "true"
         volumeMounts:
         - name: trino-config
           mountPath: /etc/trino
@@ -123,6 +151,16 @@ spec:
         ports:
         - containerPort: 8080
           name: trino-api
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+              - ALL
+          runAsNonRoot: true
+          runAsUser: 1000
+          runAsGroup: 1000
+          seccompProfile:
+            type: RuntimeDefault
         env:
         - name: TRINO_NODE_TYPE
           value: "worker"
@@ -138,6 +176,24 @@ spec:
           value: "2GB"
         - name: TRINO_MEMORY_HEAP_HEADROOM_PER_NODE
           value: "512MB"
+        - name: AWS_ACCESS_KEY_ID
+          valueFrom:
+            secretKeyRef:
+              name: minio-secret
+              key: access-key
+        - name: AWS_SECRET_ACCESS_KEY
+          valueFrom:
+            secretKeyRef:
+              name: minio-secret
+              key: secret-key
+        - name: AWS_REGION
+          value: "us-east-1"
+        - name: AWS_DEFAULT_REGION
+          value: "us-east-1"
+        - name: AWS_ENDPOINT_URL_S3
+          value: "http://minio-service:9000"
+        - name: AWS_S3_FORCE_PATH_STYLE
+          value: "true"
         volumeMounts:
         - name: trino-config
           mountPath: /etc/trino
@@ -312,11 +368,6 @@ data:
     iceberg.rest-catalog.uri=http://iceberg-rest-catalog:8181
     iceberg.rest-catalog.warehouse=s3://iceberg-warehouse/
     iceberg.rest-catalog.security=none
-    # Iceberg-specific settings
-    iceberg.pushdown-projection-enabled=true
-    iceberg.pushdown-filters-enabled=true
-    iceberg.split-manager-threads=4
-    iceberg.max-split-size=134217728
 
   # Elasticsearch catalog
   elasticsearch.properties: |

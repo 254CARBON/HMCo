@@ -28,6 +28,13 @@ spec:
         prometheus.io/path: "/metrics"
     spec:
       serviceAccountName: default
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
       
       # Pod anti-affinity for better HA distribution
       affinity:
@@ -45,19 +52,27 @@ spec:
       
       containers:
       - name: mlflow
-        image: python:3.10-slim
+        image: ghcr.io/mlflow/mlflow:v2.10.0
         imagePullPolicy: IfNotPresent
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+              - ALL
+              - NET_RAW
         
         command:
           - /bin/sh
           - -c
+        args:
           - |
-            echo "Installing MLflow and dependencies..."
-            pip install --quiet --no-cache-dir mlflow==2.10.0 psycopg2-binary boto3 pymysql cryptography
+            echo "Installing required Python packages..."
+            export PYTHONPATH="/tmp/mlflow-deps:${PYTHONPATH}"
+            pip install --quiet --no-cache-dir --target /tmp/mlflow-deps psycopg2-binary boto3 pymysql cryptography
             echo "Starting MLflow server..."
             mlflow server \
-              --backend-store-uri postgresql://mlflow:mlflow-secure-password-change-me@postgres-shared-service.data-platform.svc.cluster.local:5432/mlflow \
-              --default-artifact-root s3://mlflow-artifacts \
+              --backend-store-uri "${MLFLOW_BACKEND_STORE_URI}" \
+              --default-artifact-root "${MLFLOW_DEFAULT_ARTIFACT_ROOT}" \
               --host 0.0.0.0 \
               --port 5000
         
@@ -113,8 +128,8 @@ spec:
             cpu: 500m
             memory: 1Gi
           limits:
-            cpu: 1000m
-            memory: 2Gi
+            cpu: 2000m
+            memory: 4Gi
         
         # Liveness probe - checks if tracking server is responding
         livenessProbe:
