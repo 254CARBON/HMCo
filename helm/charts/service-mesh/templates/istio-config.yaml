@@ -6,6 +6,9 @@ kind: IstioOperator
 metadata:
   name: control-plane
   namespace: istio-system
+  annotations:
+    argocd.argoproj.io/sync-wave: -10
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
 spec:
   profile: minimal
   
@@ -288,6 +291,5 @@ data:
       
       # Discovery address
       discoveryAddress: istiod.istio-system.svc:15012
-
 
 

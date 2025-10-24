@@ -11,6 +11,9 @@ kind: PeerAuthentication
 metadata:
   name: portal-services-strict
   namespace: data-platform
+  annotations:
+    argocd.argoproj.io/sync-wave: "-4"
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
 spec:
   selector:
     matchLabels:
@@ -25,6 +28,9 @@ kind: PeerAuthentication
 metadata:
   name: mlflow-strict
   namespace: data-platform
+  annotations:
+    argocd.argoproj.io/sync-wave: "-4"
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
 spec:
   selector:
     matchLabels:
@@ -39,6 +45,9 @@ kind: PeerAuthentication
 metadata:
   name: iceberg-rest-strict
   namespace: data-platform
+  annotations:
+    argocd.argoproj.io/sync-wave: "-4"
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
 spec:
   selector:
     matchLabels:
@@ -56,6 +65,9 @@ kind: PeerAuthentication
 metadata:
   name: datahub-gms-strict
   namespace: data-platform
+  annotations:
+    argocd.argoproj.io/sync-wave: "-4"
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
 spec:
   selector:
     matchLabels:
@@ -70,6 +82,9 @@ kind: PeerAuthentication
 metadata:
   name: datahub-frontend-strict
   namespace: data-platform
+  annotations:
+    argocd.argoproj.io/sync-wave: "-4"
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
 spec:
   selector:
     matchLabels:
@@ -84,6 +99,9 @@ kind: PeerAuthentication
 metadata:
   name: datahub-mae-strict
   namespace: data-platform
+  annotations:
+    argocd.argoproj.io/sync-wave: "-4"
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
 spec:
   selector:
     matchLabels:
@@ -98,6 +116,9 @@ kind: PeerAuthentication
 metadata:
   name: datahub-mce-strict
   namespace: data-platform
+  annotations:
+    argocd.argoproj.io/sync-wave: "-4"
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
 spec:
   selector:
     matchLabels:
@@ -114,6 +135,9 @@ kind: PeerAuthentication
 metadata:
   name: trino-strict
   namespace: data-platform
+  annotations:
+    argocd.argoproj.io/sync-wave: "-4"
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
 spec:
   selector:
     matchLabels:
@@ -131,6 +155,9 @@ kind: PeerAuthentication
 metadata:
   name: dolphinscheduler-api-strict
   namespace: data-platform
+  annotations:
+    argocd.argoproj.io/sync-wave: "-4"
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
 spec:
   selector:
     matchLabels:
@@ -145,6 +172,9 @@ kind: PeerAuthentication
 metadata:
   name: dolphinscheduler-master-strict
   namespace: data-platform
+  annotations:
+    argocd.argoproj.io/sync-wave: "-4"
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
 spec:
   selector:
     matchLabels:
@@ -159,6 +189,9 @@ kind: PeerAuthentication
 metadata:
   name: dolphinscheduler-worker-strict
   namespace: data-platform
+  annotations:
+    argocd.argoproj.io/sync-wave: "-4"
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
 spec:
   selector:
     matchLabels:
@@ -175,6 +208,9 @@ kind: PeerAuthentication
 metadata:
   name: superset-strict
   namespace: data-platform
+  annotations:
+    argocd.argoproj.io/sync-wave: "-4"
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
 spec:
   selector:
     matchLabels:
@@ -189,6 +225,9 @@ kind: PeerAuthentication
 metadata:
   name: grafana-strict
   namespace: monitoring
+  annotations:
+    argocd.argoproj.io/sync-wave: "-4"
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
 spec:
   selector:
     matchLabels:
@@ -324,6 +363,5 @@ data:
     
     echo ""
     echo "=== Verification Complete ==="
-
 
 

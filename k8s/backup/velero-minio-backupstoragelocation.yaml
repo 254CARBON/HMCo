@@ -1,0 +1,56 @@
+---
+apiVersion: velero.io/v1
+kind: BackupStorageLocation
+metadata:
+  name: minio
+  namespace: velero
+spec:
+  provider: aws
+  objectStorage:
+    bucket: velero-backups
+  config:
+    region: minio
+    s3ForcePathStyle: "true"
+    s3Url: http://minio-service.data-platform:9000
+    publicUrl: ""
+  credential:
+    name: minio-credentials
+    key: cloud
+---
+apiVersion: velero.io/v1
+kind: Schedule
+metadata:
+  name: daily-backup
+  namespace: velero
+spec:
+  schedule: "0 2 * * *"  # 2 AM UTC daily
+  template:
+    includedNamespaces:
+    - data-platform
+    - victoria-metrics
+    - cloudflare-tunnel
+    - velero
+    excludedResources:
+    - events
+    - events.events.k8s.io
+    snapshotVolumes: false
+    ttl: 720h0m0s  # 30 days retention
+    storageLocation: minio
+---
+apiVersion: velero.io/v1
+kind: Schedule
+metadata:
+  name: hourly-data-platform
+  namespace: velero
+spec:
+  schedule: "0 * * * *"  # Every hour
+  template:
+    includedNamespaces:
+    - data-platform
+    excludedResources:
+    - events
+    - events.events.k8s.io
+    snapshotVolumes: false
+    ttl: 168h0m0s  # 7 days retention
+    storageLocation: minio
+

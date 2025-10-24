@@ -1,0 +1,30 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: create-velero-bucket
+  namespace: data-platform
+spec:
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+      - name: mc
+        image: minio/mc:latest
+        command:
+        - /bin/sh
+        - -c
+        - |
+          mc alias set myminio http://minio-service:9000 minioadmin minioadmin123
+          mc mb myminio/velero-backups --ignore-existing
+          mc ls myminio
+          echo "Bucket created successfully!"
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 1000
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          seccompProfile:
+            type: RuntimeDefault
+

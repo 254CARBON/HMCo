@@ -8,6 +8,9 @@ kind: Telemetry
 metadata:
   name: default-metrics
   namespace: data-platform
+  annotations:
+    argocd.argoproj.io/sync-wave: "-5"
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
 spec:
   metrics:
   - providers:
@@ -28,6 +31,9 @@ kind: Telemetry
 metadata:
   name: default-tracing
   namespace: data-platform
+  annotations:
+    argocd.argoproj.io/sync-wave: "-5"
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
 spec:
   tracing:
   - providers:
@@ -48,6 +54,9 @@ kind: Telemetry
 metadata:
   name: access-logging
   namespace: data-platform
+  annotations:
+    argocd.argoproj.io/sync-wave: "-5"
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
 spec:
   accessLogging:
   - providers:
@@ -62,6 +71,9 @@ kind: Telemetry
 metadata:
   name: istio-telemetry
   namespace: istio-system
+  annotations:
+    argocd.argoproj.io/sync-wave: "-5"
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
 spec:
   metrics:
   - providers:
@@ -78,6 +90,9 @@ kind: Telemetry
 metadata:
   name: monitoring-telemetry
   namespace: monitoring
+  annotations:
+    argocd.argoproj.io/sync-wave: "-5"
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
 spec:
   metrics:
   - providers:
@@ -104,6 +119,9 @@ kind: Telemetry
 metadata:
   name: disable-tracing-redis
   namespace: data-platform
+  annotations:
+    argocd.argoproj.io/sync-wave: "-5"
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
 spec:
   selector:
     matchLabels:
@@ -118,6 +136,9 @@ kind: Telemetry
 metadata:
   name: datahub-metrics
   namespace: data-platform
+  annotations:
+    argocd.argoproj.io/sync-wave: "-5"
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
 spec:
   selector:
     matchLabels:
@@ -190,4 +211,3 @@ data:
         "panels": []
       }
     }
-
