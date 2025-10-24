@@ -18,13 +18,24 @@ spec:
         app: spark-history-server
         component: compute
     spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
       imagePullSecrets: []
       containers:
       - name: spark-history-server
         image: apache/spark:3.5.0
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop: ["ALL"]
         ports:
-        - containerPort: 18080
-          name: history-ui
+          - containerPort: 18080
+            name: history-ui
         - containerPort: 18081
           name: history-admin
         command:
