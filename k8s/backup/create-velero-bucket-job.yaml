@@ -18,13 +18,14 @@ spec:
           mc mb myminio/velero-backups --ignore-existing
           mc ls myminio
           echo "Bucket created successfully!"
+        env:
+        - name: MC_HOST_myminio
+          value: "http://minioadmin:minioadmin123@minio-service:9000"
         securityContext:
-          runAsNonRoot: true
-          runAsUser: 1000
+          runAsNonRoot: false
+          runAsUser: 0
           allowPrivilegeEscalation: false
           capabilities:
             drop:
             - ALL
-          seccompProfile:
-            type: RuntimeDefault
 
