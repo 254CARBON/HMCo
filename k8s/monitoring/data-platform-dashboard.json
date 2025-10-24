@@ -1,0 +1,144 @@
+{
+  "dashboard": {
+    "title": "254Carbon Data Platform Overview",
+    "tags": ["data-platform", "overview"],
+    "timezone": "UTC",
+    "editable": true,
+    "graphTooltip": 1,
+    "panels": [
+      {
+        "title": "Platform Pod Status",
+        "type": "stat",
+        "gridPos": {"h": 8, "w": 6, "x": 0, "y": 0},
+        "targets": [
+          {
+            "expr": "count(up{kubernetes_namespace=\"data-platform\"})",
+            "legendFormat": "Total Pods",
+            "refId": "A"
+          },
+          {
+            "expr": "count(up{kubernetes_namespace=\"data-platform\"} == 1)",
+            "legendFormat": "Running",
+            "refId": "B"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": 0, "color": "red"},
+                {"value": 20, "color": "yellow"},
+                {"value": 30, "color": "green"}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "title": "DolphinScheduler API Health",
+        "type": "stat",
+        "gridPos": {"h": 8, "w": 6, "x": 6, "y": 0},
+        "targets": [
+          {
+            "expr": "up{app=\"dolphinscheduler-api\",kubernetes_namespace=\"data-platform\"}",
+            "legendFormat": "{{kubernetes_pod_name}}",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": 0, "color": "red"},
+                {"value": 1, "color": "green"}
+              ]
+            },
+            "mappings": [
+              {"type": "value", "value": "0", "text": "Down"},
+              {"type": "value", "value": "1", "text": "UP"}
+            ]
+          }
+        }
+      },
+      {
+        "title": "Trino Status",
+        "type": "stat",
+        "gridPos": {"h": 8, "w": 6, "x": 12, "y": 0},
+        "targets": [
+          {
+            "expr": "up{app=~\"trino.*\",kubernetes_namespace=\"data-platform\"}",
+            "legendFormat": "{{app}}",
+            "refId": "A"
+          }
+        ]
+      },
+      {
+        "title": "MinIO + Superset Status",
+        "type": "stat",
+        "gridPos": {"h": 8, "w": 6, "x": 18, "y": 0},
+        "targets": [
+          {
+            "expr": "up{app=~\"minio|superset\",kubernetes_namespace=\"data-platform\"}",
+            "legendFormat": "{{app}}",
+            "refId": "A"
+          }
+        ]
+      },
+      {
+        "title": "CPU Usage by Pod",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8},
+        "targets": [
+          {
+            "expr": "sum(rate(container_cpu_usage_seconds_total{namespace=\"data-platform\"}[5m])) by (pod)",
+            "legendFormat": "{{pod}}",
+            "refId": "A"
+          }
+        ],
+        "yaxes": [
+          {"format": "percentunit", "label": "CPU"},
+          {"format": "short"}
+        ]
+      },
+      {
+        "title": "Memory Usage by Pod",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8},
+        "targets": [
+          {
+            "expr": "sum(container_memory_working_set_bytes{namespace=\"data-platform\"}) by (pod)",
+            "legendFormat": "{{pod}}",
+            "refId": "A"
+          }
+        ],
+        "yaxes": [
+          {"format": "bytes", "label": "Memory"},
+          {"format": "short"}
+        ]
+      },
+      {
+        "title": "Recent Logs (Loki)",
+        "type": "logs",
+        "gridPos": {"h": 12, "w": 24, "x": 0, "y": 16},
+        "targets": [
+          {
+            "expr": "{kubernetes_namespace_name=\"data-platform\"}",
+            "refId": "A",
+            "datasource": "Loki"
+          }
+        ],
+        "options": {
+          "showTime": true,
+          "showLabels": true,
+          "sortOrder": "Descending"
+        }
+      }
+    ],
+    "time": {"from": "now-1h", "to": "now"},
+    "timepicker": {},
+    "refresh": "30s"
+  }
+}
+
