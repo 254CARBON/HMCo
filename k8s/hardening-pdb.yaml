@@ -1,0 +1,107 @@
+---
+# Pod Disruption Budgets for critical services
+
+# DolphinScheduler API - must maintain 2 replicas
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: dolphinscheduler-api-pdb
+  namespace: data-platform
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels:
+      app: dolphinscheduler-api
+
+---
+# Kafka Brokers - must maintain 2 out of 3
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: kafka-broker-pdb
+  namespace: kafka
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels:
+      strimzi.io/cluster: datahub-kafka
+      strimzi.io/kind: Kafka
+
+---
+# Trino Coordinator - must keep running
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: trino-coordinator-pdb
+  namespace: data-platform
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: trino-coordinator
+
+---
+# PostgreSQL - must keep running
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: kong-postgres-pdb
+  namespace: kong
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: postgresql
+
+---
+# Elasticsearch - must keep running
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: elasticsearch-pdb
+  namespace: data-platform
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: elasticsearch
+
+---
+# Grafana - must keep running for monitoring
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: grafana-pdb
+  namespace: monitoring
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: grafana
+
+---
+# VictoriaMetrics - must keep running
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: victoria-metrics-pdb
+  namespace: victoria-metrics
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: victoria-metrics
+
+---
+# Ray Head - must keep running
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: ray-head-pdb
+  namespace: ml-platform
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      ray.io/cluster: ml-cluster
+      ray.io/node-type: head

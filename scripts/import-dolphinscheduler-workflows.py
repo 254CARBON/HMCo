@@ -39,6 +39,8 @@ class DolphinSchedulerClient:
         self.password = password
         self.token = None
         self.user_id = None
+        # DolphinScheduler 3.x renamed the auth parameter from token -> sessionId
+        self._auth_query_param = "token"
         
     def login(self) -> bool:
         """Authenticate with DolphinScheduler and get token"""
@@ -56,8 +58,25 @@ class DolphinSchedulerClient:
                 result = json.loads(response.read().decode('utf-8'))
                 
             if result.get('code') == 0 and result.get('data'):
-                self.token = result['data'].get('token')
-                self.user_id = result['data'].get('id')
+                auth_data = result.get('data', {})
+                token = None
+                if isinstance(auth_data, dict):
+                    token = (
+                        auth_data.get('token')
+                        or auth_data.get('sessionId')
+                        or auth_data.get('sessionid')
+                    )
+                    if token and auth_data.get('token'):
+                        self._auth_query_param = 'token'
+                    elif token:
+                        self._auth_query_param = 'sessionId'
+                    self.user_id = auth_data.get('id') or auth_data.get('userId')
+
+                if not token:
+                    print(f"{Colors.RED}✗ Login succeeded but no auth token was returned{Colors.NC}")
+                    return False
+
+                self.token = token
                 print(f"{Colors.GREEN}✓ Authenticated successfully{Colors.NC}")
                 return True
             else:
@@ -78,17 +97,20 @@ class DolphinSchedulerClient:
             return None
         
         url = f"{self.base_url}{endpoint}"
+        headers = {}
         
-        # Add token to URL
-        separator = '&' if '?' in url else '?'
-        url = f"{url}{separator}token={self.token}"
+        if self._auth_query_param == 'sessionId':
+            headers['Cookie'] = f'sessionId={self.token}'
+        else:
+            separator = '&' if '?' in url else '?'
+            url = f"{url}{separator}token={self.token}"
         
         try:
             if method == 'GET':
-                req = urllib.request.Request(url, method='GET')
+                req = urllib.request.Request(url, method='GET', headers=headers)
             else:
                 body = json.dumps(data).encode('utf-8') if data else None
-                req = urllib.request.Request(url, data=body, method=method)
+                req = urllib.request.Request(url, data=body, method=method, headers=headers)
                 req.add_header('Content-Type', 'application/json')
             
             with urllib.request.urlopen(req, timeout=30) as response:
@@ -388,5 +410,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-
-

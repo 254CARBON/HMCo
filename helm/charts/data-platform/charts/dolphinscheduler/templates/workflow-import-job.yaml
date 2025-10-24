@@ -34,7 +34,7 @@ spec:
         - -c
         - |
           echo "Waiting for DolphinScheduler API to be ready..."
-          until curl -sf http://dolphinscheduler-api-service:12345/dolphinscheduler/ui/ > /dev/null; do
+          until curl -sf http://dolphinscheduler-api:12345/dolphinscheduler/ui/ > /dev/null; do
             echo "API not ready, waiting..."
             sleep 10
           done
@@ -59,7 +59,7 @@ spec:
           
           echo "Running workflow import script..."
           python3 /scripts/import-dolphinscheduler-workflows.py \
-            --dolphinscheduler-url http://dolphinscheduler-api-service:12345 \
+            --dolphinscheduler-url http://dolphinscheduler-api:12345 \
             --username admin \
             --password dolphinscheduler123 \
             --namespace data-platform \
@@ -71,7 +71,7 @@ spec:
         
         env:
         - name: DOLPHINSCHEDULER_URL
-          value: "http://dolphinscheduler-api-service:12345"
+          value: "http://dolphinscheduler-api:12345"
         
         volumeMounts:
         - name: import-script
@@ -141,5 +141,4 @@ subjects:
   - kind: ServiceAccount
     name: dolphinscheduler
     namespace: data-platform
-
 

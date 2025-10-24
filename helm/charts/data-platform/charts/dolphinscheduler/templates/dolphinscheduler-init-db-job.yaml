@@ -73,7 +73,7 @@ data:
 
     -- Insert default worker group
     INSERT INTO t_ds_worker_group (name, addr_list, create_time, update_time, description)
-    VALUES ('default', NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 'Default worker group')
+    VALUES ('default', '', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 'Default worker group')
     ON CONFLICT (name) DO NOTHING;
 
     -- Insert default alert group
@@ -158,4 +158,3 @@ spec:
       - name: init-sql
         configMap:
           name: dolphinscheduler-init-sql
-
