@@ -137,6 +137,25 @@ spec:
                   matchLabels:
                     app: istiod
                 topologyKey: kubernetes.io/hostname
+        overlays:
+        - kind: Deployment
+          name: istiod
+          patches:
+          - path: spec.template.spec.securityContext
+            value:
+              runAsNonRoot: true
+              seccompProfile:
+                type: RuntimeDefault
+          - path: spec.template.spec.containers.[name:discovery].securityContext
+            value:
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: true
+              runAsNonRoot: true
+              seccompProfile:
+                type: RuntimeDefault
+              capabilities:
+                drop:
+                - NET_RAW
     
     # Ingress gateway (optional, we use NGINX)
     ingressGateways:
@@ -165,9 +184,6 @@ spec:
           limits:
             cpu: 200m
             memory: 256Mi
-        
-        # Proxy concurrency
-        concurrency: 2
         
         # Enable core dumps for debugging
         enableCoreDump: false
@@ -201,11 +217,6 @@ spec:
               - /bin/sh
               - -c
               - sleep 15
-      
-      # mTLS configuration
-      mtls:
-        enabled: true
-        auto: true
       
       # Network settings
       network: ""
@@ -280,15 +291,49 @@ data:
     # Enable access logging
     accessLogFile: /dev/stdout
     
-    # Default connection timeout
-    defaultConfig:
-      connectionTimeout: 10s
-      
-      # Istio proxy config
-      concurrency: 2
+      # Default connection timeout
+      defaultConfig:
+        connectionTimeout: 10s
       
       # Status port for health checks
       statusPort: 15020
       
       # Discovery address
       discoveryAddress: istiod.istio-system.svc:15012
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: istiod-secret-writer
+  namespace: istio-system
+  labels:
+    app: istiod
+rules:
+- apiGroups: [""]
+  resources:
+  - secrets
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: istiod-secret-writer
+  namespace: istio-system
+  labels:
+    app: istiod
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: istiod-secret-writer
+subjects:
+- kind: ServiceAccount
+  name: istiod
+  namespace: istio-system

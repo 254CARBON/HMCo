@@ -1,3 +1,36 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: istio-wait
+  namespace: istio-system
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: istio-wait
+  namespace: istio-system
+rules:
+- apiGroups: ["apps"]
+  resources: ["deployments"]
+  verbs: ["get", "list", "watch"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: istio-wait
+  namespace: istio-system
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: istio-wait
+subjects:
+- kind: ServiceAccount
+  name: istio-wait
+  namespace: istio-system
+
+---
 apiVersion: batch/v1
 kind: Job
 metadata:
@@ -13,9 +46,37 @@ spec:
       annotations:
         sidecar.istio.io/inject: "false"
     spec:
+      serviceAccountName: istio-wait
       restartPolicy: Never
       containers:
       - name: wait
-        image: bitnami/kubectl:1.28
+        image: docker.io/bitnami/kubectl:latest
         imagePullPolicy: IfNotPresent
-        command: ["/bin/sh", "-c", "kubectl -n istio-system wait --for=condition=available deploy/istiod --timeout=600s"]
+        command:
+        - /bin/sh
+        - -c
+        - |
+          set -euo pipefail
+          until kubectl -n istio-system get deploy/istiod; do
+            echo "Waiting for istiod deployment to be created..."
+            sleep 5
+          done
+          kubectl -n istio-system wait --for=condition=available deploy/istiod --timeout=600s
+        resources:
+          requests:
+            cpu: 10m
+            memory: 32Mi
+          limits:
+            cpu: 100m
+            memory: 128Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
+          runAsUser: 65532
+          runAsGroup: 65532
+          seccompProfile:
+            type: RuntimeDefault
+          capabilities:
+            drop:
+            - NET_RAW
