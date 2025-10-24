@@ -1,0 +1,100 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: create-etl-workflow
+  namespace: data-platform
+spec:
+  ttlSecondsAfterFinished: 3600
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+      - name: creator
+        image: curlimages/curl:latest
+        command:
+        - /bin/sh
+        - -c
+        - |
+          echo "════════════════════════════════════════════════════════════════"
+          echo "  Creating DolphinScheduler ETL Workflow"
+          echo "════════════════════════════════════════════════════════════════"
+          echo ""
+          
+          API="http://dolphinscheduler-api.data-platform.svc.cluster.local:12345/dolphinscheduler"
+          
+          # Login
+          echo "🔐 Step 1: Authenticating..."
+          LOGIN=$(curl -s -X POST "$API/login" \
+            -H "Content-Type: application/x-www-form-urlencoded" \
+            -d "userName=admin&userPassword=dolphinscheduler123")
+          
+          TOKEN=$(echo "$LOGIN" | grep -o '"sessionId":"[^"]*"' | cut -d'"' -f4)
+          
+          if [ -z "$TOKEN" ]; then
+            echo "❌ Login failed"
+            exit 1
+          fi
+          
+          echo "✅ Authenticated (token: ${TOKEN:0:16}...)"
+          echo ""
+          
+          # Create project
+          echo "📁 Step 2: Creating project..."
+          PROJECT=$(curl -s -X POST "$API/projects" \
+            -H "token: $TOKEN" \
+            -d "projectName=commodity-analytics&description=Commodity%20data%20analytics")
+          
+          echo "Response: $(echo $PROJECT | head -c 200)"
+          echo ""
+          
+          # Get project code (default to 1 if creation fails - project might already exist)
+          PROJECT_CODE=$(echo "$PROJECT" | grep -o '"data":[0-9]*' | cut -d':' -f2)
+          if [ -z "$PROJECT_CODE" ]; then
+            PROJECT_CODE=1
+          fi
+          
+          echo "✅ Using project code: $PROJECT_CODE"
+          echo ""
+          
+          # Create workflow definition
+          echo "🔄 Step 3: Creating workflow 'daily-commodity-etl'..."
+          
+          WORKFLOW_JSON='{
+            "name": "daily-commodity-etl",
+            "description": "Daily commodity data ETL pipeline",
+            "releaseState": "OFFLINE",
+            "globalParams": "[]",
+            "locations": "[{\"taskCode\":\"1\",\"x\":100,\"y\":100},{\"taskCode\":\"2\",\"x\":300,\"y\":100},{\"taskCode\":\"3\",\"x\":500,\"y\":100}]",
+            "timeout": 0,
+            "tenantCode": "default",
+            "executionType": "PARALLEL"
+          }'
+          
+          CREATE_WORKFLOW=$(curl -s -X POST "$API/projects/$PROJECT_CODE/process-definition" \
+            -H "token: $TOKEN" \
+            -H "Content-Type: application/json" \
+            -d "$WORKFLOW_JSON")
+          
+          echo "Workflow creation response:"
+          echo "$CREATE_WORKFLOW" | head -c 300
+          echo ""
+          echo ""
+          
+          echo "════════════════════════════════════════════════════════════════"
+          echo "  ✅ Workflow Creation Attempted!"
+          echo "════════════════════════════════════════════════════════════════"
+          echo ""
+          echo "Access DolphinScheduler UI to view and edit the workflow:"
+          echo "  URL: https://dolphin.254carbon.com"
+          echo "  Login: admin / dolphinscheduler123"
+          echo ""
+          echo "Project: commodity-analytics (code: $PROJECT_CODE)"
+          echo "Workflow: daily-commodity-etl"
+          echo ""
+          echo "Next steps in UI:"
+          echo "  1. Go to Project Management → commodity-analytics"
+          echo "  2. Find workflow: daily-commodity-etl"
+          echo "  3. Edit to add tasks (Shell, Python, SQL, Spark, etc.)"
+          echo "  4. Save and run"
+          echo ""
+
