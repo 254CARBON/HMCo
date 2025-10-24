@@ -72,10 +72,22 @@ spec:
       annotations:
         sidecar.istio.io/inject: "false"  # Database doesn't need sidecar
     spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 999
+        runAsGroup: 999
+        fsGroup: 999
+        seccompProfile:
+          type: RuntimeDefault
       containers:
       - name: postgres
         image: postgres:15-alpine
         imagePullPolicy: IfNotPresent
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
         env:
         - name: POSTGRES_USER
           value: postgres
@@ -151,9 +163,21 @@ spec:
         sidecar.istio.io/inject: "false"
     spec:
       restartPolicy: OnFailure
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
       initContainers:
       - name: wait-for-postgres
         image: postgres:15-alpine
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 999
+          runAsGroup: 999
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
         command:
         - sh
         - -c
@@ -166,6 +190,14 @@ spec:
       - name: kong-migrations
         image: kong:3.4
         imagePullPolicy: IfNotPresent
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 1337
+          runAsGroup: 1337
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
         command: ["kong", "migrations", "bootstrap"]
         env:
         - name: KONG_DATABASE
@@ -258,10 +290,22 @@ spec:
         prometheus.io/path: "/metrics"
     spec:
       serviceAccountName: kong
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1337
+        runAsGroup: 1337
+        fsGroup: 1337
+        seccompProfile:
+          type: RuntimeDefault
       containers:
       - name: kong
         image: kong:3.4
         imagePullPolicy: IfNotPresent
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
         env:
         # Database
         - name: KONG_DATABASE
@@ -397,4 +441,3 @@ spec:
             name: kong-admin
             port:
               number: 8001
-

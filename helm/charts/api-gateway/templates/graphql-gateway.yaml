@@ -22,16 +22,29 @@ spec:
         app: graphql-gateway
         sidecar.istio.io/inject: "false"
     spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
       containers:
       - name: gateway
         image: node:18-alpine
-        workingDir: /app
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+        workingDir: /home/node/app
         command:
         - /bin/sh
         - -c
         - |
+          mkdir -p /home/node/app
           echo "Installing dependencies..."
-          npm install --global apollo-server graphql @apollo/federation @apollo/gateway --verbose
+          npm install --no-save apollo-server graphql @apollo/federation @apollo/gateway --verbose
           echo "Dependencies installed successfully"
           
           cat > server.js << 'EOF'
@@ -132,4 +145,3 @@ spec:
             name: graphql-gateway
             port:
               number: 4000
-

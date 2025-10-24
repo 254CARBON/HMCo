@@ -128,9 +128,21 @@ spec:
         sidecar.istio.io/inject: "false"
     spec:
       restartPolicy: OnFailure
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
       containers:
       - name: jwt-generator
         image: python:3.11-slim
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 1000
+          runAsGroup: 1000
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
         command:
         - /bin/bash
         - -c
@@ -367,6 +379,5 @@ config:
   response_type: "code"
   token_endpoint_auth_method: "client_secret_post"
 plugin: openid-connect
-
 
 
