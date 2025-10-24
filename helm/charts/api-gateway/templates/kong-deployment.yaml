@@ -87,7 +87,9 @@ spec:
           allowPrivilegeEscalation: false
           capabilities:
             drop:
+            - NET_RAW
             - ALL
+          readOnlyRootFilesystem: true
         env:
         - name: POSTGRES_USER
           value: postgres
@@ -108,6 +110,8 @@ spec:
           mountPath: /var/lib/postgresql/data
         - name: init-script
           mountPath: /docker-entrypoint-initdb.d
+        - name: run-dir
+          mountPath: /var/run/postgresql
         resources:
           requests:
             cpu: 100m
@@ -135,6 +139,8 @@ spec:
       - name: init-script
         configMap:
           name: kong-postgres-init
+      - name: run-dir
+        emptyDir: {}
   volumeClaimTemplates:
   - metadata:
       name: data
@@ -177,7 +183,9 @@ spec:
           allowPrivilegeEscalation: false
           capabilities:
             drop:
+            - NET_RAW
             - ALL
+          readOnlyRootFilesystem: true
         command:
         - sh
         - -c
@@ -197,7 +205,9 @@ spec:
           allowPrivilegeEscalation: false
           capabilities:
             drop:
+            - NET_RAW
             - ALL
+          readOnlyRootFilesystem: true
         command: ["kong", "migrations", "bootstrap"]
         env:
         - name: KONG_DATABASE
@@ -297,6 +307,11 @@ spec:
         fsGroup: 1337
         seccompProfile:
           type: RuntimeDefault
+      volumes:
+      - name: kong-runtime
+        emptyDir: {}
+      - name: kong-tmp
+        emptyDir: {}
       containers:
       - name: kong
         image: kong:3.4
@@ -305,7 +320,9 @@ spec:
           allowPrivilegeEscalation: false
           capabilities:
             drop:
+            - NET_RAW
             - ALL
+          readOnlyRootFilesystem: true
         env:
         # Database
         - name: KONG_DATABASE
@@ -379,6 +396,11 @@ spec:
             port: 8001
           initialDelaySeconds: 10
           periodSeconds: 5
+        volumeMounts:
+        - name: kong-runtime
+          mountPath: /usr/local/kong
+        - name: kong-tmp
+          mountPath: /tmp
         
         resources:
           requests:

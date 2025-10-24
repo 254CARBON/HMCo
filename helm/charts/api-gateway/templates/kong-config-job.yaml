@@ -28,13 +28,17 @@ spec:
           allowPrivilegeEscalation: false
           capabilities:
             drop:
+            - NET_RAW
             - ALL
+          readOnlyRootFilesystem: true
         command:
         - /bin/sh
         - /scripts/configure-kong-services.sh
         volumeMounts:
         - name: scripts
           mountPath: /scripts
+        - name: tmp
+          mountPath: /tmp
         resources:
           requests:
             cpu: 50m
@@ -47,5 +51,5 @@ spec:
         configMap:
           name: kong-config-script
           defaultMode: 0755
-
-
+      - name: tmp
+        emptyDir: {}
