@@ -94,7 +94,7 @@ spec:
     requests.storage: 500Gi
     persistentvolumeclaims: "50"
     services.loadbalancers: "0"  # No LoadBalancers allowed
-    services.nodeports: "0"  # No NodePorts allowed
+    services.nodeports: "5"  # Allow transient NodePorts for cert-manager solvers
 
 ---
 # LimitRange for default resource limits
@@ -123,10 +123,7 @@ spec:
       cpu: "8"
       memory: "16Gi"
     min:
-      cpu: "50m"
-      memory: "128Mi"
+      cpu: "10m"
+      memory: "64Mi"
     type: Pod
-
-
-
 
