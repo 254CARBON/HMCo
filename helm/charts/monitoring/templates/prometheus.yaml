@@ -228,8 +228,8 @@ data:
         labels:
           severity: critical
         annotations:
-          summary: "Service {{ $labels.job }} is down"
-          description: "Service {{ $labels.job }} has been down for more than 5 minutes."
+          summary: "Service {{`{{ $labels.job }}`}} is down"
+          description: "Service {{`{{ $labels.job }}`}} has been down for more than 5 minutes."
 
       # Alert when high memory usage
       - alert: HighMemoryUsage
@@ -238,8 +238,8 @@ data:
         labels:
           severity: warning
         annotations:
-          summary: "High memory usage on {{ $labels.instance }}"
-          description: "Memory usage is above 80% on {{ $labels.instance }}."
+          summary: "High memory usage on {{`{{ $labels.instance }}`}}"
+          description: "Memory usage is above 80% on {{`{{ $labels.instance }}`}}."
 
       # Alert when high CPU usage
       - alert: HighCPUUsage
@@ -248,8 +248,8 @@ data:
         labels:
           severity: warning
         annotations:
-          summary: "High CPU usage on {{ $labels.instance }}"
-          description: "CPU usage is above 80% on {{ $labels.instance }}."
+          summary: "High CPU usage on {{`{{ $labels.instance }}`}}"
+          description: "CPU usage is above 80% on {{`{{ $labels.instance }}`}}."
 
       # Alert when disk usage is high
       - alert: HighDiskUsage
@@ -258,5 +258,5 @@ data:
         labels:
           severity: warning
         annotations:
-          summary: "High disk usage on {{ $labels.instance }}"
-          description: "Disk usage is above 85% on {{ $labels.instance }}."
+          summary: "High disk usage on {{`{{ $labels.instance }}`}}"
+          description: "Disk usage is above 85% on {{`{{ $labels.instance }}`}}."

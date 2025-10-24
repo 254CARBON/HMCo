@@ -21,8 +21,8 @@ data:
           severity: warning
           namespace: data-platform
         annotations:
-          summary: "Pod {{ $labels.pod }} is crash looping"
-          description: "Pod {{ $labels.pod }} in namespace {{ $labels.namespace }} is restarting frequently ({{ $value }} restarts in 15m)"
+          summary: "Pod {{`{{ $labels.pod }}`}} is crash looping"
+          description: "Pod {{`{{ $labels.pod }}`}} in namespace {{`{{ $labels.namespace }}`}} is restarting frequently ({{`{{ $value }}`}} restarts in 15m)"
       
       - alert: PodNotReady
         expr: kube_pod_status_phase{namespace="data-platform",phase!~"Running|Succeeded"} == 1
@@ -31,8 +31,8 @@ data:
           severity: warning
           namespace: data-platform
         annotations:
-          summary: "Pod {{ $labels.pod }} is not ready"
-          description: "Pod {{ $labels.pod }} in namespace {{ $labels.namespace }} has been in {{ $labels.phase }} state for more than 10 minutes"
+          summary: "Pod {{`{{ $labels.pod }}`}} is not ready"
+          description: "Pod {{`{{ $labels.pod }}`}} in namespace {{`{{ $labels.namespace }}`}} has been in {{`{{ $labels.phase }}`}} state for more than 10 minutes"
       
       # Resource Utilization Alerts
       - alert: HighMemoryUsage
@@ -42,8 +42,8 @@ data:
           severity: warning
           namespace: data-platform
         annotations:
-          summary: "High memory usage for {{ $labels.pod }}"
-          description: "Container {{ $labels.container }} in pod {{ $labels.pod }} is using {{ $value | humanizePercentage }} of its memory limit"
+          summary: "High memory usage for {{`{{ $labels.pod }}`}}"
+          description: "Container {{`{{ $labels.container }}`}} in pod {{`{{ $labels.pod }}`}} is using {{`{{ $value | humanizePercentage }}`}} of its memory limit"
       
       - alert: HighCPUUsage
         expr: rate(container_cpu_usage_seconds_total{namespace="data-platform"}[5m]) > 0.9
@@ -52,8 +52,8 @@ data:
           severity: warning
           namespace: data-platform
         annotations:
-          summary: "High CPU usage for {{ $labels.pod }}"
-          description: "Container {{ $labels.container }} in pod {{ $labels.pod }} is using high CPU ({{ $value | humanizePercentage }})"
+          summary: "High CPU usage for {{`{{ $labels.pod }}`}}"
+          description: "Container {{`{{ $labels.container }}`}} in pod {{`{{ $labels.pod }}`}} is using high CPU ({{`{{ $value | humanizePercentage }}`}})"
       
       # Storage Alerts
       - alert: PersistentVolumeFillingUp
@@ -62,8 +62,8 @@ data:
         labels:
           severity: warning
         annotations:
-          summary: "PVC {{ $labels.persistentvolumeclaim }} is filling up"
-          description: "PVC {{ $labels.persistentvolumeclaim }} in namespace {{ $labels.namespace }} is {{ $value | humanizePercentage }} full"
+          summary: "PVC {{`{{ $labels.persistentvolumeclaim }}`}} is filling up"
+          description: "PVC {{`{{ $labels.persistentvolumeclaim }}`}} in namespace {{`{{ $labels.namespace }}`}} is {{`{{ $value | humanizePercentage }}`}} full"
       
       - alert: PersistentVolumeCritical
         expr: (kubelet_volume_stats_used_bytes / kubelet_volume_stats_capacity_bytes) > 0.95
@@ -71,8 +71,8 @@ data:
         labels:
           severity: critical
         annotations:
-          summary: "PVC {{ $labels.persistentvolumeclaim }} is critically full"
-          description: "PVC {{ $labels.persistentvolumeclaim }} in namespace {{ $labels.namespace }} is {{ $value | humanizePercentage }} full - immediate action required"
+          summary: "PVC {{`{{ $labels.persistentvolumeclaim }}`}} is critically full"
+          description: "PVC {{`{{ $labels.persistentvolumeclaim }}`}} in namespace {{`{{ $labels.namespace }}`}} is {{`{{ $value | humanizePercentage }}`}} full - immediate action required"
       
       # Service-Specific Alerts
       - alert: PostgreSQLDown
@@ -136,7 +136,7 @@ data:
           component: networking
         annotations:
           summary: "Cloudflare Tunnel has low connections"
-          description: "Cloudflare Tunnel has {{ $value }} connections (expected 4+)"
+          description: "Cloudflare Tunnel has {{`{{ $value }}`}} connections (expected 4+)"
       
       - alert: CloudflareTunnelPodNotReady
         expr: kube_deployment_status_replicas_available{deployment="cloudflared",namespace="cloudflare-tunnel"} < 2
@@ -146,7 +146,7 @@ data:
           component: networking
         annotations:
           summary: "Cloudflare Tunnel pods not ready"
-          description: "Only {{ $value }} Cloudflare Tunnel pods are available (expected 2)"
+          description: "Only {{`{{ $value }}`}} Cloudflare Tunnel pods are available (expected 2)"
     
     - name: ingress-alerts
       interval: 30s
@@ -169,7 +169,7 @@ data:
           component: networking
         annotations:
           summary: "High error rate on ingress"
-          description: "Ingress {{ $labels.ingress }} has high 5xx error rate: {{ $value | humanizePercentage }}"
+          description: "Ingress {{`{{ $labels.ingress }}`}} has high 5xx error rate: {{`{{ $value | humanizePercentage }}`}}"
       
       - alert: IngressCertificateExpiringSoon
         expr: (nginx_ingress_controller_ssl_expire_time_seconds - time()) / 86400 < 7
@@ -179,7 +179,7 @@ data:
           component: security
         annotations:
           summary: "SSL certificate expiring soon"
-          description: "SSL certificate for {{ $labels.host }} expires in {{ $value }} days"
+          description: "SSL certificate for {{`{{ $labels.host }}`}} expires in {{`{{ $value }}`}} days"
     
     - name: node-alerts
       interval: 30s
@@ -191,8 +191,8 @@ data:
           severity: critical
           component: infrastructure
         annotations:
-          summary: "Node {{ $labels.node }} is not ready"
-          description: "Node {{ $labels.node }} has been not ready for more than 5 minutes"
+          summary: "Node {{`{{ $labels.node }}`}} is not ready"
+          description: "Node {{`{{ $labels.node }}`}} has been not ready for more than 5 minutes"
       
       - alert: NodeHighMemoryPressure
         expr: kube_node_status_condition{condition="MemoryPressure",status="true"} == 1
@@ -201,8 +201,8 @@ data:
           severity: warning
           component: infrastructure
         annotations:
-          summary: "Node {{ $labels.node }} under memory pressure"
-          description: "Node {{ $labels.node }} is experiencing memory pressure"
+          summary: "Node {{`{{ $labels.node }}`}} under memory pressure"
+          description: "Node {{`{{ $labels.node }}`}} is experiencing memory pressure"
       
       - alert: NodeHighDiskPressure
         expr: kube_node_status_condition{condition="DiskPressure",status="true"} == 1
@@ -211,8 +211,8 @@ data:
           severity: warning
           component: infrastructure
         annotations:
-          summary: "Node {{ $labels.node }} under disk pressure"
-          description: "Node {{ $labels.node }} is experiencing disk pressure"
+          summary: "Node {{`{{ $labels.node }}`}} under disk pressure"
+          description: "Node {{`{{ $labels.node }}`}} is experiencing disk pressure"
     
     - name: backup-alerts
       interval: 60s
@@ -225,7 +225,7 @@ data:
           component: backup
         annotations:
           summary: "Velero backup failed"
-          description: "Velero backup {{ $labels.schedule }} has failed"
+          description: "Velero backup {{`{{ $labels.schedule }}`}} has failed"
       
       - alert: VeleroBackupTooOld
         expr: time() - velero_backup_last_successful_timestamp > 172800
@@ -235,6 +235,6 @@ data:
           component: backup
         annotations:
           summary: "No recent Velero backups"
-          description: "No successful Velero backup for {{ $labels.schedule }} in the last 48 hours"
+          description: "No successful Velero backup for {{`{{ $labels.schedule }}`}} in the last 48 hours"
 
 

@@ -58,7 +58,7 @@ spec:
         component: backup
       annotations:
         summary: "Velero backup failed"
-        description: "Backup {{ $labels.schedule }} has failed {{ $value }} times"
+        description: "Backup {{`{{ $labels.schedule }}`}} has failed {{`{{ $value }}`}} times"
         runbook_url: "https://docs.254carbon.com/runbooks/velero-backup-failure"
     
     - alert: VeleroBackupPartialFailure
@@ -69,7 +69,7 @@ spec:
         component: backup
       annotations:
         summary: "Velero backup partially failed"
-        description: "Backup {{ $labels.schedule }} had {{ $value }} partial failures"
+        description: "Backup {{`{{ $labels.schedule }}`}} had {{`{{ $value }}`}} partial failures"
         runbook_url: "https://docs.254carbon.com/runbooks/velero-partial-failure"
     
     - alert: VeleroBackupTooOld
@@ -81,7 +81,7 @@ spec:
         component: backup
       annotations:
         summary: "Daily backup is too old"
-        description: "Last successful daily backup was {{ $value | humanizeDuration }} ago"
+        description: "Last successful daily backup was {{`{{ $value | humanizeDuration }}`}} ago"
         runbook_url: "https://docs.254carbon.com/runbooks/backup-too-old"
     
     - alert: VeleroBackupDurationLong
@@ -92,7 +92,7 @@ spec:
         component: backup
       annotations:
         summary: "Backup taking too long"
-        description: "Backup {{ $labels.schedule }} took {{ $value }}s (>30min)"
+        description: "Backup {{`{{ $labels.schedule }}`}} took {{`{{ $value }}`}}s (>30min)"
         runbook_url: "https://docs.254carbon.com/runbooks/slow-backup"
     
     - alert: VeleroBackupStorageLow
@@ -105,7 +105,7 @@ spec:
         component: backup
       annotations:
         summary: "Backup storage running low"
-        description: "Velero backup storage is {{ $value | humanizePercentage }} full"
+        description: "Velero backup storage is {{`{{ $value | humanizePercentage }}`}} full"
         runbook_url: "https://docs.254carbon.com/runbooks/backup-storage-full"
     
     - alert: VeleroRestoreFailed
@@ -116,7 +116,7 @@ spec:
         component: backup
       annotations:
         summary: "Velero restore operation failed"
-        description: "Restore operation has failed {{ $value }} times"
+        description: "Restore operation has failed {{`{{ $value }}`}} times"
         runbook_url: "https://docs.254carbon.com/runbooks/restore-failure"
 
 ---

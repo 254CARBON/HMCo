@@ -56,7 +56,7 @@ spec:
         component: iceberg
       annotations:
         summary: "Iceberg REST Catalog error rate is high"
-        description: "Error rate is above 5% ({{ $value | humanizePercentage }})"
+        description: "Error rate is above 5% ({{`{{ $value | humanizePercentage }}`}})"
 
     # Performance alerts
     - alert: IcebergRestCatalogHighLatency
@@ -70,7 +70,7 @@ spec:
         component: iceberg
       annotations:
         summary: "Iceberg REST Catalog high latency detected"
-        description: "95th percentile latency is {{ $value }}s"
+        description: "95th percentile latency is {{`{{ $value }}`}}s"
 
     # Resource alerts
     - alert: IcebergRestCatalogHighMemory
@@ -113,7 +113,7 @@ spec:
         component: iceberg
       annotations:
         summary: "Iceberg database connection failures detected"
-        description: "Database connection errors detected ({{ $value }} errors/sec)"
+        description: "Database connection errors detected ({{`{{ $value }}`}} errors/sec)"
 
     # S3/MinIO connectivity alerts
     - alert: IcebergS3ConnectionFailures
@@ -125,7 +125,7 @@ spec:
         component: iceberg
       annotations:
         summary: "Iceberg S3/MinIO connection failures"
-        description: "S3 connection errors detected ({{ $value }} errors/sec)"
+        description: "S3 connection errors detected ({{`{{ $value }}`}} errors/sec)"
 ---
 # Grafana ConfigMap with Iceberg Dashboard
 apiVersion: v1
@@ -282,7 +282,7 @@ data:
           "targets": [
             {
               "expr": "rate(http_requests_total{job=\"iceberg-rest-catalog\"}[5m])",
-              "legendFormat": "{{ method }} {{ handler }}",
+              "legendFormat": "{{ method }}`}} {{ handler }}`}}",
               "refId": "A"
             }
           ],
@@ -325,7 +325,7 @@ data:
           "targets": [
             {
               "expr": "sum(rate(http_requests_total{job=\"iceberg-rest-catalog\"}[5m])) by (status)",
-              "legendFormat": "{{ status }}",
+              "legendFormat": "{{ status }}`}}",
               "refId": "A"
             }
           ],

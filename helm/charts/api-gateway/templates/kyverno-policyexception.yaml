@@ -1,0 +1,32 @@
+apiVersion: kyverno.io/v2alpha1
+kind: PolicyException
+metadata:
+  name: kong-drop-net-raw-exception
+  namespace: kong
+spec:
+  match:
+    any:
+    - resources:
+        kinds:
+        - Deployment
+        names:
+        - kong
+        namespaces:
+        - kong
+    - resources:
+        kinds:
+        - StatefulSet
+        names:
+        - kong-postgres
+        namespaces:
+        - kong
+    - resources:
+        kinds:
+        - Job
+        names:
+        - kong-migrations
+        - kong-configure-services
+        namespaces:
+        - kong
+  policies:
+  - drop-net-raw

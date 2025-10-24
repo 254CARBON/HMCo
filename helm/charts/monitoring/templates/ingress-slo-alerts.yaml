@@ -24,7 +24,7 @@ spec:
             target: "p95 < 1s"
           annotations:
             summary: "Grafana ingress p95 latency high"
-            description: "p95 {{ $value }}s > 1s over 5m."
+            description: "p95 {{`{{ $value }}`}}s > 1s over 5m."
 
         # DataHub Frontend
         - alert: IngressLatencyP95HighDatahubFrontend
@@ -38,7 +38,7 @@ spec:
             target: "p95 < 300ms"
           annotations:
             summary: "DataHub Frontend ingress p95 latency high"
-            description: "p95 {{ $value }}s > 0.3s over 5m."
+            description: "p95 {{`{{ $value }}`}}s > 0.3s over 5m."
 
         # DataHub GMS (API)
         - alert: IngressLatencyP95HighDatahubGMS
@@ -52,7 +52,7 @@ spec:
             target: "p95 < 300ms"
           annotations:
             summary: "DataHub GMS ingress p95 latency high"
-            description: "p95 {{ $value }}s > 0.3s over 5m."
+            description: "p95 {{`{{ $value }}`}}s > 0.3s over 5m."
 
         # Trino Coordinator
         - alert: IngressLatencyP95HighTrino
@@ -66,7 +66,7 @@ spec:
             target: "p95 < 2s"
           annotations:
             summary: "Trino ingress p95 latency high"
-            description: "p95 {{ $value }}s > 2s over 5m."
+            description: "p95 {{`{{ $value }}`}}s > 2s over 5m."
 
         # Doris FE
         - alert: IngressLatencyP95HighDoris
@@ -80,7 +80,7 @@ spec:
             target: "p95 < 2s"
           annotations:
             summary: "Doris FE ingress p95 latency high"
-            description: "p95 {{ $value }}s > 2s over 5m."
+            description: "p95 {{`{{ $value }}`}}s > 2s over 5m."
 
         # Superset
         - alert: IngressLatencyP95HighSuperset
@@ -94,7 +94,7 @@ spec:
             target: "p95 < 2s"
           annotations:
             summary: "Superset ingress p95 latency high"
-            description: "p95 {{ $value }}s > 2s over 5m."
+            description: "p95 {{`{{ $value }}`}}s > 2s over 5m."
 
         # MinIO Console
         - alert: IngressLatencyP95HighMinioConsole
@@ -108,7 +108,7 @@ spec:
             target: "p95 < 500ms"
           annotations:
             summary: "MinIO Console ingress p95 latency high"
-            description: "p95 {{ $value }}s > 0.5s over 5m."
+            description: "p95 {{`{{ $value }}`}}s > 0.5s over 5m."
 
         # Vault
         - alert: IngressLatencyP95HighVault
@@ -122,7 +122,7 @@ spec:
             target: "p95 < 200ms"
           annotations:
             summary: "Vault ingress p95 latency high"
-            description: "p95 {{ $value }}s > 0.2s over 5m."
+            description: "p95 {{`{{ $value }}`}}s > 0.2s over 5m."
 
         # LakeFS
         - alert: IngressLatencyP95HighLakeFS
@@ -136,7 +136,7 @@ spec:
             target: "p95 < 250ms"
           annotations:
             summary: "LakeFS ingress p95 latency high"
-            description: "p95 {{ $value }}s > 0.25s over 5m."
+            description: "p95 {{`{{ $value }}`}}s > 0.25s over 5m."
 
         # DolphinScheduler API
         - alert: IngressLatencyP95HighDolphin
@@ -150,7 +150,7 @@ spec:
             target: "p95 < 400ms"
           annotations:
             summary: "DolphinScheduler ingress p95 latency high"
-          description: "p95 {{ $value }}s > 0.4s over 5m."
+          description: "p95 {{`{{ $value }}`}}s > 0.4s over 5m."
 
         # Path-level examples (specific critical paths)
         - alert: IngressLatencyP95HighDatahubAPIPath
@@ -164,7 +164,7 @@ spec:
             target: "p95 < 300ms (path=/api)"
           annotations:
             summary: "DataHub API (/api) ingress p95 latency high"
-            description: "p95 {{ $value }}s > 0.3s over 5m (path=/api)."
+            description: "p95 {{`{{ $value }}`}}s > 0.3s over 5m (path=/api)."
 
     - name: ingress.slo.errors
       interval: 1m
@@ -178,5 +178,5 @@ spec:
             slo: ingress-error-rate
             target: "error rate < 0.5%"
           annotations:
-            summary: "Ingress error rate high for {{ $labels.service }} ({{ $labels.namespace }})"
-            description: "5xx ratio {{ $value | humanizePercentage }} over 5m > 0.5%."
+            summary: "Ingress error rate high for {{`{{ $labels.service }}`}} ({{`{{ $labels.namespace }}`}})"
+            description: "5xx ratio {{`{{ $value | humanizePercentage }}`}} over 5m > 0.5%."

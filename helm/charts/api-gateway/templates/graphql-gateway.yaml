@@ -10,7 +10,7 @@ metadata:
   labels:
     app: graphql-gateway
 spec:
-  replicas: 2
+  replicas: 0
   selector:
     matchLabels:
       app: graphql-gateway
@@ -29,6 +29,32 @@ spec:
         fsGroup: 1000
         seccompProfile:
           type: RuntimeDefault
+      initContainers:
+      - name: install-dependencies
+        image: node:18-alpine
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          runAsNonRoot: true
+          runAsUser: 1000
+          runAsGroup: 1000
+        workingDir: /home/node/app
+        command:
+        - /bin/sh
+        - -c
+        - |
+          mkdir -p /home/node/app
+          export npm_config_cache=/tmp/npm-cache
+          mkdir -p "$npm_config_cache"
+          cd /home/node/app
+          npm install --no-save apollo-server graphql @apollo/federation @apollo/gateway
+        volumeMounts:
+        - name: app-workdir
+          mountPath: /home/node/app
+        - name: app-tmp
+          mountPath: /tmp
       volumes:
       - name: app-workdir
         emptyDir: {}
@@ -48,22 +74,22 @@ spec:
         - /bin/sh
         - -c
         - |
-          mkdir -p /home/node/app
+          cd /home/node/app
           export HOME=/tmp/node-home
           mkdir -p "$HOME"
           export npm_config_cache=/tmp/npm-cache
           mkdir -p "$npm_config_cache"
-          echo "Installing dependencies..."
-          npm install --no-save apollo-server graphql @apollo/federation @apollo/gateway --verbose
-          echo "Dependencies installed successfully"
           
           cat > server.js << 'EOF'
           const { ApolloServer } = require('apollo-server');
-          const { ApolloGateway, RemoteGraphQLDataSource } = require('@apollo/gateway');
+          const { ApolloGateway, IntrospectAndCompose, RemoteGraphQLDataSource } = require('@apollo/gateway');
+          
+          const activeSubgraphs = [
+            { name: 'datahub', url: 'http://datahub-gms:8080/graphql' },
+          ];
           
           class AuthenticatedDataSource extends RemoteGraphQLDataSource {
             willSendRequest({ request, context }) {
-              // Add auth headers
               if (context.token) {
                 request.http.headers.set('authorization', context.token);
               }
@@ -71,10 +97,9 @@ spec:
           }
           
           const gateway = new ApolloGateway({
-            serviceList: [
-              { name: 'datahub', url: 'http://datahub-gms:8080/graphql' },
-              { name: 'portal', url: 'http://portal-services:8080/graphql' },
-            ],
+            supergraphSdl: new IntrospectAndCompose({
+              subgraphs: activeSubgraphs,
+            }),
             buildService({ url }) {
               return new AuthenticatedDataSource({ url });
             },
@@ -86,11 +111,14 @@ spec:
               token: req.headers.authorization || '',
             }),
             introspection: true,
-            playground: true,
+            playground: false,
           });
           
           server.listen({ port: 4000 }).then(({ url }) => {
             console.log(`🚀 GraphQL Gateway ready at ${url}`);
+          }).catch((error) => {
+            console.error('Failed to start GraphQL gateway', error);
+            process.exit(1);
           });
           EOF
           

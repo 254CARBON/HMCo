@@ -93,7 +93,7 @@ data:
           slo: availability
         annotations:
           summary: "Platform availability below 99.9% SLO"
-          description: "Current availability: {{ $value | humanizePercentage }}"
+          description: "Current availability: {{`{{ $value | humanizePercentage }}`}}"
       
       # Response Time SLO
       - alert: ResponseTimeSLOViolation
@@ -104,7 +104,7 @@ data:
           slo: latency
         annotations:
           summary: "API response time above 200ms SLO (p95)"
-          description: "Current p95: {{ $value | humanizeDuration }}"
+          description: "Current p95: {{`{{ $value | humanizeDuration }}`}}"
       
       # Error Rate SLO
       - alert: ErrorRateSLOViolation
@@ -115,7 +115,7 @@ data:
           slo: error_rate
         annotations:
           summary: "Error rate above 1% SLO"
-          description: "Current error rate: {{ $value | humanizePercentage }}"
+          description: "Current error rate: {{`{{ $value | humanizePercentage }}`}}"
       
       # Data Freshness SLO
       - alert: DataFreshnessSLOViolation
@@ -126,7 +126,7 @@ data:
           slo: data_freshness
         annotations:
           summary: "Data ingestion delayed beyond 5 minute SLO"
-          description: "Minutes since last ingestion: {{ $value | humanize }}"
+          description: "Minutes since last ingestion: {{`{{ $value | humanize }}`}}"
       
       # Query Performance SLO
       - alert: QueryPerformanceSLOViolation
@@ -137,7 +137,7 @@ data:
           slo: query_performance
         annotations:
           summary: "Query p95 latency above 5 second SLO"
-          description: "Current p95: {{ $value | humanizeDuration }}"
+          description: "Current p95: {{`{{ $value | humanizeDuration }}`}}"
       
       # GPU Utilization SLO
       - alert: GPUUtilizationBelowTarget
@@ -148,7 +148,7 @@ data:
           slo: gpu_utilization
         annotations:
           summary: "GPU utilization below 80% target"
-          description: "Current utilization: {{ $value }}%"
+          description: "Current utilization: {{`{{ $value }}`}}%"
       
       # Storage SLO
       - alert: StorageCapacitySLOWarning
@@ -159,6 +159,6 @@ data:
           slo: storage
         annotations:
           summary: "Storage usage above 85%"
-          description: "Current usage: {{ $value | humanizePercentage }}"
+          description: "Current usage: {{`{{ $value | humanizePercentage }}`}}"
 
 

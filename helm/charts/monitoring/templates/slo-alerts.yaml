@@ -24,7 +24,7 @@ spec:
             slo: http-availability
             target: "99.9%"
           annotations:
-            summary: "High error-budget burn (critical) for {{ $labels.job }}"
+            summary: "High error-budget burn (critical) for {{`{{ $labels.job }}`}}"
             description: |
               Error ratio exceeds fast-burn thresholds.
               2h > 14.4x and 6h > 6x of budget (SLO 99.9%).
@@ -41,7 +41,7 @@ spec:
             slo: http-availability
             target: "99.9%"
           annotations:
-            summary: "Error-budget burn (warning) for {{ $labels.job }}"
+            summary: "Error-budget burn (warning) for {{`{{ $labels.job }}`}}"
             description: |
               Error ratio exceeds slow-burn thresholds.
               24h > 3x and 3d > 1x of budget (SLO 99.9%).
@@ -57,8 +57,8 @@ spec:
             slo: http-latency
             target: "p95 < 500ms"
           annotations:
-            summary: "High p95 latency for {{ $labels.job }}"
-            description: "p95 latency {{ $value }}s > 0.5s over 5m. Tune per-service thresholds as needed."
+            summary: "High p95 latency for {{`{{ $labels.job }}`}}"
+            description: "p95 latency {{`{{ $value }}`}}s > 0.5s over 5m. Tune per-service thresholds as needed."
 
     - name: slo.availability
       interval: 1m
@@ -71,6 +71,6 @@ spec:
             slo: availability
             target: "> 99.5% (rolling 5m)"
           annotations:
-            summary: "Availability low for {{ $labels.job }}"
+            summary: "Availability low for {{`{{ $labels.job }}`}}"
             description: "Service availability over last 5m dropped below 99.5%."
 

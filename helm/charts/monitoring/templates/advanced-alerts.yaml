@@ -24,7 +24,7 @@ data:
           component: dolphinscheduler
         annotations:
           summary: "DolphinScheduler workflow failed"
-          description: "Workflow {{ $labels.workflow_name }} has failed {{ $value }} times in the last 5 minutes"
+          description: "Workflow {{`{{ $labels.workflow_name }}`}} has failed {{`{{ $value }}`}} times in the last 5 minutes"
           runbook_url: "https://docs.254carbon.com/runbooks/dolphinscheduler-workflow-failure"
       
       - alert: DataFreshnessIssue
@@ -36,7 +36,7 @@ data:
           component: data-quality
         annotations:
           summary: "Data freshness issue detected"
-          description: "Dataset {{ $labels.dataset }} hasn't been updated in over 24 hours"
+          description: "Dataset {{`{{ $labels.dataset }}`}} hasn't been updated in over 24 hours"
           runbook_url: "https://docs.254carbon.com/runbooks/data-freshness"
       
       - alert: HighPipelineFailureRate
@@ -49,7 +49,7 @@ data:
           component: dolphinscheduler
         annotations:
           summary: "High pipeline failure rate"
-          description: "Pipeline failure rate is {{ $value | humanizePercentage }} over last 10 minutes"
+          description: "Pipeline failure rate is {{`{{ $value | humanizePercentage }}`}} over last 10 minutes"
           runbook_url: "https://docs.254carbon.com/runbooks/high-failure-rate"
     
     # DataHub Alerts
@@ -64,7 +64,7 @@ data:
           component: datahub
         annotations:
           summary: "DataHub GMS restarting frequently"
-          description: "DataHub GMS pod {{ $labels.pod }} has restarted {{ $value }} times per minute"
+          description: "DataHub GMS pod {{`{{ $labels.pod }}`}} has restarted {{`{{ $value }}`}} times per minute"
           runbook_url: "https://docs.254carbon.com/runbooks/datahub-gms-restarts"
       
       - alert: DataHubMetadataIngestionStalled
@@ -76,7 +76,7 @@ data:
           component: datahub
         annotations:
           summary: "DataHub metadata ingestion stalled"
-          description: "No metadata ingested for {{ $labels.source }} in over 1 hour"
+          description: "No metadata ingested for {{`{{ $labels.source }}`}} in over 1 hour"
           runbook_url: "https://docs.254carbon.com/runbooks/datahub-ingestion-stalled"
       
       - alert: DataHubElasticsearchDown
@@ -103,7 +103,7 @@ data:
           component: certificates
         annotations:
           summary: "Certificate expiring soon"
-          description: "Certificate {{ $labels.name }} in {{ $labels.namespace }} expires in {{ $value }} days"
+          description: "Certificate {{`{{ $labels.name }}`}} in {{`{{ $labels.namespace }}`}} expires in {{`{{ $value }}`}} days"
           runbook_url: "https://docs.254carbon.com/runbooks/certificate-expiry"
       
       - alert: CertificateExpiringIn7Days
@@ -115,7 +115,7 @@ data:
           component: certificates
         annotations:
           summary: "Certificate expiring very soon!"
-          description: "Certificate {{ $labels.name }} in {{ $labels.namespace }} expires in {{ $value }} days - URGENT ACTION REQUIRED"
+          description: "Certificate {{`{{ $labels.name }}`}} in {{`{{ $labels.namespace }}`}} expires in {{`{{ $value }}`}} days - URGENT ACTION REQUIRED"
           runbook_url: "https://docs.254carbon.com/runbooks/certificate-expiry"
       
       - alert: CertificateNotReady
@@ -126,7 +126,7 @@ data:
           component: certificates
         annotations:
           summary: "Certificate not ready"
-          description: "Certificate {{ $labels.name }} in {{ $labels.namespace }} is not in ready state"
+          description: "Certificate {{`{{ $labels.name }}`}} in {{`{{ $labels.namespace }}`}} is not in ready state"
           runbook_url: "https://docs.254carbon.com/runbooks/certificate-not-ready"
     
     # Database Alerts
@@ -142,7 +142,7 @@ data:
           component: postgresql
         annotations:
           summary: "PostgreSQL connection usage high"
-          description: "Database {{ $labels.datname }} is using {{ $value | humanizePercentage }} of max connections"
+          description: "Database {{`{{ $labels.datname }}`}} is using {{`{{ $value | humanizePercentage }}`}} of max connections"
           runbook_url: "https://docs.254carbon.com/runbooks/postgresql-connections"
       
       - alert: PostgreSQLReplicationLag
@@ -153,7 +153,7 @@ data:
           component: postgresql
         annotations:
           summary: "PostgreSQL replication lag"
-          description: "Replication lag is {{ $value }} seconds on {{ $labels.instance }}"
+          description: "Replication lag is {{`{{ $value }}`}} seconds on {{`{{ $labels.instance }}`}}"
           runbook_url: "https://docs.254carbon.com/runbooks/postgresql-replication-lag"
       
       - alert: PostgreSQLTooManyDeadTuples
@@ -165,7 +165,7 @@ data:
           component: postgresql
         annotations:
           summary: "PostgreSQL has too many dead tuples"
-          description: "Table {{ $labels.table }} has {{ $value | humanizePercentage }} dead tuples"
+          description: "Table {{`{{ $labels.table }}`}} has {{`{{ $value | humanizePercentage }}`}} dead tuples"
           runbook_url: "https://docs.254carbon.com/runbooks/postgresql-dead-tuples"
     
     # Kafka Alerts
@@ -180,7 +180,7 @@ data:
           component: kafka
         annotations:
           summary: "Kafka has under-replicated partitions"
-          description: "{{ $value }} partitions are under-replicated on {{ $labels.instance }}"
+          description: "{{`{{ $value }}`}} partitions are under-replicated on {{`{{ $labels.instance }}`}}"
           runbook_url: "https://docs.254carbon.com/runbooks/kafka-under-replicated"
       
       - alert: KafkaOfflinePartitions
@@ -191,7 +191,7 @@ data:
           component: kafka
         annotations:
           summary: "Kafka has offline partitions"
-          description: "{{ $value }} partitions are offline - data loss possible!"
+          description: "{{`{{ $value }}`}} partitions are offline - data loss possible!"
           runbook_url: "https://docs.254carbon.com/runbooks/kafka-offline-partitions"
       
       - alert: KafkaConsumerGroupLag
@@ -202,7 +202,7 @@ data:
           component: kafka
         annotations:
           summary: "Kafka consumer group lagging"
-          description: "Consumer group {{ $labels.consumergroup }} is {{ $value }} messages behind"
+          description: "Consumer group {{`{{ $labels.consumergroup }}`}} is {{`{{ $value }}`}} messages behind"
           runbook_url: "https://docs.254carbon.com/runbooks/kafka-consumer-lag"
     
     # Storage Alerts
@@ -218,7 +218,7 @@ data:
           component: minio
         annotations:
           summary: "MinIO storage usage high"
-          description: "Bucket {{ $labels.bucket }} is at {{ $value | humanizePercentage }} capacity"
+          description: "Bucket {{`{{ $labels.bucket }}`}} is at {{`{{ $value | humanizePercentage }}`}} capacity"
           runbook_url: "https://docs.254carbon.com/runbooks/minio-storage"
       
       - alert: VelerBackupFailed
@@ -229,7 +229,7 @@ data:
           component: velero
         annotations:
           summary: "Velero backup failed"
-          description: "Backup {{ $labels.schedule }} failed {{ $value }} times"
+          description: "Backup {{`{{ $labels.schedule }}`}} failed {{`{{ $value }}`}} times"
           runbook_url: "https://docs.254carbon.com/runbooks/velero-backup-failure"
       
       - alert: IcebergTableMaintenanceOverdue
@@ -241,7 +241,7 @@ data:
           component: iceberg
         annotations:
           summary: "Iceberg table maintenance overdue"
-          description: "Table {{ $labels.table }} hasn't had maintenance in {{ $value | humanizeDuration }}"
+          description: "Table {{`{{ $labels.table }}`}} hasn't had maintenance in {{`{{ $value | humanizeDuration }}`}}"
           runbook_url: "https://docs.254carbon.com/runbooks/iceberg-maintenance"
     
     # Performance Alerts
@@ -257,7 +257,7 @@ data:
           component: api
         annotations:
           summary: "High API latency detected"
-          description: "95th percentile latency is {{ $value }}s for {{ $labels.endpoint }}"
+          description: "95th percentile latency is {{`{{ $value }}`}}s for {{`{{ $labels.endpoint }}`}}"
           runbook_url: "https://docs.254carbon.com/runbooks/high-api-latency"
       
       - alert: HighErrorRate
@@ -270,7 +270,7 @@ data:
           component: api
         annotations:
           summary: "High error rate"
-          description: "Error rate is {{ $value | humanizePercentage }} on {{ $labels.service }}"
+          description: "Error rate is {{`{{ $value | humanizePercentage }}`}} on {{`{{ $labels.service }}`}}"
           runbook_url: "https://docs.254carbon.com/runbooks/high-error-rate"
       
       - alert: SlowQueryDetected
@@ -281,7 +281,7 @@ data:
           component: postgresql
         annotations:
           summary: "Slow database query detected"
-          description: "Query running for {{ $value }}s on database {{ $labels.datname }}"
+          description: "Query running for {{`{{ $value }}`}}s on database {{`{{ $labels.datname }}`}}"
           runbook_url: "https://docs.254carbon.com/runbooks/slow-queries"
 
 ---

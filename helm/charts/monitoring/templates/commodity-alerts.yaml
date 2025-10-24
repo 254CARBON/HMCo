@@ -27,7 +27,7 @@ data:
           component: data-ingestion
         annotations:
           summary: "Commodity data is stale"
-          description: "Energy prices haven't been updated in over 24 hours. Last update: {{ $value | humanizeDuration }}"
+          description: "Energy prices haven't been updated in over 24 hours. Last update: {{`{{ $value | humanizeDuration }}`}}"
           runbook_url: "https://docs.254carbon.com/runbooks/stale-data"
       
       - alert: EconomicIndicatorsStale
@@ -51,7 +51,7 @@ data:
           component: data-quality
         annotations:
           summary: "High null value rate in commodity data"
-          description: "{{ $labels.table }} has {{ $value }}% null values, exceeding 5% threshold"
+          description: "{{`{{ $labels.table }}`}} has {{`{{ $value }}`}}% null values, exceeding 5% threshold"
       
       - alert: InvalidPriceValues
         expr: |
@@ -62,7 +62,7 @@ data:
           component: data-quality
         annotations:
           summary: "Invalid price values detected"
-          description: "Found {{ $value }} invalid price records (negative or extreme values)"
+          description: "Found {{`{{ $value }}`}} invalid price records (negative or extreme values)"
       
       - alert: DuplicateRecords
         expr: |
@@ -73,7 +73,7 @@ data:
           component: data-quality
         annotations:
           summary: "High duplicate record count"
-          description: "{{ $value }} duplicate records found in commodity data"
+          description: "{{`{{ $value }}`}} duplicate records found in commodity data"
       
       # Pipeline Health Alerts
       - alert: IngestionPipelineFailed
@@ -85,7 +85,7 @@ data:
           component: data-pipeline
         annotations:
           summary: "Commodity ingestion pipeline failing"
-          description: "{{ $value }} ingestion task failures in the last hour"
+          description: "{{`{{ $value }}`}} ingestion task failures in the last hour"
           runbook_url: "https://docs.254carbon.com/runbooks/pipeline-failure"
       
       - alert: LowDataIngestionRate
@@ -97,7 +97,7 @@ data:
           component: data-pipeline
         annotations:
           summary: "Low data ingestion rate"
-          description: "Data ingestion rate is {{ $value }} records/sec (expected > 10)"
+          description: "Data ingestion rate is {{`{{ $value }}`}} records/sec (expected > 10)"
       
       # Market Anomaly Alerts
       - alert: ExtremePriceMovement
@@ -108,7 +108,7 @@ data:
           component: market-monitoring
         annotations:
           summary: "Extreme price movement detected"
-          description: "{{ $labels.commodity }} price changed by {{ $value }}% in one day"
+          description: "{{`{{ $labels.commodity }}`}} price changed by {{`{{ $value }}`}}% in one day"
       
       - alert: HighVolatility
         expr: |
@@ -119,7 +119,7 @@ data:
           component: market-monitoring
         annotations:
           summary: "High market volatility"
-          description: "{{ $labels.commodity }} volatility at {{ $value }} (30-day rolling)"
+          description: "{{`{{ $labels.commodity }}`}} volatility at {{`{{ $value }}`}} (30-day rolling)"
       
       # SeaTunnel Connector Health
       - alert: SeaTunnelConnectorDown
@@ -142,7 +142,7 @@ data:
           component: data-connectors
         annotations:
           summary: "High error rate in SeaTunnel connectors"
-          description: "Error rate: {{ $value | humanizePercentage }}"
+          description: "Error rate: {{`{{ $value | humanizePercentage }}`}}"
       
       # Storage Alerts for Commodity Data
       - alert: CommodityDataStorageFull
@@ -154,7 +154,7 @@ data:
           component: storage
         annotations:
           summary: "Commodity data storage growing large"
-          description: "{{ $labels.table }} is {{ $value }}GB, consider archiving old data"
+          description: "{{`{{ $labels.table }}`}} is {{`{{ $value }}`}}GB, consider archiving old data"
       
       # API Rate Limiting Alerts
       - alert: APIRateLimitApproaching
@@ -166,7 +166,7 @@ data:
           component: external-apis
         annotations:
           summary: "Approaching API rate limit"
-          description: "{{ $labels.source }} API usage at {{ $value | humanizePercentage }} of limit"
+          description: "{{`{{ $labels.source }}`}} API usage at {{`{{ $value | humanizePercentage }}`}} of limit"
 
 ---
 # PrometheusRule CRD for auto-discovery
@@ -201,7 +201,7 @@ spec:
         component: workflow-orchestration
       annotations:
         summary: "Multiple DolphinScheduler workflow failures"
-        description: "{{ $value }} workflow task failures in the last hour"
+        description: "{{`{{ $value }}`}} workflow task failures in the last hour"
     
     - alert: TrinoQueryPerformanceDegraded
       expr: histogram_quantile(0.95, rate(trino_query_duration_seconds_bucket[5m])) > 30
@@ -211,5 +211,5 @@ spec:
         component: query-engine
       annotations:
         summary: "Slow Trino query performance"
-        description: "95th percentile query latency is {{ $value }}s (expected < 30s)"
+        description: "95th percentile query latency is {{`{{ $value }}`}}s (expected < 30s)"
 

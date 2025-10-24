@@ -58,7 +58,7 @@ spec:
         component: spark
       annotations:
         summary: "Spark Application Failed"
-        description: "Spark application {{ $labels.app_id }} has failed. Check logs for details."
+        description: "Spark application {{`{{ $labels.app_id }}`}} has failed. Check logs for details."
     
     # Alert: Spark Application Stuck
     - alert: SparkApplicationStuck
@@ -70,7 +70,7 @@ spec:
         component: spark
       annotations:
         summary: "Spark Application Running Too Long"
-        description: "Spark application {{ $labels.app_id }} has been running for over 1 hour."
+        description: "Spark application {{`{{ $labels.app_id }}`}} has been running for over 1 hour."
     
     # Alert: Spark Driver Pod Memory High
     - alert: SparkDriverMemoryHigh
@@ -82,7 +82,7 @@ spec:
         component: spark
       annotations:
         summary: "Spark Driver Memory Usage High"
-        description: "Driver pod {{ $labels.pod }} memory usage is above 85%."
+        description: "Driver pod {{`{{ $labels.pod }}`}} memory usage is above 85%."
     
     # Alert: Spark Executor Pod Memory High
     - alert: SparkExecutorMemoryHigh
@@ -94,7 +94,7 @@ spec:
         component: spark
       annotations:
         summary: "Spark Executor Memory Usage High"
-        description: "Executor pod {{ $labels.pod }} memory usage is above 85%."
+        description: "Executor pod {{`{{ $labels.pod }}`}} memory usage is above 85%."
     
     # Alert: Spark Operator Down
     - alert: SparkOperatorDown
@@ -156,7 +156,7 @@ spec:
         component: deequ
       annotations:
         summary: "Data Quality Score Low"
-        description: "Data quality score for {{ $labels.table }} is {{ $value }}, below acceptable threshold of 80."
+        description: "Data quality score for {{`{{ $labels.table }}`}} is {{`{{ $value }}`}}, below acceptable threshold of 80."
     
     # Alert: Data Quality Score Critical
     - alert: DataQualityScoreCritical
@@ -168,7 +168,7 @@ spec:
         component: deequ
       annotations:
         summary: "Data Quality Score Critical"
-        description: "Data quality score for {{ $labels.table }} is {{ $value }}, below critical threshold of 70."
+        description: "Data quality score for {{`{{ $labels.table }}`}} is {{`{{ $value }}`}}, below critical threshold of 70."
     
     # Alert: Quality Check Failed
     - alert: QualityCheckFailed
@@ -180,7 +180,7 @@ spec:
         component: deequ
       annotations:
         summary: "Deequ Quality Check Failed"
-        description: "Quality check {{ $labels.check_name }} for table {{ $labels.table }} has failed."
+        description: "Quality check {{`{{ $labels.check_name }}`}} for table {{`{{ $labels.table }}`}} has failed."
     
     # Alert: Data Anomaly Detected
     - alert: DataAnomalyDetected
@@ -192,7 +192,7 @@ spec:
         component: deequ
       annotations:
         summary: "Data Anomaly Detected"
-        description: "Anomaly detected in {{ $labels.table }}.{{ $labels.column }} - {{ $labels.anomaly_type }}"
+        description: "Anomaly detected in {{`{{ $labels.table }}`}}.{{`{{ $labels.column }}`}} - {{`{{ $labels.anomaly_type }}`}}"
 ---
 # Recording Rules for Spark Metrics
 apiVersion: monitoring.coreos.com/v1

@@ -7,12 +7,15 @@ metadata:
   namespace: kong
   labels:
     app: kong-config
+  annotations:
+    argocd.argoproj.io/hook: Sync
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+    argocd.argoproj.io/sync-options: Replace=true
 spec:
   template:
     metadata:
       annotations:
         sidecar.istio.io/inject: "false"
-        kyverno.io/ignore: "true"
     spec:
       restartPolicy: OnFailure
       securityContext:
