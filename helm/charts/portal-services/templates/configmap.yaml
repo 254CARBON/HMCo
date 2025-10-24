@@ -1,0 +1,98 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: portal-services-registry
+  namespace: data-platform
+  labels:
+    {{- include "portal-services.labels" . | nindent 4 }}
+data:
+  services.json: |
+    {
+      "services": [
+        {
+          "id": "grafana",
+          "name": "Grafana",
+          "url": "https://grafana.254carbon.com",
+          "internalUrl": "http://grafana.monitoring.svc.cluster.local:3000",
+          "category": "monitoring",
+          "description": "Real-time monitoring dashboards and metrics visualization",
+          "icon": "chart-bar",
+          "healthPath": "/api/health",
+          "useCloudflareAccess": true,
+          "timeoutMs": 5000
+        },
+        {
+          "id": "superset",
+          "name": "Apache Superset",
+          "url": "https://superset.254carbon.com",
+          "internalUrl": "http://superset-web.data-platform.svc.cluster.local:8088",
+          "category": "monitoring",
+          "description": "Business intelligence and data visualization platform",
+          "icon": "chart-line",
+          "healthPath": "/health",
+          "useCloudflareAccess": true,
+          "timeoutMs": 5000
+        },
+        {
+          "id": "datahub",
+          "name": "DataHub",
+          "url": "https://datahub.254carbon.com",
+          "internalUrl": "http://datahub-frontend.data-platform.svc.cluster.local:9002",
+          "category": "data",
+          "description": "Metadata platform for data discovery and governance",
+          "icon": "database",
+          "healthPath": "/api/v2/health",
+          "useCloudflareAccess": true,
+          "timeoutMs": 5000
+        },
+        {
+          "id": "trino",
+          "name": "Trino",
+          "url": "https://trino.254carbon.com",
+          "internalUrl": "http://trino-coordinator.data-platform.svc.cluster.local:8080",
+          "category": "compute",
+          "description": "Distributed SQL query engine for analytics",
+          "icon": "terminal",
+          "healthPath": "/v1/info",
+          "useCloudflareAccess": true,
+          "timeoutMs": 5000
+        },
+        {
+          "id": "vault",
+          "name": "HashiCorp Vault",
+          "url": "https://vault.254carbon.com",
+          "internalUrl": "http://vault.vault-prod.svc.cluster.local:8200",
+          "category": "storage",
+          "description": "Secrets management and encryption service",
+          "icon": "lock",
+          "healthPath": "/v1/sys/health",
+          "useCloudflareAccess": true,
+          "timeoutMs": 5000
+        },
+        {
+          "id": "minio",
+          "name": "MinIO",
+          "url": "https://minio.254carbon.com",
+          "internalUrl": "http://minio-service.data-platform.svc.cluster.local:9001",
+          "category": "storage",
+          "description": "S3-compatible object storage for data lake",
+          "icon": "hard-drive",
+          "healthPath": "/minio/health/live",
+          "useCloudflareAccess": true,
+          "timeoutMs": 5000
+        },
+        {
+          "id": "dolphinscheduler",
+          "name": "DolphinScheduler",
+          "url": "https://dolphin.254carbon.com",
+          "internalUrl": "http://dolphinscheduler-api.data-platform.svc.cluster.local:12345",
+          "category": "workflow",
+          "description": "Workflow orchestration and task scheduling",
+          "icon": "workflow",
+          "healthPath": "/dolphinscheduler/actuator/health",
+          "useCloudflareAccess": true,
+          "timeoutMs": 5000
+        }
+      ]
+    }
+

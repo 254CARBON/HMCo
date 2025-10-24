@@ -312,19 +312,11 @@ data:
     iceberg.rest-catalog.uri=http://iceberg-rest-catalog:8181
     iceberg.rest-catalog.warehouse=s3://iceberg-warehouse/
     iceberg.rest-catalog.security=none
-    # S3 configuration for data access
-    s3.endpoint=http://minio-service:9000
-    s3.access-key=minioadmin
-    s3.secret-key=minioadmin123
-    s3.path-style-access=true
-    s3.region=us-east-1
     # Iceberg-specific settings
     iceberg.pushdown-projection-enabled=true
     iceberg.pushdown-filters-enabled=true
     iceberg.split-manager-threads=4
     iceberg.max-split-size=134217728
-    # Connection pooling
-    iceberg.max-connections=20
 
   # Elasticsearch catalog
   elasticsearch.properties: |

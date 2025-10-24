@@ -1,0 +1,7 @@
+apiVersion: v2
+name: portal-services
+description: Portal Services API - Service registry and health check backend for 254Carbon Portal
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
+

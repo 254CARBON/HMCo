@@ -1,0 +1,336 @@
+# Kyverno PolicyExceptions for services with legitimate security requirement deviations
+# These exceptions are carefully scoped to specific workloads that require non-standard configurations
+
+---
+# Exception for DolphinScheduler components - need write access for logs and resources
+apiVersion: kyverno.io/v2
+kind: PolicyException
+metadata:
+  name: dolphinscheduler-exceptions
+  namespace: data-platform
+spec:
+  exceptions:
+  - policyName: require-readonly-rootfs
+    ruleNames:
+    - readonly-rootfs
+    - autogen-readonly-rootfs
+  - policyName: drop-net-raw
+    ruleNames:
+    - drop-net-raw-cap
+    - autogen-drop-net-raw-cap
+  - policyName: require-non-root
+    ruleNames:
+    - run-as-non-root
+    - autogen-run-as-non-root
+  match:
+    any:
+    - resources:
+        kinds:
+        - Deployment
+        - Pod
+        namespaces:
+        - data-platform
+        names:
+        - dolphinscheduler-api*
+        - dolphinscheduler-master*
+        - dolphinscheduler-worker*
+        - dolphinscheduler-alert*
+
+---
+# Exception for MinIO - object storage needs write access
+apiVersion: kyverno.io/v2
+kind: PolicyException
+metadata:
+  name: minio-exceptions
+  namespace: data-platform
+spec:
+  exceptions:
+  - policyName: require-readonly-rootfs
+    ruleNames:
+    - readonly-rootfs
+    - autogen-readonly-rootfs
+  - policyName: drop-net-raw
+    ruleNames:
+    - drop-net-raw-cap
+    - autogen-drop-net-raw-cap
+  - policyName: require-non-root
+    ruleNames:
+    - run-as-non-root
+    - autogen-run-as-non-root
+  match:
+    any:
+    - resources:
+        kinds:
+        - StatefulSet
+        - Pod
+        namespaces:
+        - data-platform
+        names:
+        - minio*
+
+---
+# Exception for Superset - BI tool needs write for temp files and caching
+apiVersion: kyverno.io/v2
+kind: PolicyException
+metadata:
+  name: superset-exceptions
+  namespace: data-platform
+spec:
+  exceptions:
+  - policyName: require-readonly-rootfs
+    ruleNames:
+    - readonly-rootfs
+    - autogen-readonly-rootfs
+  - policyName: drop-net-raw
+    ruleNames:
+    - drop-net-raw-cap
+    - autogen-drop-net-raw-cap
+  match:
+    any:
+    - resources:
+        kinds:
+        - Deployment
+        - Pod
+        - Job
+        namespaces:
+        - data-platform
+        names:
+        - superset-*
+
+---
+# Exception for Trino - distributed SQL engine
+apiVersion: kyverno.io/v2
+kind: PolicyException
+metadata:
+  name: trino-exceptions
+  namespace: data-platform
+spec:
+  exceptions:
+  - policyName: require-readonly-rootfs
+    ruleNames:
+    - readonly-rootfs
+    - autogen-readonly-rootfs
+  - policyName: drop-net-raw
+    ruleNames:
+    - drop-net-raw-cap
+    - autogen-drop-net-raw-cap
+  - policyName: require-non-root
+    ruleNames:
+    - run-as-non-root
+    - autogen-run-as-non-root
+  match:
+    any:
+    - resources:
+        kinds:
+        - Deployment
+        - Pod
+        namespaces:
+        - data-platform
+        names:
+        - trino-*
+
+---
+# Exception for Spark components - batch processing needs flexibility
+apiVersion: kyverno.io/v2
+kind: PolicyException
+metadata:
+  name: spark-exceptions
+  namespace: data-platform
+spec:
+  exceptions:
+  - policyName: require-readonly-rootfs
+    ruleNames:
+    - readonly-rootfs
+    - autogen-readonly-rootfs
+  - policyName: drop-net-raw
+    ruleNames:
+    - drop-net-raw-cap
+    - autogen-drop-net-raw-cap
+  - policyName: require-non-root
+    ruleNames:
+    - run-as-non-root
+    - autogen-run-as-non-root
+  match:
+    any:
+    - resources:
+        kinds:
+        - Deployment
+        - Pod
+        namespaces:
+        - data-platform
+        names:
+        - spark-*
+        - data-platform-spark-operator*
+
+---
+# Exception for Zookeeper - coordination service
+apiVersion: kyverno.io/v2
+kind: PolicyException
+metadata:
+  name: zookeeper-exceptions
+  namespace: data-platform
+spec:
+  exceptions:
+  - policyName: require-readonly-rootfs
+    ruleNames:
+    - readonly-rootfs
+    - autogen-readonly-rootfs
+  - policyName: drop-net-raw
+    ruleNames:
+    - drop-net-raw-cap
+    - autogen-drop-net-raw-cap
+  match:
+    any:
+    - resources:
+        kinds:
+        - StatefulSet
+        - Pod
+        namespaces:
+        - data-platform
+        names:
+        - zookeeper*
+
+---
+# Exception for GraphQL Gateway - API gateway needs network capabilities
+apiVersion: kyverno.io/v2
+kind: PolicyException
+metadata:
+  name: graphql-gateway-exceptions
+  namespace: data-platform
+spec:
+  exceptions:
+  - policyName: drop-net-raw
+    ruleNames:
+    - drop-net-raw-cap
+    - autogen-drop-net-raw-cap
+  match:
+    any:
+    - resources:
+        kinds:
+        - Deployment
+        - Pod
+        namespaces:
+        - data-platform
+        names:
+        - graphql-gateway*
+
+---
+# Exception for data platform support services
+apiVersion: kyverno.io/v2
+kind: PolicyException
+metadata:
+  name: data-platform-services-exceptions
+  namespace: data-platform
+spec:
+  exceptions:
+  - policyName: require-readonly-rootfs
+    ruleNames:
+    - readonly-rootfs
+    - autogen-readonly-rootfs
+  - policyName: drop-net-raw
+    ruleNames:
+    - drop-net-raw-cap
+    - autogen-drop-net-raw-cap
+  - policyName: require-non-root
+    ruleNames:
+    - run-as-non-root
+    - autogen-run-as-non-root
+  match:
+    any:
+    - resources:
+        kinds:
+        - Deployment
+        - Pod
+        namespaces:
+        - data-platform
+        names:
+        - data-platform-data-lake*
+        - data-platform-doris*
+        - iceberg-*
+        - redis*
+
+---
+# Exception for initialization and migration jobs
+apiVersion: kyverno.io/v2
+kind: PolicyException
+metadata:
+  name: init-jobs-exceptions
+  namespace: data-platform
+spec:
+  exceptions:
+  - policyName: require-readonly-rootfs
+    ruleNames:
+    - readonly-rootfs
+    - autogen-readonly-rootfs
+  - policyName: drop-net-raw
+    ruleNames:
+    - drop-net-raw-cap
+    - autogen-drop-net-raw-cap
+    - autogen-cronjob-drop-net-raw-cap
+  - policyName: require-non-root
+    ruleNames:
+    - run-as-non-root
+    - autogen-run-as-non-root
+    - autogen-cronjob-run-as-non-root
+  - policyName: disallow-latest-tag
+    ruleNames:
+    - require-nonlatest-tag
+    - autogen-require-nonlatest-tag
+  - policyName: require-requests-limits
+    ruleNames:
+    - check-requests-limits
+    - autogen-check-requests-limits
+    - autogen-cronjob-check-requests-limits
+  match:
+    any:
+    - resources:
+        kinds:
+        - Job
+        - CronJob
+        - Pod
+        namespaces:
+        - data-platform
+        names:
+        - "*-init*"
+        - "*-migration*"
+        - "create-velero-bucket*"
+        - "iceberg-compaction*"
+        - "data-archival*"
+        - "check-secrets-age*"
+
+---
+# Exception for API Gateway - needs network access and flexibility
+apiVersion: kyverno.io/v2
+kind: PolicyException
+metadata:
+  name: api-gateway-exceptions
+  namespace: data-platform
+spec:
+  exceptions:
+  - policyName: require-readonly-rootfs
+    ruleNames:
+    - readonly-rootfs
+    - autogen-readonly-rootfs
+  - policyName: drop-net-raw
+    ruleNames:
+    - drop-net-raw-cap
+    - autogen-drop-net-raw-cap
+  - policyName: require-non-root
+    ruleNames:
+    - run-as-non-root
+    - autogen-run-as-non-root
+  - policyName: require-requests-limits
+    ruleNames:
+    - check-requests-limits
+    - autogen-check-requests-limits
+  match:
+    any:
+    - resources:
+        kinds:
+        - Deployment
+        - Pod
+        namespaces:
+        - data-platform
+        names:
+        - api-gateway*
+

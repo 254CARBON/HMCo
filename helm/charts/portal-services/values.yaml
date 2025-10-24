@@ -1,0 +1,45 @@
+replicaCount: 2
+
+image:
+  repository: harbor.254carbon.com/library/portal-services
+  tag: "1.0.0"
+  pullPolicy: IfNotPresent
+
+service:
+  type: ClusterIP
+  port: 8080
+
+ingress:
+  enabled: true
+  className: nginx
+  hostname: portal-api.254carbon.com
+  tls: true
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
+
+serviceAccount:
+  create: true
+  name: portal-services
+
+# ConfigMap with services registry
+servicesConfig:
+  enabled: true
+
+# Cloudflare Access service token for SSO-aware health checks
+cloudflareAccess:
+  enabled: false
+  clientId: ""
+  clientSecret: ""
+
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 5
+  targetCPUUtilizationPercentage: 70
+
