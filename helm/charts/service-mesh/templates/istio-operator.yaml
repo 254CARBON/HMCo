@@ -165,9 +165,12 @@ spec:
           allowPrivilegeEscalation: false
           capabilities:
             drop:
+            - NET_RAW
             - ALL
           privileged: false
           readOnlyRootFilesystem: true
+          seccompProfile:
+            type: RuntimeDefault
           runAsGroup: 1337
           runAsUser: 1337
           runAsNonRoot: true
@@ -207,4 +210,3 @@ spec:
             port: 8383
           initialDelaySeconds: 10
           periodSeconds: 10
-
