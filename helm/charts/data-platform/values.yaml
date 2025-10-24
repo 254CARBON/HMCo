@@ -62,7 +62,7 @@ datahub:
   
   kafka:
     enabled: true
-    bootstrap: kafka-service:9092
+    bootstrap: kafka.data-platform.svc.cluster.local:9092
   
   neo4j:
     enabled: true
