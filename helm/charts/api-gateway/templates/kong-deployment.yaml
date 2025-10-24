@@ -86,6 +86,8 @@ spec:
             drop:
             - NET_RAW
             - ALL
+          runAsUser: 0
+          runAsGroup: 0
         env:
         - name: POSTGRES_USER
           value: postgres
@@ -174,6 +176,8 @@ spec:
         image: postgres:15-alpine
         securityContext:
           runAsNonRoot: false
+          runAsUser: 0
+          runAsGroup: 0
           allowPrivilegeEscalation: false
           capabilities:
             drop:
@@ -193,6 +197,8 @@ spec:
         imagePullPolicy: IfNotPresent
         securityContext:
           runAsNonRoot: false
+          runAsUser: 0
+          runAsGroup: 0
           allowPrivilegeEscalation: false
           capabilities:
             drop:
@@ -309,6 +315,8 @@ spec:
             drop:
             - NET_RAW
             - ALL
+          runAsUser: 0
+          runAsGroup: 0
         env:
         # Database
         - name: KONG_DATABASE
