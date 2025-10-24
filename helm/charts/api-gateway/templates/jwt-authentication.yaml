@@ -142,12 +142,15 @@ spec:
           allowPrivilegeEscalation: false
           capabilities:
             drop:
+            - NET_RAW
             - ALL
+          readOnlyRootFilesystem: true
         command:
         - /bin/bash
         - -c
         - |
-          pip install pyjwt cryptography requests
+          pip install --no-cache-dir --target /tmp/python pyjwt cryptography requests
+          export PYTHONPATH=/tmp/python
           
           python3 << 'EOF'
           import jwt
@@ -218,6 +221,12 @@ spec:
           
           print("\n✅ JWT configuration saved to /tmp/jwt-config.json")
           EOF
+        volumeMounts:
+        - name: tmp
+          mountPath: /tmp
+      volumes:
+      - name: tmp
+        emptyDir: {}
 
 ---
 # JWT Validation ConfigMap
@@ -379,5 +388,4 @@ config:
   response_type: "code"
   token_endpoint_auth_method: "client_secret_post"
 plugin: openid-connect
-
 
