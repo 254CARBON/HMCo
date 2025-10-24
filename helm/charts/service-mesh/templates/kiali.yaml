@@ -264,19 +264,23 @@ spec:
           protocol: TCP
         securityContext:
           allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
+          seccompProfile:
+            type: RuntimeDefault
           capabilities:
             drop:
-            - ALL
+            - NET_RAW
         readinessProbe:
           httpGet:
-            path: /kiali/healthz
+            path: /healthz
             port: 20001
             scheme: HTTP
           initialDelaySeconds: 5
           periodSeconds: 30
         livenessProbe:
           httpGet:
-            path: /kiali/healthz
+            path: /healthz
             port: 20001
             scheme: HTTP
           initialDelaySeconds: 5
@@ -338,5 +342,3 @@ spec:
             name: kiali
             port:
               number: 20001
-
-
