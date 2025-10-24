@@ -84,7 +84,6 @@ spec:
       allowEmpty: false
     syncOptions:
       - CreateNamespace=true
-      - ServerSideApply=true
 
 ---
 # ArgoCD Application: ML Platform
