@@ -32,6 +32,8 @@ spec:
       volumes:
       - name: app-workdir
         emptyDir: {}
+      - name: app-tmp
+        emptyDir: {}
       containers:
       - name: gateway
         image: node:18-alpine
@@ -102,6 +104,8 @@ spec:
         volumeMounts:
         - name: app-workdir
           mountPath: /home/node/app
+        - name: app-tmp
+          mountPath: /tmp
         resources:
           requests:
             cpu: 500m
