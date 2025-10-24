@@ -1,186 +1,109 @@
 # 254Carbon Platform - Next Steps Plan
 
 **Date**: October 24, 2025  
-**Current Status**: Phase 2 Complete (90%), Platform Health 75% (104/138 pods)  
-**Target**: Phase 2 100% Complete, Platform Health 85%+, Full ArgoCD Sync
+**Current Status**: Phase 2 tracking (~90%), Platform Health 75% (104/138 pods)  
+**Target**: Phase 2 100% complete, Platform Health 85%+, Full ArgoCD sync, TLS healthy
 
 ---
 
 ## 📊 Current State Analysis
 
 ### ✅ What's Working (Excellent)
-- **Core Services**: 10/12 critical services operational (83%)
-  - DolphinScheduler: Master + Workers running (API initializing)
-  - Trino Coordinator: Operational
-  - MinIO: 50Gi storage ready
-  - Superset: Web/Worker/Beat running
-  - PostgreSQL: Emergency deployment active
-  - Zookeeper, Redis (old pods), Iceberg REST
-  
-- **Phase 2 Monitoring**: COMPLETE ✅
-  - Grafana: Running with datasources connected
-  - Victoria Metrics: 20+ metrics collected
-  - VMAgent: Scraping 19+ targets
-  - Loki: Aggregating logs from 99+ pods
-  - Fluent Bit: 2/2 nodes collecting logs
-  
-- **Phase 2 Backups**: COMPLETE ✅
-  - Velero: 4 automated schedules
-  - MinIO bucket: velero-backups created
-  - Retention: 30 days configured
+- **Gateway & Mesh**: Kong hardened (non-root, sidecar-ready) with namespace default-deny and scoped egress; Postgres backend stable.
+- **Data Plane**: MinIO, Trino coordinator, Superset stack, Spark History UI (new ingress) and Iceberg REST are serving traffic.
+- **Observability / Backups**: Grafana + VictoriaMetrics stack, Loki/Fluent Bit, and Velero backups all remain green.
+- **GitOps Footprint**: ArgoCD apps intact; updated charts staged for ingress, network policies, and security baselines.
 
-- **Infrastructure**: SOLID ✅
-  - Kubernetes: 2-node cluster healthy
-  - ArgoCD: 17 applications configured
-  - Kyverno: 11 PolicyExceptions active
-  - GitOps: 13 commits pushed
+### ⚠️ Issues Remaining (focus)
 
-### ⚠️ Issues Remaining (18 pods)
+**High Priority**
+1. **Let’s Encrypt certs pending** – Cloudflare Access intercepts `/.well-known/acme-challenge/*` for spark-history + api domains.
+2. **Portal-Services ImagePullBackOff** – image only on `cpu1`; worker node lacks artifact.
+3. **DolphinScheduler** – API + master pods restarting (schema jobs reran).
 
-**High Priority** (Impact: Service functionality)
-1. **Redis (Bitnami)** - ImagePullBackOff (1 pod)
-   - New Bitnami image not pulling
-   - Old Redis still running (workaround active)
-   
-2. **Portal-Services** - ImagePullBackOff (3 pods)
-   - Image only on cpu1, not k8s-worker
-   - GraphQL gateway can't start
-   
-3. **DolphinScheduler API** - Pods cycling (6 pods)
-   - Database schema initialized
-   - Pods starting but not yet ready
-   
-**Medium Priority** (Impact: Features/Performance)
-4. **Trino Worker** - CrashLoopBackOff (1 pod)
-   - Coordinator working
-   - 50% query capacity
-   
-5. **Spark History Server** - CrashLoopBackOff (1 pod)
-   - Historical job viewing unavailable
-   
-6. **Doris FE** - CrashLoopBackOff (disabled, expected)
+**Medium Priority**
+4. **Trino worker** – CrashLoop (catalog/memory tune).
+5. **Spark History duplicate pod** – second replica CrashLoop until deployment scaled/synced.
+6. **DataHub GMS / consumers** – restarts until backing services tuned (non-blocking).
 
-**Low Priority** (Impact: Optional features)
-7. **DataHub** - Init containers waiting (3 pods)
-   - Prerequisites not deployed (Elasticsearch, Kafka, Neo4j)
-   - Data catalog not critical for Phase 2
-   
-8. **Iceberg Compaction** - ImagePullBackOff (1 pod)
-   - Daily maintenance job
-   - Not urgent
+**Low Priority**
+7. **Redis (new Bitnami)** – pull failures; legacy instance serving.
+8. **Doris FE** – disabled, expected CrashLoop.
+9. **Iceberg maintenance jobs** – occasional image pull failures.
 
 ### 🔄 ArgoCD Status
-- **OutOfSync**: data-platform, api-gateway, service-mesh (expected - manual changes)
-- **Degraded**: data-platform, platform-policies, portal-services (pod issues)
-- **Action Needed**: Sync applications after fixes
+- **OutOfSync**: data-platform, api-gateway (manual ingress/policy edits pending commit)
+- **Degraded**: data-platform (pod restarts), portal-services (image pull), platform-policies (quotas updated out-of-band)
+- **Actions**: commit new manifests → hard refresh relevant apps after TLS + pods stabilize
 
 ---
 
 ## 🎯 Next Steps Plan (Prioritized)
 
-### **Phase 1: Complete Service Restoration** (30-45 min)
+### **Phase 1: Unblock External Access & Critical Pods** (30-45 min)
 
-#### 1.1 Fix Redis (Bitnami Image Pull) - 10 min
-**Issue**: `bitnami/redis:7.2-debian-12` image not available or misspelled
+#### 1.1 Cloudflare Access bypass for ACME - 10 min
+**Issue**: HTTP-01 responses show Access login; Spark History + GraphQL certs stay Pending.
 
-**Options**:
-- **A**: Use public Bitnami image: `bitnami/redis:7.2.15-debian-12-r0`
-- **B**: Keep old Redis running (already working)
-- **C**: Pre-pull image manually on both nodes
+**Action**:
+- Add Access policy exemption for `/.well-known/acme-challenge/*` on `spark-history.254carbon.com` and `api.254carbon.com`.
+- Re-trigger challenges after policy update:
+  ```bash
+  kubectl -n data-platform delete certificaterequest spark-history-tls-1 graphql-gateway-tls-1
+  ```
+- Verify ready state:
+  ```bash
+  kubectl -n data-platform get certificate spark-history-tls
+  ```
 
-**Recommended**: Option B (keep working, optimize later)
+#### 1.2 Stabilize DolphinScheduler control plane - 15 min
+**Issue**: Schema job reran, API + master CrashLoopBackOff.
 
 **Action**:
 ```bash
-# Keep old Redis, remove new failing pods
-kubectl delete deployment redis -n data-platform --cascade=orphan
-kubectl delete pods -n data-platform -l app=redis | grep ImagePullBackOff
+kubectl delete job -n data-platform dolphinscheduler-full-schema-init
+kubectl logs -n data-platform deploy/dolphinscheduler-api --tail=100
+kubectl logs -n data-platform deploy/dolphinscheduler-master --tail=100
+# apply fixes (env, secrets, DB) then restart deployments if needed
 ```
 
-#### 1.2 Distribute Portal-Services Image - 15 min
-**Issue**: Image on cpu1 only, not on k8s-worker
+#### 1.3 Portal-Services image distribution - 10 min
+**Issue**: Pods pulling image on worker node fail.
 
 **Options**:
-- **A**: Copy image to worker via SSH
-- **B**: Push to public registry (DockerHub)
-- **C**: Use node affinity (already done - cpu1 only)
+1. Push image to Harbor/GHCR & update chart.
+2. Import tarball to `k8s-worker` (`ctr -n k8s.io images import`).
+3. Temporarily pin deployment to `cpu1` if service load acceptable.
 
-**Recommended**: Option C is active, GraphQL gateway will work on next deployment
+After image is present, restart deployment and confirm GraphQL (when backends ready).
 
-**Action**:
-```bash
-# Verify current setup
-kubectl get pods -n data-platform -l app=portal-services -o wide
-
-# If needed, copy to worker:
-docker save harbor.254carbon.com/library/portal-services:1.0.0 > /tmp/portal-services.tar
-scp /tmp/portal-services.tar k8s-worker:/tmp/
-ssh k8s-worker "sudo ctr -n k8s.io images import /tmp/portal-services.tar"
-```
-
-#### 1.3 Wait for DolphinScheduler API Ready - 5 min
-**Issue**: Pods starting after schema init
-
-**Action**: Wait for readiness probes (auto-completes in 2-5 min)
-```bash
-kubectl wait --for=condition=ready pod -l app=dolphinscheduler-api -n data-platform --timeout=300s
-kubectl exec -n data-platform deploy/dolphinscheduler-api -- curl http://localhost:12345/dolphinscheduler/actuator/health
-```
-
-#### 1.4 Fix Trino Worker (Optional) - 10 min
-**Issue**: 1/2 workers crashing with catalog errors
-
-**Action**: Check if it's a transient issue or needs config fix
-```bash
-kubectl logs -n data-platform -l app=trino-worker --tail=50
-kubectl delete pods -n data-platform -l app=trino-worker
-# Wait and verify both start
-```
+#### 1.4 Trino worker + Spark History replica cleanup - 10 min
+- Trino: review crash logs (`kubectl logs trino-worker`), adjust memory/catalog configs, restart.
+- Spark: ensure deployment `replicas: 1` (via chart values/Argo) so only healthy history pod runs.
 
 ---
 
-### **Phase 2: ArgoCD Sync & GitOps Cleanup** (20-30 min)
+### **Phase 2: GitOps Alignment & TLS Verification** (20-30 min)
 
-#### 2.1 Sync Data Platform Application - 10 min
-**Why**: Apply all our Helm chart fixes via GitOps
+1. **Commit/push** latest manifest changes:
+   - `helm/charts/data-platform/charts/spark-operator/templates/spark-history.yaml`
+   - `helm/charts/networking/templates/kong-network-policies.yaml`
+   - `helm/charts/platform-policies/templates/pod-security-policies.yaml`
+   - `scripts/configure-cloudflare-tunnel-token.sh`
 
-**Action**:
-```bash
-# Refresh from Git
-kubectl annotate application data-platform -n argocd argocd.argoproj.io/refresh=hard --overwrite
+2. **ArgoCD refresh** (post-cert + pod stability):
+   ```bash
+   kubectl annotate application data-platform -n argocd argocd.argoproj.io/refresh=hard --overwrite
+   kubectl annotate application platform-policies -n argocd argocd.argoproj.io/refresh=hard --overwrite
+   kubectl annotate application api-gateway -n argocd argocd.argoproj.io/refresh=hard --overwrite
+   ```
 
-# Wait for sync
-kubectl wait --for=jsonpath='{.status.sync.status}'=Synced application/data-platform -n argocd --timeout=300s
-
-# Verify
-kubectl get application data-platform -n argocd -o yaml | grep -A 5 "status:"
-```
-
-#### 2.2 Sync Portal-Services Application - 5 min
-**Action**:
-```bash
-kubectl annotate application portal-services -n argocd argocd.argoproj.io/refresh=hard --overwrite
-kubectl get application portal-services -n argocd
-```
-
-#### 2.3 Sync Platform Policies - 5 min
-**Action**:
-```bash
-kubectl annotate application platform-policies -n argocd argocd.argoproj.io/refresh=hard --overwrite
-```
-
-#### 2.4 Review All Application Status - 10 min
-**Action**:
-```bash
-# Get comprehensive status
-kubectl get applications -n argocd
-
-# Fix any OutOfSync apps
-for app in $(kubectl get applications -n argocd -o jsonpath='{.items[?(@.status.sync.status=="OutOfSync")].metadata.name}'); do
-  echo "Syncing $app..."
-  kubectl annotate application $app -n argocd argocd.argoproj.io/refresh=hard --overwrite
-done
-```
+3. **Validate**:
+   ```bash
+   kubectl -n data-platform get certificate spark-history-tls
+   kubectl -n data-platform get ingress spark-history-server
+   kubectl -n kong get networkpolicy
+   ```
 
 ---
 
@@ -652,4 +575,3 @@ velero backup get
 **Risk**: LOW  
 **Impact**: HIGH  
 **Recommendation**: PROCEED ✅
-

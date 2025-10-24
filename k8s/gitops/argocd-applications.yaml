@@ -397,21 +397,45 @@ spec:
             image:
               registry: docker.io
               repository: bitnami/kubectl
-              tag: "1.28.0"
+              tag: "latest@sha256:00889941b4b46ce0422810f9cd24333f3881ba2cc2d7766f331d4d8505f9d4c7"
               pullPolicy: IfNotPresent
             securityContext:
               runAsNonRoot: false
               runAsUser: 0
+              allowPrivilegeEscalation: false
+              capabilities:
+                drop:
+                  - ALL
+                  - NET_RAW
+            resources:
+              requests:
+                cpu: 50m
+                memory: 64Mi
+              limits:
+                cpu: 200m
+                memory: 256Mi
           clusterAdmissionReports:
             enabled: true
             image:
               registry: docker.io
               repository: bitnami/kubectl
-              tag: "1.28.0"
+              tag: "latest@sha256:00889941b4b46ce0422810f9cd24333f3881ba2cc2d7766f331d4d8505f9d4c7"
               pullPolicy: IfNotPresent
             securityContext:
               runAsNonRoot: false
               runAsUser: 0
+              allowPrivilegeEscalation: false
+              capabilities:
+                drop:
+                  - ALL
+                  - NET_RAW
+            resources:
+              requests:
+                cpu: 50m
+                memory: 64Mi
+              limits:
+                cpu: 200m
+                memory: 256Mi
   destination:
     server: https://kubernetes.default.svc
     namespace: kyverno
