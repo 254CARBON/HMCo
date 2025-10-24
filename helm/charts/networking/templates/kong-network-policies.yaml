@@ -1,0 +1,153 @@
+# Network Policies for Kong namespace
+# Enforces default deny posture with precise egress/ingress exceptions
+
+---
+# Default deny for all Kong pods
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: kong-default-deny
+  namespace: kong
+spec:
+  podSelector: {}
+  policyTypes:
+  - Ingress
+  - Egress
+
+---
+# Permit essential egress (DNS, Istio control plane, Postgres, intra-namespace control)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: kong-allow-core-egress
+  namespace: kong
+spec:
+  podSelector: {}
+  policyTypes:
+  - Egress
+  egress:
+  # DNS lookups
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          name: kube-system
+    ports:
+    - protocol: UDP
+      port: 53
+    - protocol: TCP
+      port: 53
+  # Istio control plane (sidecars need xDS connectivity)
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          name: istio-system
+    ports:
+    - protocol: TCP
+      port: 15012
+    - protocol: TCP
+      port: 15017
+    - protocol: TCP
+      port: 443
+  # Postgres backing store
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          name: kong
+      podSelector:
+        matchLabels:
+          app: kong-postgres
+    ports:
+    - protocol: TCP
+      port: 5432
+  # Kong admin/proxy service access within namespace (migrations, jobs)
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          name: kong
+      podSelector:
+        matchLabels:
+          app: kong
+    ports:
+    - protocol: TCP
+      port: 8000
+    - protocol: TCP
+      port: 8001
+    - protocol: TCP
+      port: 8443
+    - protocol: TCP
+      port: 8444
+
+---
+# Allow ingress from NGINX ingress controller and monitoring stack
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: kong-allow-ingress
+  namespace: kong
+spec:
+  podSelector:
+    matchLabels:
+      app: kong
+  policyTypes:
+  - Ingress
+  ingress:
+  # Traffic from ingress-nginx to proxy/admin ports
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: ingress-nginx
+    ports:
+    - protocol: TCP
+      port: 8000
+    - protocol: TCP
+      port: 8443
+    - protocol: TCP
+      port: 8001
+    - protocol: TCP
+      port: 8444
+  # Metrics scraping from monitoring namespace (Prometheus, etc.)
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: monitoring
+    ports:
+    - protocol: TCP
+      port: 8001
+  # Jobs/cron within kong namespace (e.g., migrations/config)
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: kong
+    ports:
+    - protocol: TCP
+      port: 8001
+
+---
+# Permit Kong/Postgres traffic within namespace
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: kong-postgres-ingress
+  namespace: kong
+spec:
+  podSelector:
+    matchLabels:
+      app: kong-postgres
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: kong
+      podSelector:
+        matchExpressions:
+        - key: app
+          operator: In
+          values:
+          - kong
+          - kong-migrations
+          - kong-config
+    ports:
+    - protocol: TCP
+      port: 5432

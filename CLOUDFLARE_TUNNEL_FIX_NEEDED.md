@@ -48,6 +48,27 @@ If you have access to Cloudflare dashboard:
 4. Click "Configure" → Get tunnel token
 5. The token will be a long string starting with `eyJ...`
 
+**Automation helper** (preferred):
+
+```bash
+# Recommended: export API token once (avoids leaking in shell history)
+export CLOUDFLARE_API_TOKEN=<Cloudflare_API_token>
+
+./scripts/configure-cloudflare-tunnel-token.sh \
+  --account-id 0c93c74d5269a228e91d4bf91c547f56 \
+  --tunnel-id 291bc289-e3c3-4446-a9ad-8e327660ecd5 \
+  --api-token \$CLOUDFLARE_API_TOKEN
+```
+
+If API-based retrieval is disabled for your account, supply the tunnel token from the dashboard directly:
+
+```bash
+./scripts/configure-cloudflare-tunnel-token.sh \
+  --account-id 0c93c74d5269a228e91d4bf91c547f56 \
+  --tunnel-id 291bc289-e3c3-4446-a9ad-8e327660ecd5 \
+  --tunnel-token 'eyJ...'
+```
+
 Then run:
 ```bash
 kubectl create secret generic cloudflare-tunnel-token \
@@ -208,4 +229,3 @@ Until Cloudflare tunnel is fixed, access services using:
 **Status**: Documented, awaiting tunnel token  
 **Blocking**: External domain access only  
 **Non-blocking**: Development, testing, workflow import
-

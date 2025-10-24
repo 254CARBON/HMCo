@@ -106,6 +106,39 @@ spec:
   selector:
     app: spark-history-server
   type: ClusterIP
+
+---
+# Ingress for Spark History Server UI
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: spark-history-server
+  namespace: data-platform
+  annotations:
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    portal.254carbon.com/service-id: "spark-history"
+    portal.254carbon.com/service-name: "Spark History Server"
+    portal.254carbon.com/service-category: "data-platform"
+    portal.254carbon.com/service-description: "Spark job history and diagnostics"
+    portal.254carbon.com/service-icon: "🔥"
+spec:
+  ingressClassName: nginx
+  tls:
+  - hosts:
+    - spark-history.254carbon.com
+    secretName: spark-history-tls
+  rules:
+  - host: spark-history.254carbon.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: spark-history-server
+            port:
+              number: 18080
 ---
 # Persistent Volume Claim for Spark logs
 apiVersion: v1
