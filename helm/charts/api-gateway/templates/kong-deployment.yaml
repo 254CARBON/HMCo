@@ -73,10 +73,7 @@ spec:
         sidecar.istio.io/inject: "false"  # Database doesn't need sidecar
     spec:
       securityContext:
-        runAsNonRoot: true
-        runAsUser: 999
-        runAsGroup: 999
-        fsGroup: 999
+        runAsNonRoot: false
         seccompProfile:
           type: RuntimeDefault
       containers:
@@ -89,7 +86,6 @@ spec:
             drop:
             - NET_RAW
             - ALL
-          readOnlyRootFilesystem: true
         env:
         - name: POSTGRES_USER
           value: postgres
@@ -170,22 +166,19 @@ spec:
     spec:
       restartPolicy: OnFailure
       securityContext:
-        runAsNonRoot: true
+        runAsNonRoot: false
         seccompProfile:
           type: RuntimeDefault
       initContainers:
       - name: wait-for-postgres
         image: postgres:15-alpine
         securityContext:
-          runAsNonRoot: true
-          runAsUser: 999
-          runAsGroup: 999
+          runAsNonRoot: false
           allowPrivilegeEscalation: false
           capabilities:
             drop:
             - NET_RAW
             - ALL
-          readOnlyRootFilesystem: true
         command:
         - sh
         - -c
@@ -199,15 +192,12 @@ spec:
         image: kong:3.4
         imagePullPolicy: IfNotPresent
         securityContext:
-          runAsNonRoot: true
-          runAsUser: 1337
-          runAsGroup: 1337
+          runAsNonRoot: false
           allowPrivilegeEscalation: false
           capabilities:
             drop:
             - NET_RAW
             - ALL
-          readOnlyRootFilesystem: true
         command: ["kong", "migrations", "bootstrap"]
         env:
         - name: KONG_DATABASE
@@ -301,10 +291,7 @@ spec:
     spec:
       serviceAccountName: kong
       securityContext:
-        runAsNonRoot: true
-        runAsUser: 1337
-        runAsGroup: 1337
-        fsGroup: 1337
+        runAsNonRoot: false
         seccompProfile:
           type: RuntimeDefault
       volumes:
@@ -322,7 +309,6 @@ spec:
             drop:
             - NET_RAW
             - ALL
-          readOnlyRootFilesystem: true
         env:
         # Database
         - name: KONG_DATABASE
