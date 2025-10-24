@@ -3,7 +3,7 @@
 
 ---
 # Exception for DolphinScheduler components - need write access for logs and resources
-apiVersion: kyverno.io/v2
+apiVersion: kyverno.io/v2beta1
 kind: PolicyException
 metadata:
   name: dolphinscheduler-exceptions
@@ -38,7 +38,7 @@ spec:
 
 ---
 # Exception for MinIO - object storage needs write access
-apiVersion: kyverno.io/v2
+apiVersion: kyverno.io/v2beta1
 kind: PolicyException
 metadata:
   name: minio-exceptions
@@ -70,7 +70,7 @@ spec:
 
 ---
 # Exception for Superset - BI tool needs write for temp files and caching
-apiVersion: kyverno.io/v2
+apiVersion: kyverno.io/v2beta1
 kind: PolicyException
 metadata:
   name: superset-exceptions
@@ -99,7 +99,7 @@ spec:
 
 ---
 # Exception for Trino - distributed SQL engine
-apiVersion: kyverno.io/v2
+apiVersion: kyverno.io/v2beta1
 kind: PolicyException
 metadata:
   name: trino-exceptions
@@ -131,7 +131,7 @@ spec:
 
 ---
 # Exception for Spark components - batch processing needs flexibility
-apiVersion: kyverno.io/v2
+apiVersion: kyverno.io/v2beta1
 kind: PolicyException
 metadata:
   name: spark-exceptions
@@ -164,7 +164,7 @@ spec:
 
 ---
 # Exception for Zookeeper - coordination service
-apiVersion: kyverno.io/v2
+apiVersion: kyverno.io/v2beta1
 kind: PolicyException
 metadata:
   name: zookeeper-exceptions
@@ -192,7 +192,7 @@ spec:
 
 ---
 # Exception for GraphQL Gateway - API gateway needs network capabilities
-apiVersion: kyverno.io/v2
+apiVersion: kyverno.io/v2beta1
 kind: PolicyException
 metadata:
   name: graphql-gateway-exceptions
@@ -216,7 +216,7 @@ spec:
 
 ---
 # Exception for data platform support services
-apiVersion: kyverno.io/v2
+apiVersion: kyverno.io/v2beta1
 kind: PolicyException
 metadata:
   name: data-platform-services-exceptions
@@ -251,7 +251,7 @@ spec:
 
 ---
 # Exception for initialization and migration jobs
-apiVersion: kyverno.io/v2
+apiVersion: kyverno.io/v2beta1
 kind: PolicyException
 metadata:
   name: init-jobs-exceptions
@@ -300,7 +300,7 @@ spec:
 
 ---
 # Exception for API Gateway - needs network access and flexibility
-apiVersion: kyverno.io/v2
+apiVersion: kyverno.io/v2beta1
 kind: PolicyException
 metadata:
   name: api-gateway-exceptions
