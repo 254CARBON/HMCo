@@ -165,6 +165,13 @@ rules:
   verbs:
   - get
   - create
+- apiGroups: ["extensions.istio.io"]
+  resources:
+  - wasmplugins
+  verbs:
+  - get
+  - list
+  - watch
 - apiGroups: ["authentication.k8s.io"]
   resources:
   - tokenreviews
@@ -255,6 +262,11 @@ spec:
         - name: metrics
           containerPort: 9090
           protocol: TCP
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
         readinessProbe:
           httpGet:
             path: /kiali/healthz
@@ -326,6 +338,5 @@ spec:
             name: kiali
             port:
               number: 20001
-
 
 
