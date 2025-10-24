@@ -85,7 +85,6 @@ spec:
           capabilities:
             drop:
             - NET_RAW
-            - ALL
           runAsUser: 0
           runAsGroup: 0
         env:
@@ -182,7 +181,6 @@ spec:
           capabilities:
             drop:
             - NET_RAW
-            - ALL
         command:
         - sh
         - -c
@@ -203,7 +201,6 @@ spec:
           capabilities:
             drop:
             - NET_RAW
-            - ALL
         command: ["kong", "migrations", "bootstrap"]
         env:
         - name: KONG_DATABASE
@@ -314,7 +311,6 @@ spec:
           capabilities:
             drop:
             - NET_RAW
-            - ALL
           runAsUser: 0
           runAsGroup: 0
         env:
