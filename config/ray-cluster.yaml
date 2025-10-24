@@ -1,0 +1,63 @@
+apiVersion: ray.io/v1
+kind: RayCluster
+metadata:
+  name: ml-cluster
+  namespace: ml-platform
+spec:
+  rayVersion: '2.9.0'
+  enableInTreeAutoscaling: true
+  headGroupSpec:
+    rayStartParams:
+      dashboard-host: '0.0.0.0'
+      num-cpus: '0'
+    template:
+      spec:
+        containers:
+        - name: ray-head
+          image: rayproject/ray:2.9.0
+          ports:
+          - containerPort: 6379
+            name: gcs-server
+          - containerPort: 8265
+            name: dashboard
+          - containerPort: 10001
+            name: client
+          resources:
+            limits:
+              cpu: "2"
+              memory: 4Gi
+            requests:
+              cpu: "1"
+              memory: 2Gi
+          volumeMounts:
+          - mountPath: /tmp/ray
+            name: ray-logs
+        volumes:
+        - name: ray-logs
+          emptyDir: {}
+  workerGroupSpecs:
+  - replicas: 2
+    minReplicas: 1
+    maxReplicas: 4
+    groupName: worker-group
+    rayStartParams:
+      num-cpus: '2'
+    template:
+      spec:
+        containers:
+        - name: ray-worker
+          image: rayproject/ray:2.9.0
+          resources:
+            limits:
+              cpu: "4"
+              memory: 8Gi
+            requests:
+              cpu: "2"
+              memory: 4Gi
+          volumeMounts:
+          - mountPath: /tmp/ray
+            name: ray-logs
+        volumes:
+        - name: ray-logs
+          emptyDir: {}
+

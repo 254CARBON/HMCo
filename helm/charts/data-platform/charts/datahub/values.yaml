@@ -40,7 +40,7 @@ elasticsearch:
   port: 9200
 
 kafka:
-  bootstrap: kafka-service:9092
+  bootstrap: datahub-kafka-kafka-bootstrap.kafka.svc.cluster.local:9092
 
 neo4j:
   host: graphdb-service
