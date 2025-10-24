@@ -453,7 +453,18 @@ spec:
     server: https://kubernetes.default.svc
     namespace: data-platform
   syncPolicy:
-    automated: null
+    automated:
+      prune: false
+      selfHeal: true
+      allowEmpty: false
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
 ---
 # ArgoCD Application: Service Mesh
 apiVersion: argoproj.io/v1alpha1
