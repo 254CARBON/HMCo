@@ -1,0 +1,51 @@
+apiVersion: kyverno.io/v2alpha1
+kind: PolicyException
+metadata:
+  name: kong-gateway-root-exception
+  namespace: kong
+spec:
+  match:
+    any:
+    - resources:
+        kinds:
+        - Pod
+        namespaces:
+        - kong
+        selector:
+          matchLabels:
+            app: kong-postgres
+    - resources:
+        kinds:
+        - Pod
+        namespaces:
+        - kong
+        selector:
+          matchLabels:
+            app: kong
+    - resources:
+        kinds:
+        - Pod
+        namespaces:
+        - kong
+        selector:
+          matchLabels:
+            job-name: kong-migrations
+    - resources:
+        kinds:
+        - Pod
+        namespaces:
+        - kong
+        selector:
+          matchLabels:
+            job-name: kong-configure-services
+    - resources:
+        kinds:
+        - Pod
+        namespaces:
+        - kong
+        selector:
+          matchLabels:
+            job-name: jwt-token-generator
+  policies:
+  - require-non-root
+  - require-readonly-rootfs
