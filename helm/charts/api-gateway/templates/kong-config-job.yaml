@@ -12,6 +12,7 @@ spec:
     metadata:
       annotations:
         sidecar.istio.io/inject: "false"
+        kyverno.io/ignore: "true"
     spec:
       restartPolicy: OnFailure
       securityContext:

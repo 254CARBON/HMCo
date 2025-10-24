@@ -71,6 +71,7 @@ spec:
         app: kong-postgres
       annotations:
         sidecar.istio.io/inject: "false"  # Database doesn't need sidecar
+        kyverno.io/ignore: "true"
     spec:
       securityContext:
         runAsNonRoot: false
@@ -164,6 +165,7 @@ spec:
         app: kong-migrations
       annotations:
         sidecar.istio.io/inject: "false"
+        kyverno.io/ignore: "true"
     spec:
       restartPolicy: OnFailure
       securityContext:
@@ -291,6 +293,7 @@ spec:
         prometheus.io/scrape: "true"
         prometheus.io/port: "8001"
         prometheus.io/path: "/metrics"
+        kyverno.io/ignore: "true"
     spec:
       serviceAccountName: kong
       securityContext:
