@@ -36,8 +36,8 @@ spec:
         ports:
           - containerPort: 18080
             name: history-ui
-        - containerPort: 18081
-          name: history-admin
+          - containerPort: 18081
+            name: history-admin
         command:
         - /opt/spark/bin/spark-class
         - org.apache.spark.deploy.history.HistoryServer
