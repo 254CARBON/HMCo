@@ -8,7 +8,7 @@ metadata:
   name: kong
   labels:
     name: kong
-    istio-injection: enabled  # Enable service mesh for Kong
+    istio-injection: disabled  # Disable mesh injection until Istio control plane is ready
 
 ---
 # PostgreSQL for Kong
