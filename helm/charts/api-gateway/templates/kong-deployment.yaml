@@ -360,7 +360,7 @@ spec:
         - name: KONG_ADMIN_GUI_URL
           value: "http://localhost:8002"
         - name: KONG_PLUGINS
-          value: "bundled,prometheus,rate-limiting,request-transformer,response-transformer,cors,jwt,key-auth,oauth2,acl"
+          value: "prometheus,rate-limiting,request-transformer,response-transformer,cors,jwt,key-auth,oauth2,acl,ip-restriction,request-size-limiting,bot-detection,file-log,http-log"
         
         ports:
         - name: proxy
