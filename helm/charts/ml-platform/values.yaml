@@ -1,0 +1,16 @@
+# ML Platform - Values Configuration
+# Enables MLflow and Kubeflow components
+
+global:
+  namespace: ml-platform
+  domain: 254carbon.com
+  storageClass: local-path
+
+# MLflow - Experiment Tracking and Model Registry
+mlflow:
+  enabled: true
+  
+# Kubeflow - ML Pipelines and Workflows
+kubeflow:
+  enabled: true
+
