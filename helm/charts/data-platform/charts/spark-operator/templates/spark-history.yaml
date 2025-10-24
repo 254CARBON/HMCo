@@ -28,7 +28,8 @@ spec:
         - containerPort: 18081
           name: history-admin
         command:
-        - /opt/spark/sbin/start-history-server.sh
+        - /opt/spark/bin/spark-class
+        - org.apache.spark.deploy.history.HistoryServer
         env:
         - name: SPARK_HISTORY_OPTS
           value: "-Dspark.history.fs.logDirectory=file:/opt/spark/work -Dspark.history.fs.cleaner.enabled=true -Dspark.history.fs.cleaner.maxAge=7d -Dspark.history.ui.port=18080 -Dspark.history.admin.port=18081"
