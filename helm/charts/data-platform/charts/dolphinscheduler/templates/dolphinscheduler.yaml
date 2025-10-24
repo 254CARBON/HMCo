@@ -111,6 +111,12 @@ spec:
           value: "/tmp/dolphinscheduler"
         - name: DATA_QUALITY_JAR_FILE
           value: "/opt/dolphinscheduler/lib/dolphinscheduler-data-quality-dev-SNAPSHOT.jar"
+        - name: JAVA_OPTS
+          value: "-Xms512m -Xmx2g -XX:+UseG1GC -XX:MaxGCPauseMillis=200"
+        - name: SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE
+          value: "50"
+        - name: SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE
+          value: "10"
         volumeMounts:
         - name: dolphinscheduler-logs
           mountPath: /opt/dolphinscheduler/logs
