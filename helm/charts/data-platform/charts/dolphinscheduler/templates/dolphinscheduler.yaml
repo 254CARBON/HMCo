@@ -85,7 +85,7 @@ spec:
         - name: DATABASE
           value: "postgresql"
         - name: SPRING_DATASOURCE_URL
-          value: "jdbc:postgresql://postgres-workflow-service:5432/dolphinscheduler"
+          value: "jdbc:postgresql://postgres-workflow-service.data-platform.svc.cluster.local:5432/dolphinscheduler"
         - name: SPRING_DATASOURCE_USERNAME
           value: "dolphinscheduler"
         - name: SPRING_DATASOURCE_PASSWORD
@@ -213,7 +213,7 @@ spec:
         - name: DATABASE
           value: "postgresql"
         - name: SPRING_DATASOURCE_URL
-          value: "jdbc:postgresql://postgres-workflow-service:5432/dolphinscheduler"
+          value: "jdbc:postgresql://postgres-workflow-service.data-platform.svc.cluster.local:5432/dolphinscheduler"
         - name: SPRING_DATASOURCE_USERNAME
           value: "dolphinscheduler"
         - name: SPRING_DATASOURCE_PASSWORD
@@ -315,7 +315,7 @@ spec:
         - name: DATABASE
           value: "postgresql"
         - name: SPRING_DATASOURCE_URL
-          value: "jdbc:postgresql://postgres-workflow-service:5432/dolphinscheduler"
+          value: "jdbc:postgresql://postgres-workflow-service.data-platform.svc.cluster.local:5432/dolphinscheduler"
         - name: SPRING_DATASOURCE_USERNAME
           value: "dolphinscheduler"
         - name: SPRING_DATASOURCE_PASSWORD
