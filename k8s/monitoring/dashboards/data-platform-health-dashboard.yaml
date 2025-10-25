@@ -108,7 +108,18 @@ data:
               "legendFormat": "{{namespace}}/{{pod}}"
             }
           ]
+        },
+        {
+          "id": 9,
+          "title": "Kyverno Violations by Policy (5m)",
+          "type": "table",
+          "gridPos": {"h": 6, "w": 24, "x": 0, "y": 30},
+          "targets": [
+            {
+              "expr": "sum(increase(kyverno_policy_rule_results_total{policy_kind=\"ClusterPolicy\",rule_result=\"fail\"}[5m])) by (policy_name, rule_name)",
+              "legendFormat": "{{policy_name}}/{{rule_name}}"
+            }
+          ]
         }
       ]
     }
-
