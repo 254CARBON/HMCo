@@ -1,0 +1,113 @@
+{{- if .Values.networkPolicy.enabled }}
+---
+# JupyterHub Network Policy
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "jupyterhub.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "jupyterhub.labels" . | nindent 4 }}
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+    - Egress
+  
+  ingress:
+    {{- toYaml .Values.networkPolicy.ingress | nindent 4 }}
+    # Allow ingress from NGINX controller for webhooks
+    - from:
+      - namespaceSelector:
+          matchLabels:
+            name: ingress-nginx
+      ports:
+      - protocol: TCP
+        port: 8000
+      - protocol: TCP
+        port: 8081
+  
+  egress:
+    # Allow DNS
+    - to:
+      - namespaceSelector:
+          matchLabels:
+            name: kube-system
+      ports:
+      - protocol: UDP
+        port: 53
+    
+    # Allow to Kubernetes API
+    - to:
+      - podSelector:
+          matchLabels:
+            component: kube-apiserver
+      ports:
+      - protocol: TCP
+        port: 443
+    
+    # Allow to platform services
+    - to:
+      - namespaceSelector:
+          matchLabels:
+            name: data-platform
+      ports:
+      - protocol: TCP
+        port: 8080  # Trino
+      - protocol: TCP
+        port: 9000  # MinIO API
+      - protocol: TCP
+        port: 9001  # MinIO Console
+      - protocol: TCP
+        port: 5432  # PostgreSQL
+    
+    - to:
+      - namespaceSelector:
+          matchLabels:
+            name: ml-platform
+      ports:
+      - protocol: TCP
+        port: 5000  # MLflow
+      - protocol: TCP
+        port: 6379  # Ray
+    
+    # Allow internal communication
+    - to:
+      - podSelector: {}
+      ports:
+      - protocol: TCP
+        port: 8000
+      - protocol: TCP
+        port: 8001
+      - protocol: TCP
+        port: 8081
+
+---
+# Allow ingress-nginx to reach JupyterHub proxy
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "jupyterhub.fullname" . }}-allow-ingress
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "jupyterhub.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "jupyterhub.selectorLabels" . | nindent 6 }}
+      component: proxy
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+      - namespaceSelector:
+          matchLabels:
+            name: ingress-nginx
+      - namespaceSelector:
+          matchLabels:
+            name: {{ .Release.Namespace }}
+      ports:
+      - protocol: TCP
+        port: 8000
+
+{{- end }}

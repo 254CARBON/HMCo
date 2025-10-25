@@ -21,6 +21,8 @@ spec:
                 type: object
               parameters:
                 type: array
+                items:
+                  type: object
               parallelTrialCount:
                 type: integer
               maxTrialCount:
@@ -119,6 +121,8 @@ spec:
     metadata:
       labels:
         app: katib-controller
+      annotations:
+        sidecar.istio.io/inject: "false"
     spec:
       securityContext:
         runAsNonRoot: true
@@ -143,6 +147,8 @@ spec:
           capabilities:
             drop:
             - ALL
+            - NET_RAW
+          readOnlyRootFilesystem: true
         env:
         - name: KATIB_CORE_NAMESPACE
           valueFrom:
@@ -158,10 +164,138 @@ spec:
         volumeMounts:
         - name: katib-config
           mountPath: /opt/katib
+        - name: webhook-cert
+          mountPath: /tmp/cert
+          readOnly: true
       volumes:
       - name: katib-config
         configMap:
           name: katib-config
+      - name: webhook-cert
+        secret:
+          secretName: katib-webhook-cert
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: katib-controller
+  namespace: kubeflow
+  labels:
+    app: katib-controller
+spec:
+  selector:
+    app: katib-controller
+  ports:
+  - name: webhook
+    port: 443
+    targetPort: 8443
+  - name: metrics
+    port: 8080
+    targetPort: 8080
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: katib-webhook-cert
+  namespace: kubeflow
+spec:
+  secretName: katib-webhook-cert
+  dnsNames:
+  - katib-controller
+  - katib-controller.kubeflow
+  - katib-controller.kubeflow.svc
+  - katib-controller.kubeflow.svc.cluster.local
+  issuerRef:
+    name: selfsigned
+    kind: ClusterIssuer
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: MutatingWebhookConfiguration
+metadata:
+  name: katib-mutating-webhook
+  labels:
+    app: katib-controller
+  annotations:
+    cert-manager.io/inject-ca-from: kubeflow/katib-webhook-cert
+webhooks:
+  - name: defaulter.experiment.katib.kubeflow.org
+    admissionReviewVersions:
+    - v1
+    sideEffects: None
+    failurePolicy: Fail
+    clientConfig:
+      service:
+        name: katib-controller
+        namespace: kubeflow
+        path: /mutate-experiment
+    rules:
+    - apiGroups:
+      - kubeflow.org
+      apiVersions:
+      - v1beta1
+      operations:
+      - CREATE
+      - UPDATE
+      resources:
+      - experiments
+  - name: mutator.pod.katib.kubeflow.org
+    admissionReviewVersions:
+    - v1
+    sideEffects: None
+    failurePolicy: Fail
+    clientConfig:
+      service:
+        name: katib-controller
+        namespace: kubeflow
+        path: /mutate-pod
+    namespaceSelector:
+      matchLabels:
+        katib.kubeflow.org/metrics-collector-injection: enabled
+    objectSelector:
+      matchExpressions:
+      - key: katib.kubeflow.org/metrics-collector-injection
+        operator: NotIn
+        values:
+        - disabled
+    rules:
+    - apiGroups:
+      - ""
+      apiVersions:
+      - v1
+      operations:
+      - CREATE
+      resources:
+      - pods
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingWebhookConfiguration
+metadata:
+  name: katib-validating-webhook
+  labels:
+    app: katib-controller
+  annotations:
+    cert-manager.io/inject-ca-from: kubeflow/katib-webhook-cert
+webhooks:
+  - name: validator.experiment.katib.kubeflow.org
+    admissionReviewVersions:
+    - v1
+    sideEffects: None
+    failurePolicy: Fail
+    clientConfig:
+      service:
+        name: katib-controller
+        namespace: kubeflow
+        path: /validate-experiment
+    rules:
+    - apiGroups:
+      - kubeflow.org
+      apiVersions:
+      - v1beta1
+      operations:
+      - CREATE
+      - UPDATE
+      resources:
+      - experiments
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -179,6 +313,8 @@ spec:
     metadata:
       labels:
         app: katib-db-manager
+      annotations:
+        sidecar.istio.io/inject: "false"
     spec:
       securityContext:
         runAsNonRoot: true
@@ -196,22 +332,18 @@ spec:
           capabilities:
             drop:
             - ALL
+            - NET_RAW
+          readOnlyRootFilesystem: true
         env:
         - name: DB_NAME
-          valueFrom:
-            secretKeyRef:
-              name: katib-mysql-secret
-              key: mysql-database
+          value: "mysql"
         - name: DB_USER
-          valueFrom:
-            secretKeyRef:
-              name: katib-mysql-secret
-              key: mysql-user
+          value: "root"
         - name: DB_PASSWORD
           valueFrom:
             secretKeyRef:
               name: katib-mysql-secret
-              key: mysql-password
+              key: mysql-root-password
         - name: DB_HOST
           value: "katib-mysql.kubeflow.svc.cluster.local"
         - name: DB_PORT
@@ -257,6 +389,8 @@ spec:
     metadata:
       labels:
         app: katib-ui
+      annotations:
+        sidecar.istio.io/inject: "false"
     spec:
       containers:
       - name: katib-ui

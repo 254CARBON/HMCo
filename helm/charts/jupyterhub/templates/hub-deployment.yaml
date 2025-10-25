@@ -1,0 +1,185 @@
+{{- if .Values.hub.enabled }}
+---
+# JupyterHub Hub Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "jupyterhub.fullname" . }}-hub
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "jupyterhub.labels" . | nindent 4 }}
+    component: hub
+spec:
+  replicas: {{ .Values.hub.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "jupyterhub.selectorLabels" . | nindent 6 }}
+      component: hub
+  template:
+    metadata:
+      labels:
+        {{- include "jupyterhub.selectorLabels" . | nindent 8 }}
+        component: hub
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8081"
+        prometheus.io/path: "/hub/metrics"
+    spec:
+      serviceAccountName: {{ include "jupyterhub.serviceAccountName" . }}
+      securityContext:
+        fsGroup: 1000
+        runAsNonRoot: true
+        runAsUser: 1000
+      
+      containers:
+      - name: jupyterhub
+        image: "{{ .Values.hub.image.name }}:{{ .Values.hub.image.tag }}"
+        imagePullPolicy: {{ .Values.hub.image.pullPolicy }}
+        
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 1000
+          readOnlyRootFilesystem: true
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+              - ALL
+              - NET_RAW
+        
+        command:
+          - jupyterhub
+          - --ip=0.0.0.0
+          - --port=8081
+          - --config
+          - /etc/jupyterhub/jupyterhub_config.py
+        
+        ports:
+        - name: hub
+          containerPort: 8081
+          protocol: TCP
+        
+        env:
+        - name: JUPYTERHUB_API_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "jupyterhub.fullname" . }}-secrets
+              key: api-token
+        
+        - name: JUPYTERHUB_CRYPT_KEY
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "jupyterhub.fullname" . }}-secrets
+              key: crypt-key
+        
+        - name: OAUTH2_CLIENT_ID
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "jupyterhub.fullname" . }}-secrets
+              key: oauth-client-id
+        
+        - name: OAUTH2_CLIENT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "jupyterhub.fullname" . }}-secrets
+              key: oauth-client-secret
+        
+        # Platform service environment variables
+        - name: TRINO_HOST
+          value: "{{ .Values.hub.config.KubeSpawner.environment.TRINO_HOST }}"
+        - name: TRINO_PORT
+          value: "{{ .Values.hub.config.KubeSpawner.environment.TRINO_PORT }}"
+        - name: MINIO_ENDPOINT
+          value: "{{ .Values.hub.config.KubeSpawner.environment.MINIO_ENDPOINT }}"
+        - name: MLFLOW_TRACKING_URI
+          value: "{{ .Values.hub.config.KubeSpawner.environment.MLFLOW_TRACKING_URI }}"
+        - name: POSTGRES_HOST
+          value: "{{ .Values.hub.config.KubeSpawner.environment.POSTGRES_HOST }}"
+        - name: DATAHUB_REST_API
+          value: "{{ .Values.hub.config.KubeSpawner.environment.DATAHUB_REST_API }}"
+        
+        resources:
+          {{- toYaml .Values.hub.resources | nindent 12 }}
+        
+        livenessProbe:
+          httpGet:
+            path: /hub/api
+            port: 8081
+            scheme: HTTP
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        
+        readinessProbe:
+          httpGet:
+            path: /hub/api
+            port: 8081
+            scheme: HTTP
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
+        
+        volumeMounts:
+        - name: hub-config
+          mountPath: /etc/jupyterhub
+        - name: jupyterhub-data
+          mountPath: /srv/jupyterhub
+        - name: tmp
+          mountPath: /tmp
+      
+      volumes:
+      - name: hub-config
+        configMap:
+          name: {{ include "jupyterhub.fullname" . }}-hub-config
+      
+      - name: jupyterhub-data
+        emptyDir: {}
+      
+      - name: tmp
+        emptyDir: {}
+      
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: app.kubernetes.io/name
+                  operator: In
+                  values:
+                  - jupyterhub
+              topologyKey: kubernetes.io/hostname
+      
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+
+---
+# JupyterHub Hub Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "jupyterhub.fullname" . }}-hub
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "jupyterhub.labels" . | nindent 4 }}
+    component: hub
+spec:
+  type: ClusterIP
+  selector:
+    {{- include "jupyterhub.selectorLabels" . | nindent 4 }}
+    component: hub
+  ports:
+  - name: hub
+    port: 8081
+    targetPort: 8081
+    protocol: TCP
+{{- end }}

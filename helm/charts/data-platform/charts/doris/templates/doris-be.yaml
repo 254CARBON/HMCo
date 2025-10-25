@@ -27,11 +27,27 @@ spec:
       containers:
       - name: doris-be
         image: apache/doris:be-3.0.8
+        command:
+        - /bin/bash
+        - -c
+        args:
+        - |
+          set -euo pipefail
+          resolved="$(getent hosts "${FE_MASTER_DOMAIN}" || true)"
+          if [[ -z "${resolved}" ]]; then
+            echo "[Entrypoint] Failed to resolve FE master domain ${FE_MASTER_DOMAIN}" >&2
+            nslookup "${FE_MASTER_DOMAIN}" || true
+            exit 1
+          fi
+          FE_IP="$(awk '{print $1}' <<<"${resolved}" | head -n 1)"
+          echo "[Entrypoint] Resolved FE master ${FE_MASTER_DOMAIN} to ${FE_IP}"
+          exec /opt/apache-doris/be_entrypoint.sh "${FE_IP}"
         securityContext:
           allowPrivilegeEscalation: false
           capabilities:
             drop:
             - ALL
+            - NET_RAW
           seccompProfile:
             type: RuntimeDefault
         ports:
@@ -48,8 +64,8 @@ spec:
         - containerPort: 9000
           name: be-storage
         env:
-        - name: FE_SERVERS
-          value: "fe1:doris-fe-0.doris-fe-headless.data-platform.svc.cluster.local:9010"
+        - name: FE_MASTER_DOMAIN
+          value: doris-fe-0.doris-fe-headless.data-platform.svc.cluster.local
         - name: BE_ADDR
           value: "doris-be-0.doris-be-headless.data-platform.svc.cluster.local:9050"
         - name: NODE_ROLE
@@ -61,10 +77,10 @@ spec:
           mountPath: /opt/apache-doris/be/log
         resources:
           limits:
-            memory: "16Gi"
+            memory: "8Gi"
             cpu: "4000m"
           requests:
-            memory: "8Gi"
+            memory: "4Gi"
             cpu: "2000m"
         livenessProbe:
           tcpSocket:

@@ -154,8 +154,8 @@ spark-operator:
 # Redis - shared caching service for Superset and other components
 redis:
   image:
-    repository: bitnami/redis
-    tag: 7.2-debian-12
+    repository: redis
+    tag: 7.2-alpine
   auth:
     enabled: false  # For development; enable in production
   master:
@@ -179,5 +179,4 @@ redis:
       capabilities:
         drop:
           - ALL
-
 

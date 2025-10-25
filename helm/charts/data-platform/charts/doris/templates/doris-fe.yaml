@@ -32,6 +32,7 @@ spec:
           capabilities:
             drop:
             - ALL
+            - NET_RAW
           seccompProfile:
             type: RuntimeDefault
         ports:
@@ -59,6 +60,8 @@ spec:
           value: "$(POD_IP)"
         - name: PRIORITY_NETWORKS
           value: "$(POD_IP)/32"
+        - name: ELECT_NUMBER
+          value: "1"
         volumeMounts:
         - name: doris-fe-data
           mountPath: /opt/apache-doris/fe/doris-meta
@@ -120,6 +123,7 @@ spec:
   - port: 9010
     name: fe-http
   clusterIP: None
+  publishNotReadyAddresses: true
   selector:
     app: doris-fe
 ---

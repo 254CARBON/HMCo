@@ -1,0 +1,147 @@
+{{- if .Values.proxy.enabled }}
+---
+# JupyterHub Proxy Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "jupyterhub.fullname" . }}-proxy
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "jupyterhub.labels" . | nindent 4 }}
+    component: proxy
+spec:
+  replicas: {{ .Values.hub.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "jupyterhub.selectorLabels" . | nindent 6 }}
+      component: proxy
+  template:
+    metadata:
+      labels:
+        {{- include "jupyterhub.selectorLabels" . | nindent 8 }}
+        component: proxy
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8001"
+    spec:
+      serviceAccountName: {{ include "jupyterhub.serviceAccountName" . }}
+      securityContext:
+        fsGroup: 1000
+        runAsNonRoot: true
+        runAsUser: 1000
+      
+      containers:
+      - name: proxy
+        image: "{{ .Values.proxy.image.name }}:{{ .Values.proxy.image.tag }}"
+        imagePullPolicy: {{ .Values.proxy.image.pullPolicy }}
+        
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 1000
+          readOnlyRootFilesystem: true
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+              - ALL
+              - NET_RAW
+        
+        env:
+        - name: CONFIGPROXY_AUTH_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "jupyterhub.fullname" . }}-secrets
+              key: api-token
+        
+        ports:
+        - name: proxy-public
+          containerPort: 8000
+          protocol: TCP
+        - name: proxy-api
+          containerPort: 8001
+          protocol: TCP
+        
+        args:
+          - "--ip=0.0.0.0"
+          - "--port=8000"
+          - "--api-ip=0.0.0.0"
+          - "--api-port=8001"
+          - "--no-include-prefix"
+          - "--log-level=info"
+        
+        resources:
+          {{- toYaml .Values.proxy.resources | nindent 12 }}
+        
+        livenessProbe:
+          tcpSocket:
+            port: 8000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        
+        readinessProbe:
+          httpGet:
+            path: /api/routes
+            port: 8001
+            scheme: HTTP
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
+        
+        volumeMounts:
+        - name: tmp
+          mountPath: /tmp
+      
+      volumes:
+      - name: tmp
+        emptyDir: {}
+
+---
+# JupyterHub Proxy Service - Public
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "jupyterhub.fullname" . }}-proxy-public
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "jupyterhub.labels" . | nindent 4 }}
+    component: proxy-public
+  annotations:
+    {{- toYaml .Values.proxy.service.annotations | nindent 4 }}
+spec:
+  type: {{ .Values.proxy.service.type }}
+  selector:
+    {{- include "jupyterhub.selectorLabels" . | nindent 4 }}
+    component: proxy
+  ports:
+  - name: proxy-public
+    port: 8000
+    targetPort: 8000
+    protocol: TCP
+  - name: proxy-api
+    port: 8001
+    targetPort: 8001
+    protocol: TCP
+
+---
+# JupyterHub Proxy Service - API
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "jupyterhub.fullname" . }}-proxy-api
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "jupyterhub.labels" . | nindent 4 }}
+    component: proxy-api
+spec:
+  type: ClusterIP
+  selector:
+    {{- include "jupyterhub.selectorLabels" . | nindent 4 }}
+    component: proxy
+  ports:
+  - name: proxy-api
+    port: 8001
+    targetPort: 8001
+    protocol: TCP
+{{- end }}

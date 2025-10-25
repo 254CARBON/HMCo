@@ -1,0 +1,354 @@
+---
+# JupyterHub Configuration
+# Deploys Zero to JupyterHub with platform service integration
+
+# Hub Configuration
+hub:
+  enabled: true
+  replicaCount: 2
+  
+  image:
+    name: jupyterhub/k8s-hub
+    tag: "3.3.7"
+    pullPolicy: IfNotPresent
+  
+  resources:
+    requests:
+      cpu: 500m
+      memory: 1Gi
+    limits:
+      cpu: 2
+      memory: 4Gi
+  
+  # JupyterHub configuration
+  jupyterhub_api_token: ""  # Set via secrets
+  secretToken: ""  # Set via secrets
+  
+  config:
+    JupyterHub:
+      admin_users:
+        - admin
+      spawner_class: "kubespawner.KubeSpawner"
+      
+      # Authentication via Cloudflare Access
+      authenticator_class: "oauthlib.oauth2.rfc6749.grant_types.AuthorizationCodeGrant"
+      
+      # Session configuration
+      cookie_max_age_days: 1
+      default_redirect_to_server: true
+      redirect_to_server: true
+      
+      # Service configuration
+      services: []
+    
+    KubeSpawner:
+      namespace: "jupyter"
+      image_pull_policy: "IfNotPresent"
+      service_account: "jupyter-user"
+      
+      # Default resources for user pods
+      cpu_request: 2
+      cpu_limit: 4
+      memory_request: "8Gi"
+      memory_limit: "16Gi"
+      
+      # Storage configuration
+      pvc_claim_template:
+        spec:
+          accessModes:
+            - ReadWriteOnce
+          resources:
+            requests:
+              storage: 10Gi
+      
+      # Labels and environment
+      extra_labels:
+        app: "jupyterhub-user"
+        version: "4.0.0"
+      
+      extra_pod_config: {}
+      
+      environment:
+        JUPYTER_ENABLE_LAB: "1"
+        # Platform service configuration (from ConfigMap)
+        TRINO_HOST: "trino.data-platform"
+        TRINO_PORT: "8080"
+        MINIO_ENDPOINT: "minio.data-platform:9000"
+        MINIO_API_ENDPOINT: "minio-console.data-platform:9001"
+        MLFLOW_TRACKING_URI: "http://mlflow.ml-platform:5000"
+        POSTGRES_HOST: "postgres-shared.data-platform"
+        POSTGRES_PORT: "5432"
+        DATAHUB_REST_API: "http://datahub-gms.data-platform:8080"
+        RAY_CLUSTER_HEAD: "ray-cluster-head.data-platform:6379"
+        KAFKA_BROKERS: "kafka-cluster-kafka-bootstrap.data-platform:9092"
+
+# Proxy configuration
+proxy:
+  enabled: true
+  
+  image:
+    name: jupyterhub/configurable-http-proxy
+    tag: "4.5.6"
+    pullPolicy: IfNotPresent
+  
+  service:
+    type: ClusterIP
+    annotations:
+      nginx.ingress.kubernetes.io/websocket-services: "proxy-public"
+      nginx.ingress.kubernetes.io/proxy-read-timeout: "86400"
+      nginx.ingress.kubernetes.io/proxy-send-timeout: "86400"
+  
+  resources:
+    requests:
+      cpu: 100m
+      memory: 512Mi
+    limits:
+      cpu: 500m
+      memory: 1Gi
+  
+  # Proxy configuration for handling websockets
+  chp:
+    args:
+      - "configurable-http-proxy"
+      - "--ip=0.0.0.0"
+      - "--port=8000"
+      - "--api-ip=127.0.0.1"
+      - "--api-port=8001"
+      - "--no-include-prefix"
+      - "--log-level=info"
+
+# User Scheduler
+singleuser:
+  enabled: true
+  
+  # Default notebook image
+  image:
+    name: jupyter/datascience-notebook
+    tag: "latest"
+    pullPolicy: IfNotPresent
+  
+  cpu:
+    request: 2
+    limit: 4
+  
+  memory:
+    request: "8Gi"
+    limit: "16Gi"
+  
+  storage:
+    type: dynamic
+    capacity: 10Gi
+    homeMountPath: /home/jovyan
+    dynamic:
+      storageClass: local-path  # Use existing storage class
+      pvcNameTemplate: "claim-{username}"
+      volumeNameTemplate: "volume-{username}"
+      accessModes:
+        - ReadWriteOnce
+  
+  # JupyterLab as default interface
+  defaultUrl: "/lab"
+  
+  # Shared data mount
+  extraVolumes:
+    - name: shared-data
+      persistentVolumeClaim:
+        claimName: jupyter-shared-data
+  
+  extraVolumeMounts:
+    - name: shared-data
+      mountPath: /mnt/shared-data
+  
+  # Pre-initialize user environments
+  lifecycleHooks:
+    postStart:
+      exec:
+        command:
+          - /bin/bash
+          - -c
+          - |
+            pip install --quiet trino pandas sqlalchemy pymongo
+            mkdir -p /home/jovyan/work
+
+# RBAC Configuration
+rbac:
+  enabled: true
+
+serviceAccount:
+  enabled: true
+  create: true
+  name: "jupyterhub"
+
+# Network Policy
+networkPolicy:
+  enabled: true
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              name: ingress-nginx
+      ports:
+        - protocol: TCP
+          port: 8000
+    - from:
+        - podSelector:
+            matchLabels:
+              app: jupyterhub-user
+      ports:
+        - protocol: TCP
+          port: 8000
+
+# Ingress Configuration
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    nginx.ingress.kubernetes.io/websocket-services: "proxy-public"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "86400"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "86400"
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+  
+  hosts:
+    - host: jupyter.254carbon.com
+      paths:
+        - path: /
+          pathType: Prefix
+  
+  tls:
+    - secretName: jupyter-tls
+      hosts:
+        - jupyter.254carbon.com
+
+# Authentication Configuration
+auth:
+  enabled: true
+  type: custom
+  
+  # Cloudflare Access OAuth2
+  oauth2:
+    clientId: ""  # Set via secrets
+    clientSecret: ""  # Set via secrets
+    oauthUrl: "https://254carbon.cloudflareaccess.com/cdn-cgi/access/token"
+    tokenUrl: "https://254carbon.cloudflareaccess.com/cdn-cgi/access/token"
+    userUrl: "https://254carbon.cloudflareaccess.com/cdn-cgi/access/get_identity"
+
+# Platform Service Integration
+platformServices:
+  enabled: true
+  
+  # Trino Configuration
+  trino:
+    enabled: true
+    host: "trino.data-platform"
+    port: 8080
+    catalog: "iceberg"
+    schema: "default"
+  
+  # MinIO Configuration
+  minio:
+    enabled: true
+    endpoint: "minio.data-platform:9000"
+    consoleEndpoint: "minio-console.data-platform:9001"
+    bucket: "data-lake"
+    accessKey: ""  # Set via secrets
+    secretKey: ""  # Set via secrets
+  
+  # MLflow Configuration
+  mlflow:
+    enabled: true
+    trackingUri: "http://mlflow.ml-platform:5000"
+    artifactUri: "s3://mlflow-artifacts"
+  
+  # PostgreSQL Configuration
+  postgres:
+    enabled: true
+    host: "postgres-shared.data-platform"
+    port: 5432
+    database: "jupyter"
+    username: "jupyter_user"
+    password: ""  # Set via secrets
+  
+  # DataHub Configuration
+  datahub:
+    enabled: true
+    restApi: "http://datahub-gms.data-platform:8080"
+  
+  # Ray Configuration
+  ray:
+    enabled: true
+    headHost: "ray-cluster-head.data-platform"
+    headPort: 6379
+  
+  # Kafka Configuration
+  kafka:
+    enabled: true
+    brokers: "kafka-cluster-kafka-bootstrap.data-platform:9092"
+
+# Monitoring
+monitoring:
+  enabled: true
+  serviceMonitor:
+    enabled: true
+    interval: 30s
+    labels:
+      prometheus: "kube-prometheus"
+
+# Pod Security Policy
+podSecurityPolicy:
+  enabled: false
+
+# Resource Quotas
+resourceQuota:
+  enabled: true
+  name: "jupyter-quota"
+  hard:
+    requests.cpu: "100"
+    requests.memory: "200Gi"
+    limits.cpu: "200"
+    limits.memory: "400Gi"
+    persistentvolumeclaims: "100"
+
+# Persistent Volume Claim for Shared Data
+sharedDataPvc:
+  enabled: true
+  name: "jupyter-shared-data"
+  size: "50Gi"
+  storageClass: "local-path"
+  accessModes:
+    - ReadWriteMany
+
+# ConfigMap for platform service configuration
+configMap:
+  enabled: true
+  name: "jupyter-platform-config"
+
+# Secrets for credentials
+secrets:
+  enabled: true
+  name: "jupyter-secrets"
+  # These should be set via external secret management
+  minioAccessKey: ""
+  minioSecretKey: ""
+  postgresPassword: ""
+  oauthClientId: ""
+  oauthClientSecret: ""
+
+# Node Selector
+nodeSelector: {}
+
+# Affinity
+affinity: {}
+
+# Tolerations
+tolerations: []
+
+# Labels
+labels:
+  app: "jupyterhub"
+  version: "4.0.0"
+
+# Annotations
+annotations:
+  prometheus.io/scrape: "true"
+  prometheus.io/port: "8000"

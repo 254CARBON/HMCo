@@ -1,0 +1,36 @@
+{{- if .Values.sharedDataPvc.enabled }}
+---
+# Shared Data Persistent Volume Claim
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ .Values.sharedDataPvc.name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "jupyterhub.labels" . | nindent 4 }}
+    component: shared-data
+spec:
+  accessModes:
+    {{- toYaml .Values.sharedDataPvc.accessModes | nindent 4 }}
+  storageClassName: {{ .Values.sharedDataPvc.storageClass }}
+  resources:
+    requests:
+      storage: {{ .Values.sharedDataPvc.size }}
+
+{{- end }}
+
+{{- if .Values.resourceQuota.enabled }}
+---
+# Resource Quota for JupyterHub namespace
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: {{ .Values.resourceQuota.name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "jupyterhub.labels" . | nindent 4 }}
+spec:
+  hard:
+    {{- toYaml .Values.resourceQuota.hard | nindent 4 }}
+
+{{- end }}

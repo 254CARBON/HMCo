@@ -1,0 +1,75 @@
+---
+# Cloudflare Tunnel Configuration for JupyterHub
+# Exposes jupyter.254carbon.com via Cloudflare tunnel
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cloudflare-tunnel-config
+  namespace: cloudflare-tunnel
+data:
+  config.yaml: |
+    tunnel: 291bc289-e3c3-4446-a9ad-8e327660ecd5
+    credentials-file: /etc/cloudflared/creds/credentials.json
+    logLevel: info
+    logFormat: json
+    
+    ingress:
+      # JupyterHub
+      - hostname: jupyter.254carbon.com
+        service: http://ingress-nginx-controller.ingress-nginx:80
+        originRequest:
+          connectTimeout: 30s
+      
+      # Portal
+      - hostname: portal.254carbon.com
+        service: http://ingress-nginx-controller.ingress-nginx:80
+      
+      - hostname: www.254carbon.com
+        service: http://ingress-nginx-controller.ingress-nginx:80
+      
+      # DataHub
+      - hostname: datahub.254carbon.com
+        service: http://ingress-nginx-controller.ingress-nginx:80
+      
+      # Grafana
+      - hostname: grafana.254carbon.com
+        service: http://ingress-nginx-controller.ingress-nginx:80
+      
+      # Superset
+      - hostname: superset.254carbon.com
+        service: http://ingress-nginx-controller.ingress-nginx:80
+      
+      # Trino
+      - hostname: trino.254carbon.com
+        service: http://ingress-nginx-controller.ingress-nginx:80
+      
+      # Vault
+      - hostname: vault.254carbon.com
+        service: http://ingress-nginx-controller.ingress-nginx:80
+      
+      # MinIO
+      - hostname: minio.254carbon.com
+        service: http://ingress-nginx-controller.ingress-nginx:80
+      
+      # DolphinScheduler
+      - hostname: dolphin.254carbon.com
+        service: http://ingress-nginx-controller.ingress-nginx:80
+      
+      - hostname: dolphinscheduler.254carbon.com
+        service: http://ingress-nginx-controller.ingress-nginx:80
+      
+      # Harbor
+      - hostname: harbor.254carbon.com
+        service: http://ingress-nginx-controller.ingress-nginx:80
+      
+      # LakeFS
+      - hostname: lakefs.254carbon.com
+        service: http://ingress-nginx-controller.ingress-nginx:80
+      
+      # Rapids
+      - hostname: rapids.254carbon.com
+        service: http://ingress-nginx-controller.ingress-nginx:80
+      
+      # Catch-all
+      - service: http_status:404

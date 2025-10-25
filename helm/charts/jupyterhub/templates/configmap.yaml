@@ -1,0 +1,123 @@
+---
+# Hub Configuration ConfigMap
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "jupyterhub.fullname" . }}-hub-config
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "jupyterhub.labels" . | nindent 4 }}
+    component: hub-config
+data:
+  jupyterhub_config.py: |
+    """
+    JupyterHub Configuration
+    Integrates with Cloudflare Access and platform services
+    """
+    import os
+    import logging
+    
+    # Logging
+    c.Application.log_level = logging.INFO
+    c.JupyterHub.log_level = logging.INFO
+    
+    # Hub configuration
+    c.Authenticator.admin_users = ["admin"]
+    c.JupyterHub.allow_named_servers = False
+    c.JupyterHub.spawner_class = "kubespawner.KubeSpawner"
+    c.JupyterHub.tornado_settings = {"trust_xheaders": True}
+    c.JupyterHub.hub_ip = "0.0.0.0"
+    c.JupyterHub.hub_port = 8081
+    c.JupyterHub.hub_connect_ip = "jupyterhub-hub"
+    c.JupyterHub.hub_connect_port = 8081
+    
+    # Session
+    c.JupyterHub.cookie_max_age_days = 1
+    
+    # Proxy configuration - use external proxy
+    c.ConfigurableHTTPProxy.should_start = False
+    c.ConfigurableHTTPProxy.api_url = "http://jupyterhub-proxy-api:8001"
+    c.ConfigurableHTTPProxy.auth_token = os.getenv("JUPYTERHUB_API_TOKEN", "")
+    
+    # Authentication - Allow all for now
+    c.JupyterHub.authenticator_class = "dummy"
+    
+    # KubeSpawner configuration
+    c.KubeSpawner.namespace = "{{ .Release.Namespace }}"
+    c.KubeSpawner.service_account = "jupyter-user"
+    c.KubeSpawner.image = "jupyter/datascience-notebook:latest"
+    c.KubeSpawner.image_pull_policy = "IfNotPresent"
+    
+    # Resource limits
+    c.KubeSpawner.cpu_request = 2
+    c.KubeSpawner.cpu_limit = 4
+    c.KubeSpawner.memory_request = "8Gi"
+    c.KubeSpawner.memory_limit = "16Gi"
+    
+    # Storage
+    c.KubeSpawner.pvc_claim_template = {
+        "spec": {
+            "accessModes": ["ReadWriteOnce"],
+            "storageClassName": "local-path",
+            "resources": {"requests": {"storage": "10Gi"}},
+        }
+    }
+    
+    # Environment for user pods
+    c.KubeSpawner.environment = {
+        "JUPYTER_ENABLE_LAB": "1",
+        "TRINO_HOST": "trino.data-platform",
+        "TRINO_PORT": "8080",
+        "MINIO_ENDPOINT": "minio.data-platform:9000",
+        "MLFLOW_TRACKING_URI": "http://mlflow.ml-platform:5000",
+        "POSTGRES_HOST": "postgres-shared.data-platform",
+        "POSTGRES_PORT": "5432",
+        "DATAHUB_REST_API": "http://datahub-gms.data-platform:8080",
+    }
+    
+    # Extra labels for user pods
+    c.KubeSpawner.extra_labels = {
+        "app": "jupyterhub-user",
+        "version": "4.0.0",
+    }
+    
+    # API token
+    c.JupyterHub.api_tokens = {
+        os.getenv("JUPYTERHUB_API_TOKEN", "default-token"): "jupyterhub-service"
+    }
+
+---
+# Platform Services Configuration ConfigMap
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "jupyterhub.fullname" . }}-platform-config
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "jupyterhub.labels" . | nindent 4 }}
+    component: platform-config
+data:
+  trino-config.py: |
+    """Trino connection configuration"""
+    from trino.dbapi import connect
+    connection = connect(
+        host="trino.data-platform",
+        port=8080,
+        user="jupyter",
+    )
+  
+  minio-config.py: |
+    """MinIO S3 connection configuration"""
+    from minio import Minio
+    client = Minio(
+        "minio.data-platform:9000",
+        access_key="minioadmin",
+        secret_key="minioadmin",
+        secure=False,
+    )
+  
+  mlflow-config.py: |
+    """MLflow tracking configuration"""
+    import mlflow
+    mlflow.set_tracking_uri("http://mlflow.ml-platform:5000")
+    mlflow.set_experiment("jupyter-experiments")

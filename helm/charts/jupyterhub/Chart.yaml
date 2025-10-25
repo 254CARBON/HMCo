@@ -1,0 +1,14 @@
+apiVersion: v2
+name: jupyterhub
+description: JupyterHub for Kubernetes with integrated platform service access
+type: application
+version: 0.1.0
+appVersion: "4.0.0"
+keywords:
+  - jupyter
+  - jupyterhub
+  - notebook
+  - data-science
+maintainers:
+  - name: 254Carbon Platform Team
+    email: platform@254carbon.com

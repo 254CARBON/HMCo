@@ -61,6 +61,18 @@ export const CLUSTER_SERVICES: ClusterService[] = [
     documentation: 'https://trino.io/docs/current/',
   },
   {
+    id: 'jupyterhub',
+    name: 'JupyterHub',
+    description: 'Interactive Jupyter notebooks with platform integration',
+    icon: 'BookOpen',
+    url: 'https://jupyter.254carbon.com',
+    category: 'compute',
+    categoryLabel: 'Compute & Query',
+    status: 'active',
+    requiresAuth: true,
+    documentation: 'https://jupyterhub.readthedocs.io/',
+  },
+  {
     id: 'doris',
     name: 'Apache Doris',
     description: 'High-performance columnar database for analytics',
