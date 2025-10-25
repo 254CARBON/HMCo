@@ -1,0 +1,49 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "clickhouse.fullname" . }}
+  labels:
+    {{- include "clickhouse.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.service.type }}
+  ports:
+    - name: http
+      port: {{ .Values.service.httpPort }}
+      targetPort: http
+      protocol: TCP
+    - name: tcp
+      port: {{ .Values.service.tcpPort }}
+      targetPort: tcp
+      protocol: TCP
+    - name: inter
+      port: {{ .Values.service.interPort }}
+      targetPort: inter
+      protocol: TCP
+  selector:
+    {{- include "clickhouse.selectorLabels" . | nindent 4 }}
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "clickhouse.fullname" . }}-headless
+  labels:
+    {{- include "clickhouse.labels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  clusterIP: None
+  ports:
+    - name: http
+      port: {{ .Values.service.httpPort }}
+      targetPort: http
+      protocol: TCP
+    - name: tcp
+      port: {{ .Values.service.tcpPort }}
+      targetPort: tcp
+      protocol: TCP
+    - name: inter
+      port: {{ .Values.service.interPort }}
+      targetPort: inter
+      protocol: TCP
+  selector:
+    {{- include "clickhouse.selectorLabels" . | nindent 4 }}

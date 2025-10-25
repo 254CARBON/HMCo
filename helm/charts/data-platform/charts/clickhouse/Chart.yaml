@@ -1,0 +1,16 @@
+apiVersion: v2
+name: clickhouse
+description: A ClickHouse chart for Kubernetes
+type: application
+version: 0.1.0
+appVersion: "24.8.7"
+keywords:
+  - clickhouse
+  - database
+  - analytics
+home: https://clickhouse.com/
+sources:
+  - https://github.com/ClickHouse/ClickHouse
+maintainers:
+  - name: 254CARBON
+    email: admin@254carbon.com

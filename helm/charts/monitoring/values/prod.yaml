@@ -1,0 +1,117 @@
+global:
+  sso:
+    enabled: true
+    issuerUrl: https://auth.254carbon.com/auth/realms/master
+    authorizationUrl: https://auth.254carbon.com/auth/realms/master/protocol/openid-connect/auth
+    tokenUrl: https://auth.254carbon.com/auth/realms/master/protocol/openid-connect/token
+    userInfoUrl: https://auth.254carbon.com/auth/realms/master/protocol/openid-connect/userinfo
+    logoutUrl: https://auth.254carbon.com/auth/realms/master/protocol/openid-connect/logout
+    scopes:
+      - openid
+      - profile
+      - email
+    claimMappings:
+      email: email
+      name: name
+      username: email
+      groups: groups
+    groups:
+      admin: platform-admins
+      editor: data-engineers
+      viewer: data-analysts
+
+grafana:
+  hostname: grafana.254carbon.com
+  sso:
+    enabled: true
+    providerName: "254Carbon SSO"
+    clientId: grafana
+    clientSecret:
+      existingSecret: grafana-oidc-secret
+      key: client-secret
+    redirectUri: https://grafana.254carbon.com/login/generic_oauth
+    allowSignUp: true
+    autoLogin: true
+    usePkce: true
+
+kubecost:
+  global:
+    notifications:
+      frontendUrl: https://kubecost.254carbon.com
+      globalAlertEmails:
+        - finops@254carbon.com
+      alerts:
+        - type: budget
+          threshold: 4000   # 80% of $5k monthly namespace budget
+          window: monthly
+          aggregation: namespace
+          filter: data-platform
+          ownerContact:
+            - finops@254carbon.com
+        - type: budget
+          threshold: 5000   # Full monthly namespace budget
+          window: monthly
+          aggregation: namespace
+          filter: data-platform
+          ownerContact:
+            - finops@254carbon.com
+        - type: budget
+          threshold: 3200   # 80% of $4k monthly namespace budget
+          window: monthly
+          aggregation: namespace
+          filter: ml-platform
+          ownerContact:
+            - finops@254carbon.com
+        - type: budget
+          threshold: 4000   # Full monthly namespace budget
+          window: monthly
+          aggregation: namespace
+          filter: ml-platform
+          ownerContact:
+            - finops@254carbon.com
+        - type: budget
+          threshold: 1600   # 80% of $2k monthly namespace budget
+          window: monthly
+          aggregation: namespace
+          filter: monitoring
+          ownerContact:
+            - finops@254carbon.com
+        - type: budget
+          threshold: 2000   # Full monthly namespace budget
+          window: monthly
+          aggregation: namespace
+          filter: monitoring
+          ownerContact:
+            - finops@254carbon.com
+  ingress:
+    enabled: true
+    className: nginx
+    hosts:
+      - kubecost.254carbon.com
+    tls:
+      - secretName: kubecost-tls
+        hosts:
+          - kubecost.254carbon.com
+
+kubecostBudgetThresholds:
+  - namespace: data-platform
+    monthlyBudgetUSD: 5000
+    warningPercent: 0.8
+    criticalPercent: 1.0
+    contacts:
+      emails:
+        - finops@254carbon.com
+  - namespace: ml-platform
+    monthlyBudgetUSD: 4000
+    warningPercent: 0.8
+    criticalPercent: 1.0
+    contacts:
+      emails:
+        - finops@254carbon.com
+  - namespace: monitoring
+    monthlyBudgetUSD: 2000
+    warningPercent: 0.8
+    criticalPercent: 1.0
+    contacts:
+      emails:
+        - finops@254carbon.com

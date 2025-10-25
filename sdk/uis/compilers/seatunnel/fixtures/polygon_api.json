@@ -1,0 +1,75 @@
+{
+  "env": {
+    "parallelism": 2,
+    "checkpoint.interval": 10000,
+    "checkpoint.timeout": 60000,
+    "checkpoint.storage": "hdfs://namenode:9000/seatunnel/checkpoint"
+  },
+  "source": [
+    {
+      "plugin_name": "Http",
+      "result_table_name": "source_tickers",
+      "url": "https://api.polygon.io/v3/reference/tickers",
+      "method": "GET",
+      "headers": {
+        "Authorization": "Bearer {{api_key}}"
+      },
+      "params": {
+        "market": "stocks",
+        "limit": "100"
+      },
+      "format": "json",
+      "json_field": "$.results",
+      "pagination": {
+        "type": "cursor",
+        "cursor_field": "cursor",
+        "page_size": 100,
+        "max_pages": 1000
+      },
+      "rate_limit": {
+        "read_per_second": 10
+      }
+    }
+  ],
+  "transform": [
+    {
+      "plugin_name": "FieldMapper",
+      "source_table_name": "source_tickers",
+      "result_table_name": "mapped_tickers",
+      "field_mapper": {
+        "ticker": "symbol",
+        "name": "company_name"
+      }
+    },
+    {
+      "plugin_name": "SchemaValidator",
+      "source_table_name": "mapped_tickers",
+      "result_table_name": "validated",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "ticker": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  ],
+  "sink": [
+    {
+      "plugin_name": "Iceberg",
+      "source_table_name": "validated",
+      "result_table_name": "market_data.tickers",
+      "catalog_name": "hive_prod",
+      "namespace": "default",
+      "table": "market_data.tickers",
+      "warehouse": "s3://prod-warehouse/",
+      "hadoop_conf_path": "/etc/hadoop/conf",
+      "primary_key": "",
+      "save_mode": "append"
+    }
+  ]
+}

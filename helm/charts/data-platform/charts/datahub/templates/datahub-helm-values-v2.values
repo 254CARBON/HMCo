@@ -19,7 +19,7 @@ global:
   # Kafka Configuration
   kafka:
     bootstrap:
-      server: "kafka-service:9092"
+      server: "kafka-service:9093"
     schemaregistry:
       url: "http://schema-registry-service:8081"
   
@@ -111,4 +111,3 @@ datahub-mce-consumer:
   image:
     repository: acryldata/datahub-mce-consumer
     tag: "head"
-

@@ -10,28 +10,38 @@ type: Opaque
 stringData:
   alertmanager.yml: |
     global:
-      smtp_smarthost: 'localhost:587'
+      resolve_timeout: 5m
+      smtp_smarthost: 'smtp.example.com:587'
       smtp_from: 'alertmanager@254carbon.com'
-      smtp_auth_username: ''
-      smtp_auth_password: ''
+      smtp_auth_username: 'alertmanager@254carbon.com'
+      smtp_require_tls: true
     route:
-      group_by: ['alertname']
-      group_wait: 10s
-      group_interval: 10s
-      repeat_interval: 1h
-      receiver: 'webhook'
+      group_by: ['alertname', 'namespace', 'service']
+      group_wait: 30s
+      group_interval: 5m
+      repeat_interval: 12h
+      receiver: 'team-email'
       routes:
       - match:
           severity: critical
-        receiver: 'webhook'
+        receiver: 'critical-pagerduty'
+      - match_re:
+          slo: '.+'
+        receiver: 'team-email'
+        continue: true
       - match:
           severity: warning
-        receiver: 'webhook'
+        receiver: 'team-email'
     receivers:
-    - name: 'webhook'
-      webhook_configs:
-      - url: 'http://localhost:9093/alerts'
-        send_resolved: true
+    - name: 'team-email'
+      email_configs:
+      - to: 'ops@254carbon.com'
+        from: 'alertmanager@254carbon.com'
+        smarthost: 'smtp.example.com:587'
+        require_tls: true
+    - name: 'critical-pagerduty'
+      pagerduty_configs:
+      - routing_key: 'REPLACE_WITH_PD_KEY'
 ---
 apiVersion: monitoring.coreos.com/v1
 kind: AlertmanagerConfig
@@ -40,20 +50,29 @@ metadata:
   namespace: monitoring
 spec:
   route:
-    groupBy: ['alertname']
-    groupWait: 10s
-    groupInterval: 10s
-    repeatInterval: 1h
-    receiver: '254carbon-webhook'
+    groupBy: ['alertname', 'namespace', 'service']
+    groupWait: 30s
+    groupInterval: 5m
+    repeatInterval: 12h
+    receiver: 'team-email'
     routes:
-    - match:
-        severity: critical
-      receiver: '254carbon-webhook'
-    - match:
-        severity: warning
-      receiver: '254carbon-webhook'
+    - receiver: 'critical-pagerduty'
+      matchers:
+      - severity="critical"
+    - receiver: 'team-email'
+      matchers:
+      - slo=~".+"
+      continue: true
+    - receiver: 'team-email'
+      matchers:
+      - severity="warning"
   receivers:
-  - name: '254carbon-webhook'
-    webhookConfigs:
-    - url: 'http://localhost:9093/alerts'
-      sendResolved: true
+  - name: 'team-email'
+    emailConfigs:
+    - to: 'ops@254carbon.com'
+      from: 'alertmanager@254carbon.com'
+      smarthost: 'smtp.example.com:587'
+      requireTLS: true
+  - name: 'critical-pagerduty'
+    pagerdutyConfigs:
+    - routingKey: 'REPLACE_WITH_PD_KEY'

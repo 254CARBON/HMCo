@@ -40,11 +40,11 @@
     "icon": "🧠"
   },
   {
-    "id": "doris",
-    "name": "Apache Doris",
-    "url": "https://doris.254carbon.com",
+    "id": "clickhouse",
+    "name": "ClickHouse",
+    "url": "https://clickhouse.254carbon.com",
     "category": "OLAP",
-    "description": "MPP analytics database for real-time data warehousing.",
+    "description": "High-performance columnar database for real-time analytics.",
     "icon": "🧮"
   },
   {

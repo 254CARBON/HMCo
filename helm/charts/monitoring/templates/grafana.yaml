@@ -1,3 +1,27 @@
+{{- $globalVals := default (dict) .Values.global -}}
+{{- $globalSso := default (dict) (get $globalVals "sso") -}}
+{{- $grafanaVals := default (dict) .Values.grafana -}}
+{{- $grafanaSso := default (dict) (get $grafanaVals "sso") -}}
+{{- $defaultScopes := list "openid" "profile" "email" -}}
+{{- $scopesCandidate := default (get $globalSso "scopes") (get $grafanaSso "scopes") -}}
+{{- $effectiveScopes := default $defaultScopes $scopesCandidate -}}
+{{- $claimMappings := default (dict) (get $globalSso "claimMappings") -}}
+{{- $groupsClaim := default "groups" (get $claimMappings "groups") -}}
+{{- $emailClaim := default "email" (get $claimMappings "email") -}}
+{{- $nameClaim := default "name" (get $claimMappings "name") -}}
+{{- $groupsConfig := default (dict) (get $globalSso "groups") -}}
+{{- $adminGroup := default "platform-admins" (get $groupsConfig "admin") -}}
+{{- $editorGroup := default "data-engineers" (get $groupsConfig "editor") -}}
+{{- $viewerGroup := default "data-analysts" (get $groupsConfig "viewer") -}}
+{{- $defaultRolePath := printf "contains(%s[*], '%s') && 'Admin' || contains(%s[*], '%s') && 'Editor' || 'Viewer'" $groupsClaim $adminGroup $groupsClaim $editorGroup -}}
+{{- $roleAttributePath := default $defaultRolePath (get $grafanaSso "roleAttributePath") -}}
+{{- $authorizationUrl := default (get $globalSso "authorizationUrl") (get $grafanaSso "authorizationUrl") -}}
+{{- $tokenUrl := default (get $globalSso "tokenUrl") (get $grafanaSso "tokenUrl") -}}
+{{- $userInfoUrl := default (get $globalSso "userInfoUrl") (get $grafanaSso "userInfoUrl") -}}
+{{- $logoutUrl := default (get $globalSso "logoutUrl") (get $grafanaSso "logoutUrl") -}}
+{{- $issuerUrl := default (get $globalSso "issuerUrl") (get $grafanaSso "issuerUrl") -}}
+{{- $clientSecretCfg := default (dict) (get $grafanaSso "clientSecret") -}}
+{{- $hostname := default "grafana.254carbon.com" (get $grafanaVals "hostname") -}}
 # Grafana deployment with pre-configured dashboards
 apiVersion: apps/v1
 kind: Deployment
@@ -31,13 +55,60 @@ spec:
               name: grafana-secret
               key: admin-password
         - name: GF_USERS_ALLOW_SIGN_UP
-          value: "false"
+          value: {{ ternary "true" "false" (default false (get $grafanaSso "enabled")) | quote }}
         - name: GF_INSTALL_PLUGINS
           value: "grafana-piechart-panel,grafana-worldmap-panel"
         - name: GF_LOG_LEVEL
           value: "info"
         - name: GF_LOG_MODE
           value: "console"
+        - name: GF_SERVER_DOMAIN
+          value: {{ $hostname | quote }}
+        - name: GF_SERVER_ROOT_URL
+          value: {{ printf "https://%s/" $hostname | quote }}
+        - name: GF_AUTH_DISABLE_LOGIN_FORM
+          value: {{ ternary "false" "true" (default false (get $grafanaSso "enabled")) | quote }}
+        - name: GF_AUTH_GENERIC_OAUTH_ENABLED
+          value: {{ ternary "true" "false" (default false (get $grafanaSso "enabled")) | quote }}
+        - name: GF_AUTH_GENERIC_OAUTH_NAME
+          value: {{ default "OIDC" (get $grafanaSso "providerName") | quote }}
+        - name: GF_AUTH_GENERIC_OAUTH_SCOPES
+          value: {{ join " " $effectiveScopes | quote }}
+        - name: GF_AUTH_GENERIC_OAUTH_EMAIL_ATTRIBUTE_PATH
+          value: {{ printf "%s" $emailClaim | quote }}
+        - name: GF_AUTH_GENERIC_OAUTH_LOGIN_ATTRIBUTE_PATH
+          value: {{ printf "%s" $emailClaim | quote }}
+        - name: GF_AUTH_GENERIC_OAUTH_NAME_ATTRIBUTE_PATH
+          value: {{ printf "%s" $nameClaim | quote }}
+        - name: GF_AUTH_GENERIC_OAUTH_GROUPS_ATTRIBUTE_PATH
+          value: {{ printf "%s" $groupsClaim | quote }}
+        - name: GF_AUTH_GENERIC_OAUTH_ROLE_ATTRIBUTE_PATH
+          value: {{ $roleAttributePath | quote }}
+        - name: GF_AUTH_GENERIC_OAUTH_USE_PKCE
+          value: {{ ternary "true" "false" (default true (get $grafanaSso "usePkce")) | quote }}
+        - name: GF_AUTH_OAUTH_AUTO_LOGIN
+          value: {{ ternary "true" "false" (and (default false (get $grafanaSso "enabled")) (default true (get $grafanaSso "autoLogin"))) | quote }}
+        - name: GF_AUTH_GENERIC_OAUTH_ALLOW_SIGN_UP
+          value: {{ ternary "true" "false" (default true (get $grafanaSso "allowSignUp")) | quote }}
+        - name: GF_AUTH_GENERIC_OAUTH_AUTH_URL
+          value: {{ default "" $authorizationUrl | quote }}
+        - name: GF_AUTH_GENERIC_OAUTH_TOKEN_URL
+          value: {{ default "" $tokenUrl | quote }}
+        - name: GF_AUTH_GENERIC_OAUTH_API_URL
+          value: {{ default "" $userInfoUrl | quote }}
+        - name: GF_AUTH_GENERIC_OAUTH_LOGOUT_URL
+          value: {{ default "" $logoutUrl | quote }}
+        - name: GF_AUTH_GENERIC_OAUTH_ISSUER
+          value: {{ default "" $issuerUrl | quote }}
+        - name: GF_AUTH_GENERIC_OAUTH_CLIENT_ID
+          value: {{ default "" (get $grafanaSso "clientId") | quote }}
+{{- if and (default false (get $grafanaSso "enabled")) (get $clientSecretCfg "existingSecret") }}
+        - name: GF_AUTH_GENERIC_OAUTH_CLIENT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: {{ get $clientSecretCfg "existingSecret" | quote }}
+              key: {{ default "client-secret" (get $clientSecretCfg "key") | quote }}
+{{- end }}
         volumeMounts:
         - name: grafana-data
           mountPath: /var/lib/grafana
@@ -162,25 +233,34 @@ data:
     disable_gravatar = true
 
     [users]
-    allow_sign_up = false
+    allow_sign_up = {{ ternary "true" "false" (default false (get $grafanaSso "enabled")) }}
     auto_assign_org = true
-    auto_assign_org_role = Editor
+    auto_assign_org_role = Viewer
 
     [auth.anonymous]
     enabled = false
 
     [auth]
-    disable_login_form = true
+    disable_login_form = {{ ternary "false" "true" (default false (get $grafanaSso "enabled")) }}
+    oauth_auto_login = {{ ternary "true" "false" (and (default false (get $grafanaSso "enabled")) (default true (get $grafanaSso "autoLogin"))) }}
 
     [auth.basic]
     enabled = false
 
     [auth.proxy]
-    enabled = true
+    enabled = {{ ternary "false" "true" (default false (get $grafanaSso "enabled")) }}
+{{- if not (default false (get $grafanaSso "enabled")) }}
     header_name = X-WEBAUTH-USER
     auto_sign_up = true
     # Map additional headers if present from ingress
     headers = Email:X-WEBAUTH-EMAIL; Name:X-WEBAUTH-USER; Login:X-WEBAUTH-USER; Groups:X-WEBAUTH-GROUPS
+{{- end }}
+
+    [auth.generic_oauth]
+    enabled = {{ ternary "true" "false" (default false (get $grafanaSso "enabled")) }}
+    name = {{ default "OIDC" (get $grafanaSso "providerName") | quote }}
+    allow_sign_up = {{ ternary "true" "false" (default true (get $grafanaSso "allowSignUp")) }}
+    use_pkce = {{ ternary "true" "false" (default true (get $grafanaSso "usePkce")) }}
 
     [smtp]
     enabled = false

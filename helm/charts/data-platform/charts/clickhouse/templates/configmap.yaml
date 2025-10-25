@@ -1,0 +1,93 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: clickhouse-config
+  labels:
+    {{- include "clickhouse.labels" . | nindent 4 }}
+data:
+  config.xml: |
+    <?xml version="1.0"?>
+    <clickhouse>
+        <logger>
+            <level>trace</level>
+            <log>/var/log/clickhouse-server/clickhouse-server.log</log>
+            <errorlog>/var/log/clickhouse-server/clickhouse-server.err.log</errorlog>
+            <size>1000M</size>
+            <count>3</count>
+        </logger>
+
+        <http_server_default_response_compression_type>gzip</http_server_default_response_compression_type>
+
+        <tcp_port>{{ .Values.clickhouse.server.tcpPort }}</tcp_port>
+        <http_port>{{ .Values.clickhouse.server.httpPort }}</http_port>
+        <interserver_http_port>{{ .Values.clickhouse.server.interPort }}</interserver_http_port>
+
+        <listen_host>0.0.0.0</listen_host>
+
+        <path>{{ .Values.clickhouse.storage.dataPath }}/</path>
+        <tmp_path>{{ .Values.clickhouse.storage.dataPath }}/tmp/</tmp_path>
+        <user_files_path>{{ .Values.clickhouse.storage.dataPath }}/user_files/</user_files_path>
+        <access_control_path>{{ .Values.clickhouse.storage.dataPath }}/access/</access_control_path>
+
+        <default_profile>default</default_profile>
+        <default_database>{{ .Values.clickhouse.databases[0].name }}</default_database>
+
+        <users_config>users.xml</users_config>
+        <builtin_dictionaries_reload_interval>3600</builtin_dictionaries_reload_interval>
+
+        <mark_cache_size>5368709120</mark_cache_size>
+        <uncompressed_cache_size>8589934592</uncompressed_cache_size>
+        <mmap_cache_size>2684354560</mmap_cache_size>
+
+        <max_server_memory_usage>0.8</max_server_memory_usage>
+        <max_server_memory_usage_to_ram_ratio>0.8</max_server_memory_usage_to_ram_ratio>
+
+        <prometheus>
+            <endpoint>/metrics</endpoint>
+            <port>9363</port>
+            <metrics>true</metrics>
+            <events>true</events>
+            <asynchronous_metrics>true</asynchronous_metrics>
+        </prometheus>
+    </clickhouse>
+
+  users.xml: |
+    <?xml version="1.0"?>
+    <clickhouse>
+        <users>
+            <default>
+                <password>{{ .Values.clickhouse.security.defaultPassword }}</password>
+                <networks>
+                    <ip>::/0</ip>
+                </networks>
+                <profile>default</profile>
+                <quota>default</quota>
+                <access_management>1</access_management>
+            </default>
+        </users>
+
+        <profiles>
+            <default>
+                <max_memory_usage>10000000000</max_memory_usage>
+                <use_uncompressed_cache>1</use_uncompressed_cache>
+                <load_balancing>in_order</load_balancing>
+                <log_queries>1</log_queries>
+                <log_query_threads>1</log_query_threads>
+            </default>
+        </profiles>
+
+        <quotas>
+            <default>
+                <interval>
+                    <duration>3600</duration>
+                    <queries>0</queries>
+                    <query_selects>0</query_selects>
+                    <query_inserts>0</query_inserts>
+                    <errors>0</errors>
+                    <result_rows>0</result_rows>
+                    <read_rows>0</read_rows>
+                    <execution_time>0</execution_time>
+                </interval>
+            </default>
+        </quotas>
+    </clickhouse>

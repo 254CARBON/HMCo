@@ -40,5 +40,3 @@ responses==0.24.1
 faker==20.1.0  # Test data generation
 freezegun==1.4.0  # Time mocking
 
-
-

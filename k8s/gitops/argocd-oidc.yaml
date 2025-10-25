@@ -1,0 +1,50 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: argocd-cm
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: argocd-cm
+    app.kubernetes.io/part-of: argocd
+data:
+  url: https://argocd.254carbon.com
+  oidc.config: |
+    name: 254Carbon SSO
+    issuer: https://auth.254carbon.com/auth/realms/master
+    clientID: argocd
+    clientSecret: $oidc.clientSecret
+    requestedScopes:
+      - openid
+      - profile
+      - email
+      - groups
+    requestedIDTokenClaims:
+      groups:
+        essential: true
+    logoutURL: https://auth.254carbon.com/auth/realms/master/protocol/openid-connect/logout
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: argocd-rbac-cm
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: argocd-rbac-cm
+    app.kubernetes.io/part-of: argocd
+data:
+  policy.default: role:readonly
+  policy.csv: |
+    g, platform-admins, role:admin
+    g, data-engineers, role:editor
+    g, data-analysts, role:readonly
+    p, role:editor, applications, get, *, allow
+    p, role:editor, applications, sync, *, allow
+    p, role:editor, applications, create, *, allow
+    p, role:editor, applications, update, *, allow
+    p, role:editor, applications, delete, *, allow
+    p, role:editor, projects, get, *, allow
+    p, role:editor, repositories, get, *, allow
+    p, role:editor, clusters, get, *, allow
+  scopes: '[groups]'

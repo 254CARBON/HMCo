@@ -5,6 +5,8 @@ global:
   namespace: data-platform
   domain: 254carbon.com
   storageClass: local-path
+  sso:
+    enabled: true
 
 datahub:
   enabled: true
@@ -13,12 +15,12 @@ datahub:
     gms: 2  # HA
     mae-consumer: 1
     mce-consumer: 1
-  
+
   ingress:
     enabled: true
     hostname: datahub.254carbon.com
     tls: true
-  
+
   resources:
     frontend:
       requests:
@@ -35,6 +37,22 @@ datahub:
         cpu: 4000m
         memory: 8Gi
 
+  sso:
+    enabled: true
+    clientId: datahub
+    clientSecretSecret:
+      name: datahub-oidc-secret
+      key: client-secret
+    redirectUri: https://datahub.254carbon.com/callback/oidc
+    discoveryUrl: https://auth.254carbon.com/auth/realms/master/.well-known/openid-configuration
+    baseUrl: https://datahub.254carbon.com
+    logoutUrl: https://auth.254carbon.com/auth/realms/master/protocol/openid-connect/logout
+    scopes:
+      - openid
+      - profile
+      - email
+    extractGroups: true
+
 dolphinscheduler:
   enabled: true
   replicaCount:
@@ -42,7 +60,7 @@ dolphinscheduler:
     master: 1
     worker: 6  # Scale for workload
     alert: 1
-  
+
   ingress:
     enabled: true
     hostname: dolphinscheduler.254carbon.com
@@ -53,12 +71,12 @@ trino:
   replicaCount:
     coordinator: 1
     worker: 3  # More workers for distributed queries
-  
+
   ingress:
     enabled: true
     hostname: trino.254carbon.com
     tls: true
-  
+
   resources:
     coordinator:
       requests:
@@ -81,11 +99,54 @@ superset:
     web: 2  # HA for web
     worker: 2
     beat: 1
-  
+
   ingress:
     enabled: true
     hostname: superset.254carbon.com
     tls: true
 
+  sso:
+    enabled: true
+    clientId: superset
+    clientSecretSecret:
+      name: superset-oidc-secret
+      key: client-secret
+    redirectUri: https://superset.254carbon.com/oauth-authorized/oidc
+    discoveryUrl: https://auth.254carbon.com/auth/realms/master/.well-known/openid-configuration
+    userInfoUrl: https://auth.254carbon.com/auth/realms/master/protocol/openid-connect/userinfo
+    logoutUrl: https://auth.254carbon.com/auth/realms/master/protocol/openid-connect/logout
+    scopes:
+      - openid
+      - profile
+      - email
+    tokenMethod: client_secret_post
 
+spark-operator:
+  sparkHistory:
+    replicaCount: 1
 
+# ClickHouse - High-performance columnar database for analytics
+clickhouse:
+  enabled: true
+  replicaCount: 1
+
+  resources:
+    requests:
+      cpu: 2000m
+      memory: 8Gi
+    limits:
+      cpu: 4000m
+      memory: 16Gi
+
+  persistence:
+    enabled: true
+    storageClass: local-path
+    size: 200Gi
+
+  ingress:
+    enabled: true
+    hostname: clickhouse.254carbon.com
+    tls: true
+
+  serviceMonitor:
+    enabled: true

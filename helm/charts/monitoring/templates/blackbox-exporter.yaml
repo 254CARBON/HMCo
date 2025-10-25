@@ -1,0 +1,105 @@
+{{- if .Values.blackboxExporter.enabled }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: blackbox-exporter-config
+  namespace: monitoring
+  labels:
+    app: blackbox-exporter
+    component: canary
+data:
+  blackbox.yml: |
+{{ toYaml .Values.blackboxExporter.config | indent 4 }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: blackbox-exporter
+  namespace: monitoring
+  labels:
+    app: blackbox-exporter
+    component: canary
+spec:
+  replicas: {{ .Values.blackboxExporter.replicaCount }}
+  selector:
+    matchLabels:
+      app: blackbox-exporter
+  template:
+    metadata:
+      labels:
+        app: blackbox-exporter
+        component: canary
+    spec:
+      containers:
+        - name: blackbox-exporter
+          image: "{{ .Values.blackboxExporter.image.repository }}:{{ .Values.blackboxExporter.image.tag }}"
+          imagePullPolicy: {{ .Values.blackboxExporter.image.pullPolicy }}
+          args:
+            - --config.file=/etc/blackbox-exporter/blackbox.yml
+          ports:
+            - name: http
+              containerPort: {{ .Values.blackboxExporter.service.port }}
+          volumeMounts:
+            - name: config
+              mountPath: /etc/blackbox-exporter
+              readOnly: true
+{{- with .Values.blackboxExporter.resources }}
+          resources:
+{{ toYaml . | indent 12 }}
+{{- end }}
+      volumes:
+        - name: config
+          configMap:
+            name: blackbox-exporter-config
+{{- with .Values.blackboxExporter.nodeSelector }}
+      nodeSelector:
+{{ toYaml . | indent 8 }}
+{{- end }}
+{{- with .Values.blackboxExporter.affinity }}
+      affinity:
+{{ toYaml . | indent 8 }}
+{{- end }}
+{{- with .Values.blackboxExporter.tolerations }}
+      tolerations:
+{{ toYaml . | indent 8 }}
+{{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: blackbox-exporter
+  namespace: monitoring
+  labels:
+    app: blackbox-exporter
+    component: canary
+spec:
+  type: ClusterIP
+  selector:
+    app: blackbox-exporter
+  ports:
+    - name: http
+      port: {{ .Values.blackboxExporter.service.port }}
+      targetPort: http
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: blackbox-exporter
+  namespace: monitoring
+  labels:
+    app: blackbox-exporter
+    component: canary
+spec:
+  selector:
+    matchLabels:
+      app: blackbox-exporter
+  namespaceSelector:
+    matchNames:
+      - monitoring
+  endpoints:
+    - port: http
+      interval: 30s
+      scrapeTimeout: 10s
+      honorLabels: true
+{{- end }}

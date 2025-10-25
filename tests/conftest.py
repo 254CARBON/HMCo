@@ -60,7 +60,7 @@ def postgres_connection(namespace):
 @pytest.fixture
 def kafka_bootstrap_servers(namespace):
     """Kafka bootstrap servers"""
-    return f"kafka-service.{namespace}.svc.cluster.local:9092"
+    return f"kafka-service.{namespace}.svc.cluster.local:9093"
 
 @pytest.fixture(autouse=True)
 def reset_test_state():
@@ -79,6 +79,5 @@ def pytest_configure(config):
     config.addinivalue_line(
         "markers", "e2e: End-to-end tests"
     )
-
 
 

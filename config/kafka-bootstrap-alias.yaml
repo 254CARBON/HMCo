@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: kafka-service
+  namespace: data-platform
+  labels:
+    app.kubernetes.io/name: kafka-service
+    app.kubernetes.io/component: bootstrap-alias
+spec:
+  type: ExternalName
+  externalName: datahub-kafka-kafka-bootstrap.kafka.svc.cluster.local
+  ports:
+    - name: tls-bootstrap
+      port: 9093
+      targetPort: 9093

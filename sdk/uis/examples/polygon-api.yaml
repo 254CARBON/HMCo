@@ -1,0 +1,137 @@
+version: "1.1"
+name: "polygon-stock-api"
+description: "Polygon.io stock market data ingestion"
+created_by: "data-engineer"
+
+provider:
+  name: "polygon_api"
+  display_name: "Polygon Stock API"
+  description: "Real-time and historical stock market data from Polygon.io"
+  provider_type: "rest_api"
+  base_url: "https://api.polygon.io"
+
+  # Configuration
+  config:
+    api_version: "v3"
+    market: "stocks"
+  credentials_ref: "vault://polygon-api/credentials"
+
+  # Scheduling
+  schedule_cron: "0 */5 * * * *"  # Every 5 minutes
+  schedule_timezone: "America/New_York"
+
+  # Data governance
+  tenant_id: "trading-platform"
+  owner: "trading-team@company.com"
+  tags: ["stocks", "market-data", "real-time", "polygon"]
+
+  # Data endpoints
+  endpoints:
+    - name: "reference_tickers"
+      path: "/v3/reference/tickers"
+      method: "GET"
+      headers:
+        Authorization: "Bearer {{api_key}}"
+      query_params:
+        market: "stocks"
+        limit: "1000"
+        active: "true"
+      pagination: "cursor"
+      pagination_config:
+        cursor_param: "cursor"
+        page_size: 1000
+        max_pages: 100
+      response_path: "$.results"
+      field_mapping:
+        ticker: "symbol"
+        name: "company_name"
+        market_cap: "market_capitalization"
+        sector: "industry_sector"
+        exchange: "primary_exchange"
+      rate_limit_group: "reference_data"
+      rate_limit_per_second: 10
+      validation_rules:
+        required_fields: ["ticker", "name"]
+
+    - name: "daily_aggregates"
+      path: "/v3/aggs/ticker/{{ticker}}/range/1/day/{{from_date}}/{{to_date}}"
+      method: "GET"
+      query_params:
+        adjusted: "true"
+        sort: "asc"
+        limit: "50000"
+      pagination: "cursor"
+      pagination_config:
+        cursor_param: "cursor"
+        page_size: 50000
+        max_pages: 20
+      response_path: "$.results"
+      field_mapping:
+        timestamp: "t"
+        open_price: "o"
+        high_price: "h"
+        low_price: "l"
+        close_price: "c"
+        volume: "v"
+        transactions: "n"
+      rate_limit_group: "timeseries_data"
+      rate_limit_per_second: 5
+      validation_rules:
+        required_fields: ["timestamp", "open_price", "close_price", "volume"]
+        numeric_ranges:
+          open_price: [0, null]
+          volume: [0, null]
+
+  # Data sinks
+  sinks:
+    - type: "iceberg"
+      table_name: "market_data.daily_stock_aggregates"
+      config:
+        warehouse: "prod_warehouse"
+        catalog: "hive_prod"
+        namespace: "market_data"
+      partition_by: ["date"]
+
+    - type: "clickhouse"
+      clickhouse_table: "market_data.stock_ticks"
+      config:
+        cluster: "clickhouse-prod"
+        database: "market_data"
+        merge_tree_settings:
+          index_granularity: 8192
+
+  # Quality gates and SLOs
+  schema_contract:
+    type: "object"
+    properties:
+      ticker:
+        type: "string"
+        minLength: 1
+        maxLength: 10
+      timestamp:
+        type: "string"
+        format: "date-time"
+      open_price:
+        type: "number"
+        minimum: 0
+      volume:
+        type: "integer"
+        minimum: 0
+
+  slos:
+    freshness_target_minutes: 10
+    accuracy_threshold: 0.99
+    completeness_threshold: 0.95
+    availability_target: 0.999
+    block_on_schema_drift: true
+    block_on_quality_drop: true
+
+# Global runtime settings
+global_config:
+  timeout_seconds: 300
+  retry_attempts: 3
+  retry_backoff_seconds: 60
+
+# Execution mode
+mode: "micro_batch"
+parallelism: 2

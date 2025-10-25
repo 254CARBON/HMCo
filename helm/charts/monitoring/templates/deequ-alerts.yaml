@@ -188,9 +188,29 @@ spec:
         component: alert-producer
     spec:
       serviceAccountName: deequ
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
       containers:
       - name: alert-producer
         image: confluentinc/cp-kafka:7.4.0
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
+          runAsUser: 1000
+          capabilities:
+            drop: ["NET_RAW"]
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 300m
+            memory: 256Mi
         command:
         - /bin/bash
         - -c
@@ -203,7 +223,18 @@ spec:
           done
         env:
         - name: KAFKA_BROKERS
-          value: "kafka-service:9092"
+          value: "kafka-service:9093"
+        - name: KAFKA_SECURITY_PROTOCOL
+          value: "SSL"
+        - name: KAFKA_SSL_KEYSTORE_LOCATION
+          value: "/etc/kafka/secrets/user.p12"
+        - name: KAFKA_SSL_TRUSTSTORE_LOCATION
+          value: "/etc/kafka/secrets/user.p12"
+        - name: KAFKA_SSL_STORE_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: kafka-platform-apps-tls
+              key: user.password
         - name: KAFKA_TOPIC
           value: "data-quality-alerts"
         - name: KAFKA_GROUP_ID
@@ -211,7 +242,14 @@ spec:
         volumeMounts:
         - name: alert-config
           mountPath: /opt/alert-config
+        - name: kafka-client-cert
+          mountPath: /etc/kafka/secrets
+          readOnly: true
       volumes:
       - name: alert-config
         configMap:
           name: deequ-alertmanager-config
+      - name: kafka-client-cert
+        secret:
+          secretName: kafka-platform-apps-tls
+          defaultMode: 0400

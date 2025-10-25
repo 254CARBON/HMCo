@@ -1,0 +1,174 @@
+{
+  "job_type": "streaming",
+  "flink_config": {
+    "taskmanager.memory.process.size": "4g",
+    "taskmanager.numberOfTaskSlots": "4",
+    "parallelism.default": "2",
+    "state.backend": "rocksdb",
+    "state.checkpoints.dir": "s3://flink-checkpoints/websocket-streaming/",
+    "state.savepoints.dir": "s3://flink-savepoints/websocket-streaming/",
+    "state.checkpointing.mode": "EXACTLY_ONCE",
+    "state.checkpointing.interval": "60000",
+    "state.checkpointing.timeout": "300000",
+    "state.checkpoint-storage": "filesystem",
+    "state.checkpoints.num-retained": "10",
+    "execution.checkpointing.interval": "60000",
+    "execution.checkpointing.timeout": "300000",
+    "execution.checkpointing.mode": "EXACTLY_ONCE",
+    "execution.checkpointing.externalized-checkpoint-retention": "RETAIN_ON_CANCELLATION",
+    "taskmanager.network.memory.fraction": "0.1",
+    "taskmanager.network.memory.max": "1gb",
+    "taskmanager.memory.segment-size": "32mb",
+    "s3.endpoint": "http://minio:9000",
+    "s3.access-key": "{{minio_access_key}}",
+    "s3.secret-key": "{{minio_secret_key}}",
+    "s3.path.style.access": "true",
+    "kafka.bootstrap.servers": "kafka:9092",
+    "kafka.consumer.group-id": "uis-websocket-streaming",
+    "kafka.producer.transactional-id-prefix": "uis-websocket-streaming",
+    "websocket.reconnect.interval": "30000",
+    "websocket.max.reconnect.attempts": "10",
+    "taskmanager.memory.network.fraction": "0.1",
+    "taskmanager.memory.managed.fraction": "0.4",
+    "taskmanager.memory.network.min": "64mb",
+    "taskmanager.memory.network.max": "1gb",
+    "metrics.reporter.prometheus.class": "org.apache.flink.metrics.prometheus.PrometheusReporter",
+    "metrics.reporter.prometheus.port": "9999"
+  },
+  "sources": [
+    {
+      "type": "websocket",
+      "name": "websocket_realtime_data",
+      "url": "wss://api.example.com/ws/realtime",
+      "protocol": "wss",
+      "headers": {
+        "Authorization": "Bearer {{token}}"
+      },
+      "format": "json",
+      "endpoint_name": "realtime_data",
+      "reconnect_config": {
+        "max_attempts": 10,
+        "initial_delay_ms": 1000,
+        "max_delay_ms": 30000,
+        "backoff_multiplier": 2.0
+      },
+      "heartbeat": {
+        "interval_ms": 30000,
+        "timeout_ms": 10000
+      },
+      "buffer_config": {
+        "max_size": 10000,
+        "flush_interval_ms": 1000
+      }
+    }
+  ],
+  "transforms": [
+    {
+      "type": "field_mapping",
+      "name": "map_realtime_data",
+      "mapping": {
+        "timestamp": "event_time",
+        "data": "payload"
+      },
+      "drop_unmapped": true,
+      "applies_to_endpoints": ["realtime_data"]
+    },
+    {
+      "type": "watermark",
+      "name": "add_watermark",
+      "timestamp_column": "event_time",
+      "max_out_of_orderness_ms": 5000,
+      "applies_to_endpoints": ["*"]
+    }
+  ],
+  "sinks": [
+    {
+      "type": "kafka",
+      "name": "kafka_realtime-events",
+      "bootstrap_servers": "kafka:9092",
+      "topic": "realtime-events",
+      "key_field": "event_id",
+      "format": "json",
+      "transactional": true,
+      "config": {
+        "bootstrap_servers": "kafka:9092"
+      },
+      "properties": {
+        "transaction.timeout.ms": "900000",
+        "batch.size": "16384",
+        "linger.ms": "10",
+        "compression.type": "snappy"
+      }
+    }
+  ],
+  "pipelines": [
+    {
+      "id": "websocket_realtime_data__kafka_realtime-events",
+      "name": "websocket_realtime_data -> kafka_realtime-events",
+      "mode": "websocket",
+      "description": "Route websocket source 'websocket_realtime_data' to Kafka topic 'realtime-events'.",
+      "source": {
+        "name": "websocket_realtime_data",
+        "type": "websocket",
+        "endpoint": "realtime_data",
+        "details": {
+          "url": "wss://api.example.com/ws/realtime"
+        }
+      },
+      "sink": {
+        "name": "kafka_realtime-events",
+        "type": "kafka",
+        "topic": "realtime-events",
+        "bootstrap_servers": "kafka:9092",
+        "key_field": "event_id"
+      },
+      "transforms": [
+        "map_realtime_data",
+        "add_watermark"
+      ],
+      "delivery_guarantee": "exactly_once",
+      "parallelism": 2
+    }
+  ],
+  "state_management": {
+    "backend": "rocksdb",
+    "checkpoint_config": {
+      "interval_ms": 60000,
+      "timeout_ms": 300000,
+      "mode": "EXACTLY_ONCE",
+      "num_retained": 10,
+      "externalized_retention": "RETAIN_ON_CANCELLATION"
+    },
+    "savepoint_config": {
+      "dir": "s3://flink-savepoints/websocket-streaming/",
+      "retention": "RETAIN_ON_CANCELLATION"
+    },
+    "state_ttl": {
+      "enabled": true,
+      "time_ms": 86400000,
+      "cleanup_ms": 3600000
+    }
+  },
+  "monitoring": {
+    "metrics_enabled": true,
+    "metrics_prefix": "uis.websocket-streaming",
+    "prometheus": {
+      "enabled": true,
+      "port": 9999,
+      "path": "/metrics"
+    },
+    "custom_metrics": [
+      "source_throughput",
+      "sink_throughput",
+      "processing_latency_ms",
+      "checkpoint_duration_ms",
+      "state_size_bytes",
+      "error_rate"
+    ],
+    "alerts": {
+      "processing_delay_threshold_ms": 300000,
+      "error_rate_threshold": 0.01,
+      "checkpoint_failure_threshold": 3
+    }
+  }
+}

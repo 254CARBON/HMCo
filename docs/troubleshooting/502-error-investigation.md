@@ -95,7 +95,7 @@ zookeeper-service.data-platform.svc.cluster.local:2181
 ⚠️ Pending (PVC issues in single-node):
 - Grafana
 - Vault
-- Doris
+- ClickHouse
 
 ⚠️ DNS Issues (being fixed):
 - Kafka
@@ -174,7 +174,7 @@ kubectl get endpoints -n data-platform portal
 | datahub | 302 | ✅ Working | ⏳ GMS restarting | Frontend running |
 | vault | 302 | ✅ Working | ⏳ Pending PVC | Will work once PVC bound |
 | trino | 302 | ✅ Working | ⏳ Creating | Starting up |
-| doris | 302 | ✅ Working | ⏳ Pending PVC | Will work once PVC bound |
+| clickhouse | 302 | ✅ Working | ⏳ Pending PVC | Will work once PVC bound |
 | minio | 302 | ✅ Working | ✅ 1/1 Running | Fully operational |
 | Others | 302 | ✅ Working | Various | Check individually |
 
@@ -184,7 +184,7 @@ kubectl get endpoints -n data-platform portal
 
 ### For Single-Node Kind Cluster (PVC Issues)
 
-**Services Affected**: Grafana, Vault, Doris
+**Services Affected**: Grafana, Vault, ClickHouse
 
 **Issue**: StatefulSets/Deployments waiting for PVCs that can't bind in single-node
 

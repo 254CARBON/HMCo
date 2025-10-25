@@ -1,21 +1,22 @@
-import type { Metadata } from 'next'
-import './globals.css'
+import type { Metadata } from 'next';
+import './globals.css';
+import { Providers } from './providers';
 
 export const metadata: Metadata = {
-  title: '254Carbon - Data Platform Portal',
-  description: 'Central landing portal and SSO dashboard for 254carbon cluster',
-}
+  title: '254Carbon Data Platform Portal',
+  description: 'Central data ingestion and management portal',
+};
 
 export default function RootLayout({
   children,
 }: {
-  children: React.ReactNode
+  children: React.ReactNode;
 }) {
   return (
     <html lang="en">
-      <body className="bg-slate-950 text-slate-100 antialiased">
-        {children}
+      <body className="bg-slate-950 text-slate-100">
+        <Providers>{children}</Providers>
       </body>
     </html>
-  )
+  );
 }

@@ -15,7 +15,7 @@ data:
       type: kafka
       config:
         connection:
-          bootstrap: "kafka-service.data-platform.svc.cluster.local:9092"
+          bootstrap: "kafka-service.data-platform.svc.cluster.local:9093"
           schema_registry_url: "http://schema-registry-service.data-platform.svc.cluster.local:8081"
         
         # Topic filtering
@@ -98,4 +98,3 @@ spec:
           - name: recipe
             configMap:
               name: datahub-kafka-ingestion-recipe
-

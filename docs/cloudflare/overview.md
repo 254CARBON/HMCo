@@ -75,7 +75,7 @@ Successfully implemented comprehensive Cloudflare Tunnel integration to expose t
             │                │                │
      ┌──────▼───┐      ┌─────▼────┐     ┌───▼──────┐
      │ DataHub  │      │ Grafana  │     │ Superset │
-     │ Vault    │      │ Trino    │     │ Doris    │
+     │ Vault    │      │ Trino    │     │ ClickHouse│
      │ MinIO    │      │ Dolphin  │     │ LakeFS   │
      └──────────┘      └──────────┘     └──────────┘
 ```
@@ -96,7 +96,7 @@ Successfully implemented comprehensive Cloudflare Tunnel integration to expose t
 ### Internal Services (Tier 3 - Not Exposed)
 - `datahub.254carbon.com` → DataHub (internal routing)
 - `trino.254carbon.com` → Trino (port 8080)
-- `doris.254carbon.com` → Apache Doris (port 8030)
+- `clickhouse.254carbon.com` → ClickHouse (port 8123)
 - `lakefs.254carbon.com` → LakeFS (port 8000)
 
 ### Internal Only (No 254carbon.com exposure)

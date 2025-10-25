@@ -30,6 +30,7 @@ NAMESPACE="vault-prod"
 POD="vault-0"
 KEYS_FILE="/tmp/vault-init-keys-backup.txt"
 SECURE_KEYS_FILE="$HOME/.vault-keys"
+ROOT_TOKEN=""
 
 # Initialize Vault
 vault_init() {
@@ -157,12 +158,7 @@ vault_config_k8s_auth() {
         return 1
     fi
     
-    ROOT_TOKEN=$(grep "Initial Root Token" "$KEYS_FILE" | awk '{print $NF}')
-    
-    if [[ -z "$ROOT_TOKEN" ]]; then
-        echo -e "${YELLOW}Enter Vault root token:${NC}"
-        read -s ROOT_TOKEN
-    fi
+    vault_get_root_token || return 1
     
     echo -e "${YELLOW}Enabling Kubernetes auth...${NC}"
     
@@ -177,6 +173,73 @@ vault_config_k8s_auth() {
         token_reviewer_jwt=@/var/run/secrets/kubernetes.io/serviceaccount/token
     
     echo -e "${GREEN}✓ Kubernetes auth configured${NC}"
+    echo ""
+}
+
+# Retrieve root token once and cache it for subsequent operations
+vault_get_root_token() {
+    if [[ -n "${ROOT_TOKEN:-}" ]]; then
+        return 0
+    fi
+
+    if [[ -f "$KEYS_FILE" ]]; then
+        ROOT_TOKEN=$(grep "Initial Root Token" "$KEYS_FILE" | awk '{print $NF}')
+    fi
+
+    if [[ -z "${ROOT_TOKEN:-}" ]]; then
+        echo -e "${YELLOW}Enter Vault root token:${NC}"
+        read -s ROOT_TOKEN
+    fi
+
+    if [[ -z "${ROOT_TOKEN:-}" ]]; then
+        echo -e "${RED}Root token is required to configure policies${NC}"
+        return 1
+    fi
+
+    return 0
+}
+
+# Configure policies and roles for the External Secrets Operator
+vault_config_external_secrets() {
+    echo -e "${BLUE}================================${NC}"
+    echo -e "${BLUE}Configuring External Secrets Access${NC}"
+    echo -e "${BLUE}================================${NC}"
+    echo ""
+
+    vault_get_root_token || return 1
+
+    echo -e "${YELLOW}Creating external-secrets-read policy...${NC}"
+
+    POLICY=$(cat <<'EOF'
+path "secret/data/data-platform/*" {
+  capabilities = ["read"]
+}
+
+path "secret/metadata/data-platform/*" {
+  capabilities = ["read", "list"]
+}
+EOF
+)
+
+    kubectl exec $POD -n $NAMESPACE -- sh -c "cat <<'EOF' >/tmp/external-secrets-policy.hcl
+$POLICY
+EOF"
+
+    kubectl exec $POD -n $NAMESPACE -- env VAULT_TOKEN="$ROOT_TOKEN" sh -c \
+        "vault policy write external-secrets-read /tmp/external-secrets-policy.hcl" >/dev/null
+
+    kubectl exec $POD -n $NAMESPACE -- sh -c "rm -f /tmp/external-secrets-policy.hcl"
+
+    echo -e "${YELLOW}Creating Kubernetes auth role: external-secrets${NC}"
+
+    kubectl exec $POD -n $NAMESPACE -- env VAULT_TOKEN="$ROOT_TOKEN" sh -c \
+        "vault write auth/kubernetes/role/external-secrets \
+            bound_service_account_names=external-secrets-operator \
+            bound_service_account_namespaces=vault \
+            policies=external-secrets-read \
+            ttl=24h" >/dev/null
+
+    echo -e "${GREEN}✓ External Secrets Operator wired to Vault${NC}"
     echo ""
 }
 
@@ -251,13 +314,13 @@ ACTION="${1:-status}"
 
 case "$ACTION" in
     init)
-        vault_init && vault_unseal && vault_config_k8s_auth && vault_config_engines
+        vault_init && vault_unseal && vault_config_k8s_auth && vault_config_engines && vault_config_external_secrets
         ;;
     unseal)
         vault_unseal
         ;;
     config)
-        vault_config_k8s_auth && vault_config_engines
+        vault_config_k8s_auth && vault_config_engines && vault_config_external_secrets
         ;;
     test)
         vault_test
@@ -271,7 +334,7 @@ case "$ACTION" in
         echo "Actions:"
         echo "  init   - Initialize and unseal Vault (first time only)"
         echo "  unseal - Unseal existing Vault"
-        echo "  config - Configure auth and secret engines"
+        echo "  config - Configure auth, secret engines, and policies"
         echo "  test   - Test Vault connectivity"
         echo "  status - Check Vault status"
         exit 1

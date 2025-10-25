@@ -1,0 +1,72 @@
+{{- if and .Values.blackboxExporter.enabled .Values.blackboxExporter.probes.targets }}
+{{- $interval := default "30s" .Values.blackboxExporter.probes.interval }}
+{{- $scrapeTimeout := default "10s" .Values.blackboxExporter.probes.scrapeTimeout }}
+{{- $defaultFor := default "2m" .Values.blackboxExporter.probes.defaultFor }}
+{{- $proberPort := .Values.blackboxExporter.service.port }}
+{{- range $probe := .Values.blackboxExporter.probes.targets }}
+{{- $module := default "http_2xx" $probe.module }}
+{{- $intervalFor := default $interval $probe.interval }}
+{{- $timeout := default $scrapeTimeout $probe.scrapeTimeout }}
+{{- $alertFor := default $defaultFor $probe.for }}
+{{- $labels := default (dict) $probe.labels }}
+{{- $service := default $probe.name (index $labels "service") }}
+---
+apiVersion: monitoring.coreos.com/v1
+kind: Probe
+metadata:
+  name: blackbox-{{ $probe.name }}
+  namespace: monitoring
+  labels:
+    app: blackbox-exporter
+    component: canary
+    role: slo
+    alertmanager: main
+    target: {{ $service | quote }}
+spec:
+  jobName: blackbox-{{ $probe.name }}
+  module: {{ $module }}
+  interval: {{ $intervalFor }}
+  scrapeTimeout: {{ $timeout }}
+  prober:
+    url: {{ printf "http://blackbox-exporter.monitoring.svc:%d/probe" $proberPort | quote }}
+  targets:
+    staticConfig:
+      static:
+        - {{ $probe.url | quote }}
+      labels:
+        service: {{ $service | quote }}
+{{- range $key, $value := $labels }}
+{{- if ne $key "service" }}
+        {{ $key }}: {{ $value | quote }}
+{{- end }}
+{{- end }}
+---
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: blackbox-{{ $probe.name }}-alerts
+  namespace: monitoring
+  labels:
+    alertmanager: main
+    role: slo
+    component: canary
+spec:
+  groups:
+    - name: blackbox.{{ $probe.name }}
+      interval: 1m
+      rules:
+        - alert: SyntheticAvailabilityFailure
+          expr: probe_success{job="blackbox-{{ $probe.name }}"} == 0
+          for: {{ $alertFor }}
+          labels:
+            severity: {{ default "critical" (index $labels "severity") | quote }}
+            slo: {{ default "http-availability" (index $labels "slo") | quote }}
+            service: {{ $service | quote }}
+            canary: "true"
+          annotations:
+            summary: "Synthetic probe failed for {{`{{ $labels.service }}`}}"
+            description: |
+              The blackbox probe {{`{{ $labels.job }}`}} against {{ $probe.url }} is failing.
+              Investigate platform availability before error budget is impacted.
+{{- end }}
+{{- end }}

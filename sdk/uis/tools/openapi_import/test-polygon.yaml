@@ -1,0 +1,60 @@
+version: '1.1'
+name: polygon-stock-api-api
+description: Generated from Polygon Stock API API v3.0.0. Real-time and historical
+  stock market data from Polygon.io
+provider:
+  name: polygon-stock-api
+  display_name: Polygon Stock API
+  description: Real-time and historical stock market data from Polygon.io
+  provider_type: rest_api
+  base_url: https://api.polygon.io
+  config:
+    api_version: 3.0.0
+    rate_limits: null
+  credentials_ref: vault://polygon-api/credentials
+  schedule_cron: null
+  schedule_timezone: UTC
+  tenant_id: default
+  owner: api-importer
+  tags:
+  - stocks
+  - market-data
+  - polygon
+  endpoints: []
+  transforms: []
+  sinks:
+  - type: iceberg
+    config:
+      catalog: hive_prod
+      namespace: market_data
+      warehouse: s3://warehouse/
+    table_name: market_data.polygon_data
+    partition_by: null
+    clickhouse_table: null
+    clickhouse_cluster: null
+    kafka_topic: null
+    kafka_key_field: null
+  - type: clickhouse
+    config:
+      host: clickhouse
+      database: default
+    table_name: null
+    partition_by: null
+    clickhouse_table: market_data.polygon_data
+    clickhouse_cluster: null
+    kafka_topic: null
+    kafka_key_field: null
+  schema_contract: null
+  slos:
+    freshness_target_minutes: 5
+    accuracy_threshold: 0.99
+    completeness_threshold: 0.95
+    availability_target: 0.999
+    block_on_schema_drift: true
+    block_on_quality_drop: true
+  mode: batch
+  parallelism: 1
+  retry_config: null
+global_config: null
+created_at: null
+created_by: api-importer

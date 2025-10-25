@@ -1,161 +1,155 @@
-# Default values for vault.
-# This is a YAML-formatted file.
-# Declare variables to be passed into your templates.
+# Values for the Vault + External Secrets umbrella chart.
+# This chart wraps the official HashiCorp Vault Helm chart and the
+# External Secrets Operator chart, and adds opinionated defaults for
+# the 254Carbon platform.
 
-# This will set the replicaset count more information can be found here: https://kubernetes.io/docs/concepts/workloads/controllers/replicaset/
-replicaCount: 1
+# Global defaults shared across subcharts.
+global:
+  # Default Kubernetes storage class used for Vault Raft persistence.
+  storageClass: local-path
+  # Optional imagePullSecrets propagated to subcharts.
+  imagePullSecrets: []
+  # Set to true and provide TLS secrets to enable TLS for the Vault listener.
+  tls:
+    enabled: false
+    # Secret containing tls.crt / tls.key for Vault listener when TLS is enabled.
+    serverTLSSecret: ""
+    # Optional secret containing a CA bundle (ca.crt) for Vault clients.
+    caBundleSecret: ""
+  # Override to expose Vault through an external address (used by injector/CSI).
+  externalVaultAddr: ""
 
-# This sets the container image more information can be found here: https://kubernetes.io/docs/concepts/containers/images/
-image:
-  repository: nginx
-  # This sets the pull policy for images.
-  pullPolicy: IfNotPresent
-  # Overrides the image tag whose default is the chart appVersion.
-  tag: ""
+# Configuration passed to the official HashiCorp Vault chart via the alias
+# `hashicorpVault`.
+hashicorpVault:
+  global:
+    # Disable TLS by default. When enabling TLS, set this to false and
+    # provide `global.tls.*` secrets.
+    tlsDisable: true
+    imagePullSecrets: []
+  injector:
+    enabled: true
+    replicas: 2
+    logLevel: info
+    leaderElector:
+      enabled: true
+    metrics:
+      enabled: true
+  csi:
+    enabled: false
+  server:
+    ha:
+      enabled: true
+      replicas: 3
+      raft:
+        enabled: true
+        setNodeId: true
+      # Opinionated Raft configuration with TLS disabled by default.
+      config: |
+        ui = true
 
-# This is for the secrets for pulling an image from a private repository more information can be found here: https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/
-imagePullSecrets: []
-# This is to override the chart name.
-nameOverride: ""
-fullnameOverride: ""
+        listener "tcp" {
+          address         = "[::]:8200"
+          cluster_address = "[::]:8201"
+          tls_disable     = 1
+        }
 
-# This section builds out the service account more information can be found here: https://kubernetes.io/docs/concepts/security/service-accounts/
-serviceAccount:
-  # Specifies whether a service account should be created
-  create: true
-  # Automatically mount a ServiceAccount's API credentials?
-  automount: true
-  # Annotations to add to the service account
-  annotations: {}
-  # The name of the service account to use.
-  # If not set and create is true, a name is generated using the fullname template
-  name: ""
+        storage "raft" {
+          path = "/vault/data"
+        }
 
-# This is for setting Kubernetes Annotations to a Pod.
-# For more information checkout: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/
-podAnnotations: {}
-# This is for setting Kubernetes Labels to a Pod.
-# For more information checkout: https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/
-podLabels: {}
+        service_registration "kubernetes" {}
+    standalone:
+      enabled: false
+    dataStorage:
+      enabled: true
+      size: 10Gi
+      storageClass: local-path
+    auditStorage:
+      enabled: false
+    service:
+      type: ClusterIP
+    ingress:
+      enabled: false
+    extraEnvironmentVars:
+      VAULT_LOG_LEVEL: info
+    # Rolling updates let Raft handle leader re-election.
+    updateStrategyType: RollingUpdate
+    disruptionBudget:
+      enabled: true
+      maxUnavailable: null
+    authDelegator:
+      enabled: true
+    # Fallback config for components that still read `server.config`.
+    config: |
+      ui = true
 
-podSecurityContext: {}
-  # fsGroup: 2000
+      listener "tcp" {
+        address         = "[::]:8200"
+        cluster_address = "[::]:8201"
+        tls_disable     = 1
+      }
 
-securityContext: {}
-  # capabilities:
-  #   drop:
-  #   - ALL
-  # readOnlyRootFilesystem: true
-  # runAsNonRoot: true
-  # runAsUser: 1000
+      storage "raft" {
+        path = "/vault/data"
+      }
 
-# This is for setting up a service more information can be found here: https://kubernetes.io/docs/concepts/services-networking/service/
-service:
-  # This sets the service type more information can be found here: https://kubernetes.io/docs/concepts/services-networking/service/#publishing-services-service-types
-  type: ClusterIP
-  # This sets the ports more information can be found here: https://kubernetes.io/docs/concepts/services-networking/service/#field-spec-ports
-  port: 80
+      service_registration "kubernetes" {}
+  ui:
+    enabled: true
+    serviceType: ClusterIP
+    externalPort: 8200
+  serviceAccount:
+    create: true
+    name: ""
+    createSecret: false
+    annotations: {}
 
-# This block is for setting up the ingress for more information can be found here: https://kubernetes.io/docs/concepts/services-networking/ingress/
-ingress:
+# External Secrets Operator configuration (alias: `externalSecrets`).
+externalSecrets:
+  installCRDs: true
+  fullnameOverride: external-secrets-operator
+  replicaCount: 2
+  leaderElector:
+    name: external-secrets-operator
+    namespace: vault
+  serviceAccount:
+    create: true
+    name: external-secrets-operator
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 256Mi
+  webhook:
+    create: true
+  certController:
+    create: true
+
+# ClusterSecretStore definition used by platform workloads.
+clusterSecretStore:
+  enabled: true
+  name: platform-vault
+  namespace: vault
+  path: secret
+  version: v2
+  # When blank the in-cluster service DNS name is used.
+  server: ""
+  # Optional secret that holds the CA bundle (key: ca.crt) for Vault.
+  caBundleSecret: ""
+  auth:
+    type: kubernetes
+    mountPath: kubernetes
+    role: external-secrets
+    serviceAccountRef:
+      name: external-secrets-operator
+      namespace: vault
+
+# Default annotations/templates for workloads that rely on Vault Agent
+# injection. Charts can merge/override these values as needed.
+vaultAgentDefaults:
   enabled: false
-  className: ""
   annotations: {}
-    # kubernetes.io/ingress.class: nginx
-    # kubernetes.io/tls-acme: "true"
-  hosts:
-    - host: chart-example.local
-      paths:
-        - path: /
-          pathType: ImplementationSpecific
-  tls: []
-  #  - secretName: chart-example-tls
-  #    hosts:
-  #      - chart-example.local
-
-# -- Expose the service via gateway-api HTTPRoute
-# Requires Gateway API resources and suitable controller installed within the cluster
-# (see: https://gateway-api.sigs.k8s.io/guides/)
-httpRoute:
-  # HTTPRoute enabled.
-  enabled: false
-  # HTTPRoute annotations.
-  annotations: {}
-  # Which Gateways this Route is attached to.
-  parentRefs:
-  - name: gateway
-    sectionName: http
-    # namespace: default
-  # Hostnames matching HTTP header.
-  hostnames:
-  - chart-example.local
-  # List of rules and filters applied.
-  rules:
-  - matches:
-    - path:
-        type: PathPrefix
-        value: /headers
-  #   filters:
-  #   - type: RequestHeaderModifier
-  #     requestHeaderModifier:
-  #       set:
-  #       - name: My-Overwrite-Header
-  #         value: this-is-the-only-value
-  #       remove:
-  #       - User-Agent
-  # - matches:
-  #   - path:
-  #       type: PathPrefix
-  #       value: /echo
-  #     headers:
-  #     - name: version
-  #       value: v2
-
-resources: {}
-  # We usually recommend not to specify default resources and to leave this as a conscious
-  # choice for the user. This also increases chances charts run on environments with little
-  # resources, such as Minikube. If you do want to specify resources, uncomment the following
-  # lines, adjust them as necessary, and remove the curly braces after 'resources:'.
-  # limits:
-  #   cpu: 100m
-  #   memory: 128Mi
-  # requests:
-  #   cpu: 100m
-  #   memory: 128Mi
-
-# This is to setup the liveness and readiness probes more information can be found here: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/
-livenessProbe:
-  httpGet:
-    path: /
-    port: http
-readinessProbe:
-  httpGet:
-    path: /
-    port: http
-
-# This section is for setting up autoscaling more information can be found here: https://kubernetes.io/docs/concepts/workloads/autoscaling/
-autoscaling:
-  enabled: false
-  minReplicas: 1
-  maxReplicas: 100
-  targetCPUUtilizationPercentage: 80
-  # targetMemoryUtilizationPercentage: 80
-
-# Additional volumes on the output Deployment definition.
-volumes: []
-# - name: foo
-#   secret:
-#     secretName: mysecret
-#     optional: false
-
-# Additional volumeMounts on the output Deployment definition.
-volumeMounts: []
-# - name: foo
-#   mountPath: "/etc/foo"
-#   readOnly: true
-
-nodeSelector: {}
-
-tolerations: []
-
-affinity: {}
+  templates: {}

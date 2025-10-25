@@ -38,6 +38,11 @@ data:
       group_interval: 5m
       repeat_interval: 12h
       routes:
+      # SLO and synthetic canary alerts
+      - match_re:
+          slo: '.+'
+        receiver: 'slo-alerts'
+        continue: true
       # Critical alerts
       - match:
           severity: critical
@@ -93,7 +98,13 @@ data:
       slack_configs:
       - channel: '#storage-alerts'
         title: 'Storage Issue'
-    
+
+    - name: 'slo-alerts'
+      slack_configs:
+      - channel: '#slo-alerts'
+        title: 'SLO Alert'
+        text: '{{ range .Alerts }}{{ .Annotations.summary }} — {{ .Annotations.description }}{{ "\\n" }}{{ end }}'
+
     - name: 'database-alerts'
       slack_configs:
       - channel: '#database-alerts'

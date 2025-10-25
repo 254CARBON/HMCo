@@ -30,6 +30,10 @@ EXCLUDED_EMAILS="${CLOUDFLARE_ACCESS_EXCLUDED_EMAILS:-}"                        
 COUNTRIES="${CLOUDFLARE_ACCESS_ALLOWED_COUNTRIES:-}"                                # comma-separated ISO codes
 IDP_ID="${CLOUDFLARE_ACCESS_IDP_ID:-}"                                               # optional IdP (login method) UUID
 
+ACME_BYPASS_ENABLED="${CLOUDFLARE_ACME_BYPASS_ENABLED:-true}"
+ACME_BYPASS_SESSION="${CLOUDFLARE_ACME_BYPASS_SESSION:-1h}"
+BYPASS_POLICY_NAME="Bypass ACME Challenge"
+
 FORCE_UPDATE=false
 DRY_RUN=false
 
@@ -77,6 +81,7 @@ Options:
       --idp-id UUID         Restrict login method to this IdP UUID (optional)
       --force               Update apps/policies if they already exist
       --dry-run             Print payloads without calling Cloudflare API
+      --skip-acme-bypass    Skip creating ACME HTTP-01 bypass exemptions
   -h, --help                Show this help message
 
 Examples:
@@ -145,6 +150,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         --dry-run)
             DRY_RUN=true
+            shift
+            ;;
+        --skip-acme-bypass)
+            ACME_BYPASS_ENABLED=false
             shift
             ;;
         -h|--help)
@@ -250,15 +259,17 @@ build_app_payload() {
     local name=$1
     local domain=$2
     local session=$3
+    local launcher_visible=${4:-true}
+    local auto_redirect=${5:-false}
     cat <<EOF
 {
   "name": "$name",
   "domain": "$domain",
   "type": "self_hosted",
   "session_duration": "$session",
-  "app_launcher_visible": true,
+  "app_launcher_visible": ${launcher_visible},
   "http_only_cookie": true,
-  "auto_redirect_to_identity": false
+  "auto_redirect_to_identity": ${auto_redirect}
 }
 EOF
 }
@@ -267,8 +278,10 @@ create_app() {
     local name=$1
     local domain=$2
     local session=$3
+    local launcher_visible=${4:-true}
+    local auto_redirect=${5:-false}
     local payload
-    payload=$(build_app_payload "$name" "$domain" "$session")
+    payload=$(build_app_payload "$name" "$domain" "$session" "$launcher_visible" "$auto_redirect")
     api_request "POST" "/access/apps" "$payload" | jq -r '.result.id'
 }
 
@@ -277,8 +290,10 @@ update_app() {
     local name=$2
     local domain=$3
     local session=$4
+    local launcher_visible=${5:-true}
+    local auto_redirect=${6:-false}
     local payload
-    payload=$(build_app_payload "$name" "$domain" "$session")
+    payload=$(build_app_payload "$name" "$domain" "$session" "$launcher_visible" "$auto_redirect")
     api_request "PUT" "/access/apps/${app_id}" "$payload" >/dev/null
 }
 
@@ -376,13 +391,106 @@ update_policy() {
     api_request "PUT" "/access/apps/${app_id}/policies/${policy_id}" "$payload" >/dev/null
 }
 
+build_bypass_policy_payload() {
+    local name=$1
+    cat <<EOF
+{
+  "name": "$name",
+  "precedence": 0,
+  "decision": "bypass",
+  "include": [ { "everyone": {} } ],
+  "require": [],
+  "exclude": [],
+  "approval_required": false
+}
+EOF
+}
+
+create_bypass_policy() {
+    local app_id=$1
+    local policy_name=$2
+    local payload
+    payload=$(build_bypass_policy_payload "$policy_name")
+    api_request "POST" "/access/apps/${app_id}/policies" "$payload" >/dev/null
+}
+
+update_bypass_policy() {
+    local app_id=$1
+    local policy_id=$2
+    local policy_name=$3
+    local payload
+    payload=$(build_bypass_policy_payload "$policy_name")
+    api_request "PUT" "/access/apps/${app_id}/policies/${policy_id}" "$payload" >/dev/null
+}
+
+ensure_acme_bypass() {
+    local app_label=$1
+    local base_domain=$2
+
+    if [[ "$base_domain" == *"cloudflareaccess.com" ]] || \
+       [[ "$base_domain" == *".local" ]] || \
+       [[ "$base_domain" == "localhost" ]] || \
+       [[ "$base_domain" == "127.0.0.1" ]]; then
+        log_info "Skipping ACME bypass for ${base_domain} (non-public domain)."
+        return
+    fi
+
+    local bypass_domain="${base_domain}/.well-known/acme-challenge/*"
+    local bypass_app_name="ACME Bypass - ${base_domain}"
+    local policy_name="${BYPASS_POLICY_NAME}"
+
+    log_info "Ensuring ACME HTTP-01 bypass for ${bypass_domain}"
+
+    local existing_app app_id
+    existing_app=$(get_existing_app "$bypass_domain" || echo "")
+    app_id=""
+
+    if [[ -n "$existing_app" ]]; then
+        app_id=$(echo "$existing_app" | jq -r '.id')
+        log_warning "ACME bypass application already exists."
+        if [[ "$FORCE_UPDATE" == "true" ]]; then
+            log_info "Updating ACME bypass application settings..."
+            update_app "$app_id" "$bypass_app_name" "$bypass_domain" "$ACME_BYPASS_SESSION" false false
+            log_success "ACME bypass application updated."
+        fi
+    else
+        log_info "Creating ACME bypass application..."
+        app_id=$(create_app "$bypass_app_name" "$bypass_domain" "$ACME_BYPASS_SESSION" false false)
+        log_success "ACME bypass application created (ID: ${app_id})."
+    fi
+
+    if [[ -z "$app_id" || "$app_id" == "null" ]]; then
+        log_error "Unable to determine ACME bypass application ID for ${base_domain}."
+        exit 1
+    fi
+
+    local existing_policy
+    existing_policy=$(get_existing_policy "$app_id" "$policy_name" || echo "")
+
+    if [[ -n "$existing_policy" ]]; then
+        if [[ "$FORCE_UPDATE" == "true" ]]; then
+            local policy_id
+            policy_id=$(echo "$existing_policy" | jq -r '.id')
+            log_info "Refreshing ACME bypass policy..."
+            update_bypass_policy "$app_id" "$policy_id" "$policy_name"
+            log_success "ACME bypass policy updated."
+        else
+            log_success "ACME bypass policy already present."
+        fi
+    else
+        log_info "Creating ACME bypass policy..."
+        create_bypass_policy "$app_id" "$policy_name"
+        log_success "ACME bypass policy created."
+    fi
+}
+
 declare -a APPLICATIONS=(
     "254Carbon Portal|portal|24h|Allow Portal Access"
     "Grafana.254Carbon|grafana|24h|Allow Grafana Access"
     "Superset.254Carbon|superset|24h|Allow Superset Access"
     "DataHub.254Carbon|datahub|12h|Allow DataHub Access"
     "Trino.254Carbon|trino|8h|Allow Trino Access"
-    "Doris.254Carbon|doris|8h|Allow Doris Access"
+    "ClickHouse.254Carbon|clickhouse|8h|Allow ClickHouse Access"
     "Vault.254Carbon|vault|2h|Allow Vault Access"
     "MinIO.254Carbon|minio|8h|Allow MinIO Access"
     "DolphinScheduler.254Carbon|dolphin|12h|Allow DolphinScheduler Access"
@@ -495,6 +603,10 @@ for entry in "${APPLICATIONS[@]}"; do
         log_info "Creating policy ${policy}..."
         create_policy "$app_id" "$policy"
         log_success "Policy created."
+    fi
+
+    if [[ "$ACME_BYPASS_ENABLED" == "true" ]]; then
+        ensure_acme_bypass "$name" "$domain"
     fi
 done
 

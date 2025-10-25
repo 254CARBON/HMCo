@@ -142,7 +142,7 @@ kubectl logs -n cloudflare-tunnel -f
 
 #### Services to Restore
 1. **Storage**: MinIO, Vault, LakeFS
-2. **Query Engines**: Trino, Doris
+2. **Query Engines**: Trino, ClickHouse
 3. **Visualization**: Superset
 4. **Orchestration**: DolphinScheduler
 5. **Compute**: Spark components
@@ -166,8 +166,7 @@ cat > scripts/restore-services.sh << 'EOF'
 #!/bin/bash
 services=(
   "minio:data-platform:1"
-  "doris-be:data-platform:3"
-  "doris-fe:data-platform:1"
+  "clickhouse:data-platform:1"
   "trino:data-platform:1"
   "superset:data-platform:1"
   "dolphinscheduler-api:data-platform:1"

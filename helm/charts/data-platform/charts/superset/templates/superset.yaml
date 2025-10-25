@@ -1,3 +1,26 @@
+{{- $globalVals := default (dict) .Values.global -}}
+{{- $globalSso := default (dict) (get $globalVals "sso") -}}
+{{- $supersetVals := default (dict) .Values -}}
+{{- $supersetSso := default (dict) (get $supersetVals "sso") -}}
+{{- $defaultScopes := list "openid" "profile" "email" -}}
+{{- $scopesCandidate := default (get $globalSso "scopes") (get $supersetSso "scopes") -}}
+{{- $effectiveScopes := default $defaultScopes $scopesCandidate -}}
+{{- $claimMappings := default (dict) (get $globalSso "claimMappings") -}}
+{{- $groupsClaim := default "groups" (get $claimMappings "groups") -}}
+{{- $emailClaim := default "email" (get $claimMappings "email") -}}
+{{- $nameClaim := default "name" (get $claimMappings "name") -}}
+{{- $usernameClaim := default "email" (get $claimMappings "username") -}}
+{{- $groupsConfig := default (dict) (get $globalSso "groups") -}}
+{{- $adminGroup := default "platform-admins" (get $groupsConfig "admin") -}}
+{{- $editorGroup := default "data-engineers" (get $groupsConfig "editor") -}}
+{{- $viewerGroup := default "data-analysts" (get $groupsConfig "viewer") -}}
+{{- $tokenMethod := default "client_secret_post" (get $supersetSso "tokenMethod") -}}
+{{- $clientSecretCfg := default (dict) (get $supersetSso "clientSecretSecret") -}}
+{{- $discoveryUrl := default (get $globalSso "discoveryUrl") (get $supersetSso "discoveryUrl") -}}
+{{- $userInfoUrl := default (get $globalSso "userInfoUrl") (get $supersetSso "userInfoUrl") -}}
+{{- $logoutUrl := default (get $globalSso "logoutUrl") (get $supersetSso "logoutUrl") -}}
+{{- $redirectUri := default "" (get $supersetSso "redirectUri") -}}
+{{- $issuerUrl := default (get $globalSso "issuerUrl") (get $supersetSso "issuerUrl") -}}
 # Apache Superset resources for the data-platform namespace
 #
 # This manifest defines:
@@ -22,7 +45,7 @@ data:
     import os
     from cachelib.redis import RedisCache
     from superset.security import SupersetSecurityManager
-    from flask_appbuilder.security.manager import AUTH_DB, AUTH_REMOTE_USER
+    from flask_appbuilder.security.manager import AUTH_DB, AUTH_OAUTH, AUTH_REMOTE_USER
 
     # General Superset configuration
     SUPERSET_ENV = "production"
@@ -96,20 +119,100 @@ data:
     WTF_CSRF_SECRET_KEY = SECRET_KEY
 
     # Authentication
-    # Default to database auth; allow switching to reverse-proxy (SSO) auth
+    # Default to database auth; switch to OIDC or reverse-proxy auth if configured
+    def _is_enabled(value: str) -> bool:
+        return str(value or "").lower() in ("1", "true", "yes", "y", "on")
+
     AUTH_TYPE = AUTH_DB
     AUTH_USER_REGISTRATION = False
-    if str(os.environ.get("SUPERSET_DISABLE_LOCAL_AUTH", "false")).lower() in ("1", "true", "yes", "y", "on"):
-        # Accept identity from reverse proxy header set by ingress
+    AUTH_ROLE_ADMIN = "Admin"
+    AUTH_ROLE_PUBLIC = "Public"
+    AUTH_USER_REGISTRATION_ROLE = "Gamma"
+    AUTH_ROLES_SYNC_AT_LOGIN = False
+    AUTH_ROLES_MAPPING = {}
+    CUSTOM_SECURITY_MANAGER = SupersetSecurityManager
+
+    OIDC_ENABLED = _is_enabled(os.environ.get("SUPERSET_OIDC_ENABLED", "false"))
+    DISABLE_LOCAL_AUTH = _is_enabled(os.environ.get("SUPERSET_DISABLE_LOCAL_AUTH", "false"))
+
+    if OIDC_ENABLED:
+        AUTH_TYPE = AUTH_OAUTH
+        AUTH_USER_REGISTRATION = True
+        AUTH_ROLES_SYNC_AT_LOGIN = True
+        AUTH_USER_REGISTRATION_ROLE = os.environ.get("SUPERSET_OIDC_DEFAULT_ROLE", "Gamma")
+
+        OIDC_PROVIDER_NAME = os.environ.get("SUPERSET_OIDC_PROVIDER_NAME", "OIDC")
+        OIDC_CLIENT_ID = os.environ.get("SUPERSET_OIDC_CLIENT_ID")
+        OIDC_CLIENT_SECRET = os.environ.get("SUPERSET_OIDC_CLIENT_SECRET")
+        OIDC_DISCOVERY_URL = os.environ.get("SUPERSET_OIDC_DISCOVERY_URL")
+        OIDC_SCOPES = os.environ.get("SUPERSET_OIDC_SCOPES", "openid profile email")
+        OIDC_TOKEN_METHOD = os.environ.get("SUPERSET_OIDC_TOKEN_METHOD", "client_secret_post")
+        OIDC_USERINFO_URL = os.environ.get("SUPERSET_OIDC_USERINFO_URL")
+        OIDC_LOGOUT_URL = os.environ.get("SUPERSET_OIDC_LOGOUT_URL")
+        OIDC_REDIRECT_URI = os.environ.get("SUPERSET_OIDC_REDIRECT_URI")
+        OIDC_EMAIL_CLAIM = os.environ.get("SUPERSET_OIDC_EMAIL_CLAIM", os.environ.get("SUPERSET_OIDC_USERNAME_CLAIM", "email"))
+        OIDC_NAME_CLAIM = os.environ.get("SUPERSET_OIDC_NAME_CLAIM", "name")
+        OIDC_USERNAME_CLAIM = os.environ.get("SUPERSET_OIDC_USERNAME_CLAIM", OIDC_EMAIL_CLAIM)
+        OIDC_GROUPS_CLAIM = os.environ.get("SUPERSET_OIDC_GROUPS_CLAIM", "groups")
+        OIDC_ISSUER = os.environ.get("SUPERSET_OIDC_ISSUER")
+
+        AUTH_ROLES_MAPPING = {}
+        role_group_pairs = (
+            ("SUPERSET_OIDC_ADMIN_GROUP", ["Admin"]),
+            ("SUPERSET_OIDC_EDITOR_GROUP", ["Alpha"]),
+            ("SUPERSET_OIDC_VIEWER_GROUP", ["Gamma"]),
+        )
+        for env_var, roles in role_group_pairs:
+            group = os.environ.get(env_var)
+            if group:
+                AUTH_ROLES_MAPPING[group] = roles
+
+        OAUTH_PROVIDERS = [
+            {
+                "name": OIDC_PROVIDER_NAME,
+                "token_key": "access_token",
+                "icon": "fa-circle",
+                "remote_app": {
+                    "client_id": OIDC_CLIENT_ID,
+                    "client_secret": OIDC_CLIENT_SECRET,
+                    "server_metadata_url": OIDC_DISCOVERY_URL,
+                    "client_kwargs": {
+                        "scope": OIDC_SCOPES,
+                        "token_endpoint_auth_method": OIDC_TOKEN_METHOD,
+                    },
+                },
+            }
+        ]
+
+        if OIDC_REDIRECT_URI:
+            OAUTH_PROVIDERS[0]["remote_app"]["redirect_uri"] = OIDC_REDIRECT_URI
+        if OIDC_USERINFO_URL:
+            OAUTH_PROVIDERS[0]["remote_app"]["userinfo_endpoint"] = OIDC_USERINFO_URL
+        if OIDC_LOGOUT_URL:
+            OAUTH_PROVIDERS[0]["remote_app"]["logout_redirect_url"] = OIDC_LOGOUT_URL
+        if OIDC_ISSUER:
+            OAUTH_PROVIDERS[0]["remote_app"]["issuer"] = OIDC_ISSUER
+
+        class OIDCSecurityManager(SupersetSecurityManager):
+            def oauth_user_info(self, provider, response=None):
+                info = super().oauth_user_info(provider, response) or {}
+                data = response or {}
+                groups = data.get(OIDC_GROUPS_CLAIM) or info.get(OIDC_GROUPS_CLAIM) or []
+                if isinstance(groups, str):
+                    groups = [grp.strip() for grp in groups.split(",") if grp.strip()]
+                info["email"] = data.get(OIDC_EMAIL_CLAIM) or info.get(OIDC_EMAIL_CLAIM) or info.get("email")
+                info["name"] = data.get(OIDC_NAME_CLAIM) or info.get(OIDC_NAME_CLAIM) or info.get("name")
+                info["username"] = data.get(OIDC_USERNAME_CLAIM) or info.get(OIDC_USERNAME_CLAIM) or info.get("username")
+                info["role_keys"] = groups
+                return info
+
+        CUSTOM_SECURITY_MANAGER = OIDCSecurityManager
+
+    elif DISABLE_LOCAL_AUTH:
         AUTH_TYPE = AUTH_REMOTE_USER
         AUTH_USER_REGISTRATION = True
         AUTH_USER_REGISTRATION_ROLE = "Gamma"
-        # Header name forwarded by ingress from Cloudflare Access
-        # In Flask/Werkzeug, headers are available to AppBuilder via request headers directly
         AUTH_REMOTE_USER_HEADER = "X-WEBAUTH-USER"
-
-    # Use the built-in security manager by default.
-    CUSTOM_SECURITY_MANAGER = SupersetSecurityManager
 
     # Feature flags
     FEATURE_FLAGS = {
@@ -187,12 +290,13 @@ spec:
           superset init
 
           echo "Configuring external database connections..."
-          if [ -n "${SUPERSET_DORIS_URI:-}" ]; then
-            echo "Configuring Doris connection..."
+
+          if [ -n "${SUPERSET_CLICKHOUSE_URI:-}" ]; then
+            echo "Configuring ClickHouse connection..."
             superset set-database-uri \
-              --database-name Doris \
-              --uri "${SUPERSET_DORIS_URI}" \
-              || echo "Failed to configure Doris connection"
+              --database-name ClickHouse \
+              --uri "${SUPERSET_CLICKHOUSE_URI}" \
+              || echo "Failed to configure ClickHouse connection"
           fi
 
           if [ -n "${SUPERSET_TRINO_URI:-}" ]; then
@@ -223,6 +327,47 @@ spec:
             secretKeyRef:
               name: superset-secrets
               key: DATABASE_URI
+        - name: SUPERSET_OIDC_ENABLED
+          value: {{ ternary "true" "false" (default false (get $supersetSso "enabled")) | quote }}
+        - name: SUPERSET_OIDC_PROVIDER_NAME
+          value: {{ default "254Carbon SSO" (get $supersetSso "providerName") | quote }}
+        - name: SUPERSET_OIDC_CLIENT_ID
+          value: {{ default "" (get $supersetSso "clientId") | quote }}
+{{- if and (default false (get $supersetSso "enabled")) (get $clientSecretCfg "name") }}
+        - name: SUPERSET_OIDC_CLIENT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: {{ get $clientSecretCfg "name" | quote }}
+              key: {{ default "client-secret" (get $clientSecretCfg "key") | quote }}
+{{- end }}
+        - name: SUPERSET_OIDC_DISCOVERY_URL
+          value: {{ default "" $discoveryUrl | quote }}
+        - name: SUPERSET_OIDC_USERINFO_URL
+          value: {{ default "" $userInfoUrl | quote }}
+        - name: SUPERSET_OIDC_LOGOUT_URL
+          value: {{ default "" $logoutUrl | quote }}
+        - name: SUPERSET_OIDC_REDIRECT_URI
+          value: {{ default "" $redirectUri | quote }}
+        - name: SUPERSET_OIDC_SCOPES
+          value: {{ join " " $effectiveScopes | quote }}
+        - name: SUPERSET_OIDC_GROUPS_CLAIM
+          value: {{ $groupsClaim | quote }}
+        - name: SUPERSET_OIDC_EMAIL_CLAIM
+          value: {{ $emailClaim | quote }}
+        - name: SUPERSET_OIDC_NAME_CLAIM
+          value: {{ $nameClaim | quote }}
+        - name: SUPERSET_OIDC_USERNAME_CLAIM
+          value: {{ $usernameClaim | quote }}
+        - name: SUPERSET_OIDC_ADMIN_GROUP
+          value: {{ $adminGroup | quote }}
+        - name: SUPERSET_OIDC_EDITOR_GROUP
+          value: {{ $editorGroup | quote }}
+        - name: SUPERSET_OIDC_VIEWER_GROUP
+          value: {{ $viewerGroup | quote }}
+        - name: SUPERSET_OIDC_TOKEN_METHOD
+          value: {{ $tokenMethod | quote }}
+        - name: SUPERSET_OIDC_ISSUER
+          value: {{ default "" $issuerUrl | quote }}
         - name: ADMIN_USERNAME
           valueFrom:
             secretKeyRef:
@@ -252,11 +397,11 @@ spec:
           value: "redis://redis-service.data-platform.svc.cluster.local:6379/2"
         - name: CELERY_RESULT_BACKEND
           value: "redis://redis-service.data-platform.svc.cluster.local:6379/3"
-        - name: SUPERSET_DORIS_URI
+        - name: SUPERSET_CLICKHOUSE_URI
           valueFrom:
             secretKeyRef:
               name: superset-secrets
-              key: SUPERSET_DORIS_URI
+              key: SUPERSET_CLICKHOUSE_URI
               optional: true
         - name: SUPERSET_TRINO_URI
           valueFrom:
@@ -369,7 +514,7 @@ spec:
         - name: SUPERSET_ENV
           value: "production"
         - name: SUPERSET_DISABLE_LOCAL_AUTH
-          value: "true"
+          value: {{ ternary "true" "false" (default false (get $supersetSso "enabled")) | quote }}
         - name: SUPERSET_LOAD_EXAMPLES
           value: "no"
         - name: SUPERSET_SECRET_KEY
@@ -404,6 +549,47 @@ spec:
           value: "8"
         - name: GUNICORN_TIMEOUT
           value: "300"
+        - name: SUPERSET_OIDC_ENABLED
+          value: {{ ternary "true" "false" (default false (get $supersetSso "enabled")) | quote }}
+        - name: SUPERSET_OIDC_PROVIDER_NAME
+          value: {{ default "254Carbon SSO" (get $supersetSso "providerName") | quote }}
+        - name: SUPERSET_OIDC_CLIENT_ID
+          value: {{ default "" (get $supersetSso "clientId") | quote }}
+{{- if and (default false (get $supersetSso "enabled")) (get $clientSecretCfg "name") }}
+        - name: SUPERSET_OIDC_CLIENT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: {{ get $clientSecretCfg "name" | quote }}
+              key: {{ default "client-secret" (get $clientSecretCfg "key") | quote }}
+{{- end }}
+        - name: SUPERSET_OIDC_DISCOVERY_URL
+          value: {{ default "" $discoveryUrl | quote }}
+        - name: SUPERSET_OIDC_USERINFO_URL
+          value: {{ default "" $userInfoUrl | quote }}
+        - name: SUPERSET_OIDC_LOGOUT_URL
+          value: {{ default "" $logoutUrl | quote }}
+        - name: SUPERSET_OIDC_REDIRECT_URI
+          value: {{ default "" $redirectUri | quote }}
+        - name: SUPERSET_OIDC_SCOPES
+          value: {{ join " " $effectiveScopes | quote }}
+        - name: SUPERSET_OIDC_GROUPS_CLAIM
+          value: {{ $groupsClaim | quote }}
+        - name: SUPERSET_OIDC_EMAIL_CLAIM
+          value: {{ $emailClaim | quote }}
+        - name: SUPERSET_OIDC_NAME_CLAIM
+          value: {{ $nameClaim | quote }}
+        - name: SUPERSET_OIDC_USERNAME_CLAIM
+          value: {{ $usernameClaim | quote }}
+        - name: SUPERSET_OIDC_ADMIN_GROUP
+          value: {{ $adminGroup | quote }}
+        - name: SUPERSET_OIDC_EDITOR_GROUP
+          value: {{ $editorGroup | quote }}
+        - name: SUPERSET_OIDC_VIEWER_GROUP
+          value: {{ $viewerGroup | quote }}
+        - name: SUPERSET_OIDC_TOKEN_METHOD
+          value: {{ $tokenMethod | quote }}
+        - name: SUPERSET_OIDC_ISSUER
+          value: {{ default "" $issuerUrl | quote }}
         volumeMounts:
         - name: superset-config
           mountPath: /app/superset_config.py

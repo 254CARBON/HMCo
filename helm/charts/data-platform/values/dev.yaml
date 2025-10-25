@@ -5,6 +5,8 @@ global:
   namespace: data-platform-dev
   domain: dev.254carbon.local
   storageClass: local-path
+  sso:
+    enabled: false
 
 datahub:
   enabled: true
@@ -39,4 +41,6 @@ superset:
     beat: 1
 
 
-
+spark-operator:
+  sparkHistory:
+    replicaCount: 1

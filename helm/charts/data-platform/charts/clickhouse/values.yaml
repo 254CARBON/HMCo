@@ -1,0 +1,104 @@
+# ClickHouse Configuration
+replicaCount: 1
+
+image:
+  repository: clickhouse/clickhouse-server
+  tag: "24.8.7"
+  pullPolicy: IfNotPresent
+
+# ClickHouse configuration
+clickhouse:
+  # Server settings
+  server:
+    # HTTP interface
+    httpPort: 8123
+    # TCP interface
+    tcpPort: 9000
+    # Inter-server communication
+    interPort: 9009
+
+  # Database settings
+  databases:
+    - name: default
+      engine: Atomic
+
+  # Storage settings
+  storage:
+    dataPath: "/var/lib/clickhouse"
+    logsPath: "/var/log/clickhouse-server"
+
+  # Security settings
+  security:
+    enableSSL: false
+    allowEmptyPassword: false
+    defaultPassword: "ClickHouse@254Carbon2025"
+
+# Kubernetes resources
+resources:
+  requests:
+    cpu: 2000m
+    memory: 4Gi
+  limits:
+    cpu: 4000m
+    memory: 8Gi
+
+# Persistent volume configuration
+persistence:
+  enabled: true
+  storageClass: local-path
+  size: 100Gi
+  accessModes:
+    - ReadWriteOnce
+
+# Service configuration
+service:
+  type: ClusterIP
+  httpPort: 8123
+  tcpPort: 9000
+  interPort: 9009
+
+# Ingress configuration
+ingress:
+  enabled: true
+  className: nginx
+  hostname: clickhouse.254carbon.com
+  tls: true
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/proxy-body-size: "1g"
+
+# Security context
+securityContext:
+  runAsUser: 101
+  runAsGroup: 101
+  fsGroup: 101
+
+# Pod security context
+podSecurityContext:
+  fsGroup: 101
+
+# Node selector
+nodeSelector: {}
+
+# Tolerations
+tolerations: []
+
+# Affinity
+affinity: {}
+
+# Service monitor for Prometheus
+serviceMonitor:
+  enabled: true
+  namespace: monitoring
+  labels: {}
+  annotations: {}
+
+# Configuration for external integrations
+integrations:
+  superset:
+    enabled: true
+    uri: "clickhouse://clickhouse-service.data-platform:9000/default"
+  trino:
+    enabled: true
+    catalog: clickhouse_catalog

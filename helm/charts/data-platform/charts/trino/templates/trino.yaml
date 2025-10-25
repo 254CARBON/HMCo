@@ -8,7 +8,7 @@ metadata:
     app: trino-coordinator
     component: query-engine
 spec:
-  replicas: {{ default 1 (dig "replicaCount" "coordinator" .Values.trino) }}
+  replicas: {{ with .Values.replicaCount }}{{ default 1 (index . "coordinator") }}{{ else }}1{{ end }}
   selector:
     matchLabels:
       app: trino-coordinator
@@ -21,7 +21,7 @@ spec:
       imagePullSecrets: []
       containers:
       - name: trino-coordinator
-        image: trinodb/trino:436
+        image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
         ports:
         - containerPort: 8080
           name: trino-api
@@ -75,9 +75,10 @@ spec:
           mountPath: /etc/trino/catalog
         - name: trino-data
           mountPath: /tmp/trino
-        {{ with (dig "resources" "coordinator" .Values.trino) }}
+        {{- $coordResources := and .Values.resources (index .Values.resources "coordinator") }}
+        {{- if $coordResources }}
         resources:
-{{ toYaml . | indent 10 }}
+{{ toYaml $coordResources | nindent 10 }}
         {{- else }}
         resources:
           limits:
@@ -139,7 +140,7 @@ metadata:
     app: trino-worker
     component: query-engine
 spec:
-  replicas: {{ default 1 (dig "replicaCount" "worker" .Values.trino) }}
+  replicas: {{ with .Values.replicaCount }}{{ default 1 (index . "worker") }}{{ else }}1{{ end }}
   selector:
     matchLabels:
       app: trino-worker
@@ -152,7 +153,7 @@ spec:
       imagePullSecrets: []
       containers:
       - name: trino-worker
-        image: trinodb/trino:436
+        image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
         ports:
         - containerPort: 8080
           name: trino-api
@@ -206,9 +207,10 @@ spec:
           mountPath: /etc/trino/catalog
         - name: trino-data
           mountPath: /tmp/trino
-        {{ with (dig "resources" "worker" .Values.trino) }}
+        {{- $workerResources := and .Values.resources (index .Values.resources "worker") }}
+        {{- if $workerResources }}
         resources:
-{{ toYaml . | indent 10 }}
+{{ toYaml $workerResources | nindent 10 }}
         {{- else }}
         resources:
           limits:
@@ -378,6 +380,11 @@ data:
     iceberg.rest-catalog.uri=http://iceberg-rest-catalog:8181
     iceberg.rest-catalog.warehouse=s3://iceberg-warehouse/
     iceberg.rest-catalog.security=none
+    # S3 file system configuration (MinIO or S3-compatible)
+    fs.native-s3.enabled=true
+    s3.endpoint={{ .Values.s3.endpoint | default "http://minio-service:9000" }}
+    s3.region={{ .Values.s3.region | default "us-east-1" }}
+    s3.path-style-access={{ .Values.s3.pathStyle | default true }}
 
   # Elasticsearch catalog
   elasticsearch.properties: |

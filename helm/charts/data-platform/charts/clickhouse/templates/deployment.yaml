@@ -1,0 +1,103 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "clickhouse.fullname" . }}
+  labels:
+    {{- include "clickhouse.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "clickhouse.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "clickhouse.selectorLabels" . | nindent 8 }}
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9363"
+        prometheus.io/path: "/metrics"
+    spec:
+      serviceAccountName: {{ include "clickhouse.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: clickhouse
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.clickhouse.server.httpPort }}
+              protocol: TCP
+            - name: tcp
+              containerPort: {{ .Values.clickhouse.server.tcpPort }}
+              protocol: TCP
+            - name: inter
+              containerPort: {{ .Values.clickhouse.server.interPort }}
+              protocol: TCP
+            - name: metrics
+              containerPort: 9363
+              protocol: TCP
+          env:
+            - name: CLICKHOUSE_DB
+              value: "{{ .Values.clickhouse.databases[0].name }}"
+            - name: CLICKHOUSE_USER
+              value: "default"
+            - name: CLICKHOUSE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: clickhouse-secret
+                  key: password
+            - name: CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT
+              value: "1"
+          volumeMounts:
+            - name: clickhouse-data
+              mountPath: {{ .Values.clickhouse.storage.dataPath }}
+            - name: clickhouse-logs
+              mountPath: {{ .Values.clickhouse.storage.logsPath }}
+            - name: clickhouse-config
+              mountPath: /etc/clickhouse-server/config.d
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          livenessProbe:
+            exec:
+              command:
+                - clickhouse-client
+                - --query=SELECT 1
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            exec:
+              command:
+                - clickhouse-client
+                - --query=SELECT 1
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+      volumes:
+        - name: clickhouse-config
+          configMap:
+            name: clickhouse-config
+        {{- if not .Values.persistence.enabled }}
+        - name: clickhouse-data
+          emptyDir: {}
+        - name: clickhouse-logs
+          emptyDir: {}
+        {{- end }}
+      {{- if .Values.persistence.enabled }}
+      volumes:
+        - name: clickhouse-config
+          configMap:
+            name: clickhouse-config
+        - name: clickhouse-data
+          persistentVolumeClaim:
+            claimName: {{ include "clickhouse.fullname" . }}-data
+        - name: clickhouse-logs
+          persistentVolumeClaim:
+            claimName: {{ include "clickhouse.fullname" . }}-logs
+      {{- end }}

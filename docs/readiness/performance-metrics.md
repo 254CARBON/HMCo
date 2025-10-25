@@ -18,7 +18,7 @@ Service-Specific Targets (Starting Points)
 - Grafana: p95 dashboard render < 1 s; availability 99.9%.
 - DataHub: p95 API latency < 300 ms; error rate < 0.2%; availability 99.9%.
 - Trino: p95 query completion < 5 s for interactive queries; failure rate < 0.5%.
-- Doris: p95 query completion < 3 s for OLAP slices; ingestion lag < 30 s.
+- ClickHouse: p95 query completion < 1 s for OLAP slices; ingestion lag < 10 s.
 - Superset: p95 dashboard load < 2 s (cached); API error rate < 0.2%.
 - MinIO: p95 object GET < 100 ms intra-cluster; 99.9% availability.
 - Vault: p95 secret read < 50 ms; unsealed=1; availability 99.99%.
@@ -47,7 +47,7 @@ Error Budget Burn Alerts (99.9% SLO example)
 Optimization Levers
 - Ingress: enable keepalive, gzip/ Brotli, caching for static assets; CDN config via Cloudflare.
 - Services: enable HTTP connection pooling, tune thread/concurrency pools, enable result caching.
-- DB/query engines (Trino/Doris): tune memory pools, spill to disk thresholds, worker count.
+- DB/query engines (Trino/ClickHouse): tune memory pools, spill to disk thresholds, worker count.
 - Storage: size PVCs with >20% headroom, enable parallelism, revisit MinIO erasure coding.
 - Kubernetes: right-size requests/limits; anti-affinity for HA control planes; pod disruption budgets.
 - Observability: downsample/recording rules for heavy queries; increase retention judiciously.

@@ -1,0 +1,35 @@
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaUser
+metadata:
+  name: datahub-app
+  namespace: kafka
+  labels:
+    strimzi.io/cluster: datahub-kafka
+    app.kubernetes.io/name: datahub-kafka-user
+spec:
+  authentication:
+    type: tls
+---
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaUser
+metadata:
+  name: schema-registry
+  namespace: kafka
+  labels:
+    strimzi.io/cluster: datahub-kafka
+    app.kubernetes.io/name: schema-registry-kafka-user
+spec:
+  authentication:
+    type: tls
+---
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaUser
+metadata:
+  name: platform-apps
+  namespace: kafka
+  labels:
+    strimzi.io/cluster: datahub-kafka
+    app.kubernetes.io/name: platform-apps-kafka-user
+spec:
+  authentication:
+    type: tls

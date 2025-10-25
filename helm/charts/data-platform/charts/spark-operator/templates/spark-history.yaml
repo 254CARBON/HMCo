@@ -3,12 +3,12 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: spark-history-server
-  namespace: data-platform
+  namespace: {{ default "data-platform" .Values.global.namespace }}
   labels:
     app: spark-history-server
     component: compute
 spec:
-  replicas: 1
+  replicas: {{ default 1 .Values.sparkHistory.replicaCount }}
   selector:
     matchLabels:
       app: spark-history-server
@@ -28,7 +28,7 @@ spec:
       imagePullSecrets: []
       containers:
       - name: spark-history-server
-        image: apache/spark:3.5.0
+        image: {{ default "apache/spark:3.5.0" .Values.sparkHistory.image }}
         securityContext:
           allowPrivilegeEscalation: false
           capabilities:
@@ -43,7 +43,7 @@ spec:
         - org.apache.spark.deploy.history.HistoryServer
         env:
         - name: SPARK_HISTORY_OPTS
-          value: "-Dspark.history.fs.logDirectory=file:/opt/spark/work -Dspark.history.fs.cleaner.enabled=true -Dspark.history.fs.cleaner.maxAge=7d -Dspark.history.ui.port=18080 -Dspark.history.admin.port=18081"
+          value: "-Dspark.history.fs.logDirectory={{ default \"s3a://spark-logs/\" .Values.sparkHistory.logDirectory }} -Dspark.history.fs.cleaner.enabled=true -Dspark.history.fs.cleaner.maxAge=7d -Dspark.history.ui.port=18080 -Dspark.history.admin.port=18081 -Dspark.hadoop.fs.s3a.endpoint={{ default \"http://minio-service:9000\" .Values.sparkHistory.s3Endpoint }} -Dspark.hadoop.fs.s3a.path.style.access=true -Dspark.hadoop.fs.s3a.impl=org.apache.hadoop.fs.s3a.S3AFileSystem -Dspark.hadoop.fs.s3a.connection.ssl.enabled=false"
         - name: AWS_ACCESS_KEY_ID
           valueFrom:
             secretKeyRef:
@@ -54,13 +54,18 @@ spec:
             secretKeyRef:
               name: minio-secret
               key: secret-key
-        - name: S3_ENDPOINT
-          value: "http://minio-service:9000"
         volumeMounts:
+        {{- if .Values.sparkHistory.usePersistentVolume }}
         - name: spark-logs
           mountPath: /opt/spark/work
+        {{- end }}
         - name: spark-conf
           mountPath: /opt/spark/conf
+        {{- $historyResources := and .Values.sparkHistory (index .Values.sparkHistory "resources") }}
+        {{- if $historyResources }}
+        resources:
+{{ toYaml $historyResources | nindent 10 }}
+        {{- else }}
         resources:
           limits:
             memory: "2Gi"
@@ -68,6 +73,7 @@ spec:
           requests:
             memory: "1Gi"
             cpu: "500m"
+        {{- end }}
         livenessProbe:
           httpGet:
             path: /
@@ -83,9 +89,11 @@ spec:
           initialDelaySeconds: 10
           periodSeconds: 10
       volumes:
+      {{- if .Values.sparkHistory.usePersistentVolume }}
       - name: spark-logs
         persistentVolumeClaim:
           claimName: spark-logs-pvc
+      {{- end }}
       - name: spark-conf
         configMap:
           name: spark-history-conf
@@ -95,7 +103,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: spark-history-server
-  namespace: data-platform
+  namespace: {{ default "data-platform" .Values.global.namespace }}
   labels:
     app: spark-history-server
 spec:
@@ -112,8 +120,8 @@ spec:
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: spark-history-server
-  namespace: data-platform
+  name: spark-history-ingress
+  namespace: {{ default "data-platform" .Values.global.namespace }}
   annotations:
     cert-manager.io/cluster-issuer: "letsencrypt-prod"
     nginx.ingress.kubernetes.io/rewrite-target: /
@@ -139,13 +147,14 @@ spec:
             name: spark-history-server
             port:
               number: 18080
+{{- if .Values.sparkHistory.usePersistentVolume }}
 ---
 # Persistent Volume Claim for Spark logs
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
   name: spark-logs-pvc
-  namespace: data-platform
+  namespace: {{ default "data-platform" .Values.global.namespace }}
   labels:
     app: spark-history-server
 spec:
@@ -153,25 +162,32 @@ spec:
     - ReadWriteOnce
   resources:
     requests:
-      storage: 50Gi
-  storageClassName: local-storage-standard
+      storage: {{ default "50Gi" (index .Values.sparkHistory.persistentVolume "size") }}
+  storageClassName: {{ default "local-storage-standard" (index .Values.sparkHistory.persistentVolume "storageClass") }}
 ---
+{{- end }}
 # ConfigMap for Spark History Server configuration
 apiVersion: v1
 kind: ConfigMap
 metadata:
   name: spark-history-conf
-  namespace: data-platform
+  namespace: {{ default "data-platform" .Values.global.namespace }}
   labels:
     app: spark-history-server
 data:
   spark-defaults.conf: |
     # Spark configuration for history server
-    spark.history.fs.logDirectory file:/opt/spark/work
+    spark.history.fs.logDirectory {{ default "s3a://spark-logs/" .Values.sparkHistory.logDirectory }}
     spark.history.fs.cleaner.enabled true
     spark.history.fs.cleaner.maxAge 7d
     spark.history.ui.port 18080
     spark.history.admin.port 18081
+
+    # Object storage configuration
+    spark.hadoop.fs.s3a.endpoint {{ default "http://minio-service:9000" .Values.sparkHistory.s3Endpoint }}
+    spark.hadoop.fs.s3a.path.style.access true
+    spark.hadoop.fs.s3a.impl org.apache.hadoop.fs.s3a.S3AFileSystem
+    spark.hadoop.fs.s3a.connection.ssl.enabled false
 
     # Spark SQL and general settings
     spark.sql.adaptive.enabled true

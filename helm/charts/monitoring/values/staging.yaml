@@ -1,0 +1,35 @@
+global:
+  sso:
+    enabled: true
+    issuerUrl: https://auth.254carbon.com/auth/realms/master
+    authorizationUrl: https://auth.254carbon.com/auth/realms/master/protocol/openid-connect/auth
+    tokenUrl: https://auth.254carbon.com/auth/realms/master/protocol/openid-connect/token
+    userInfoUrl: https://auth.254carbon.com/auth/realms/master/protocol/openid-connect/userinfo
+    logoutUrl: https://auth.254carbon.com/auth/realms/master/protocol/openid-connect/logout
+    scopes:
+      - openid
+      - profile
+      - email
+    claimMappings:
+      email: email
+      name: name
+      username: email
+      groups: groups
+    groups:
+      admin: platform-admins
+      editor: data-engineers
+      viewer: data-analysts
+
+grafana:
+  hostname: grafana-staging.254carbon.com
+  sso:
+    enabled: true
+    providerName: "254Carbon SSO"
+    clientId: grafana-staging
+    clientSecret:
+      existingSecret: grafana-staging-oidc-secret
+      key: client-secret
+    redirectUri: https://grafana-staging.254carbon.com/login/generic_oauth
+    allowSignUp: true
+    autoLogin: true
+    usePkce: true

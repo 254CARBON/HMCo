@@ -245,7 +245,7 @@ spec:
         - data-platform
         names:
         - data-platform-data-lake*
-        - data-platform-doris*
+        - data-platform-clickhouse*
         - iceberg-*
         - redis*
 

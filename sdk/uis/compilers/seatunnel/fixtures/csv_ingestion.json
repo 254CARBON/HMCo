@@ -1,0 +1,42 @@
+{
+  "env": {
+    "parallelism": 1,
+    "checkpoint.interval": 10000,
+    "checkpoint.timeout": 60000,
+    "checkpoint.storage": "hdfs://namenode:9000/seatunnel/checkpoint"
+  },
+  "source": [
+    {
+      "plugin_name": "File",
+      "result_table_name": "source_daily_data",
+      "path": "/data/daily_data.csv",
+      "format": "csv",
+      "delimiter": ","
+    }
+  ],
+  "transform": [
+    {
+      "plugin_name": "FieldMapper",
+      "source_table_name": "source_daily_data",
+      "result_table_name": "mapped_daily_data",
+      "field_mapper": {
+        "date": "date",
+        "value": "price"
+      }
+    }
+  ],
+  "sink": [
+    {
+      "plugin_name": "Clickhouse",
+      "source_table_name": "mapped_daily_data",
+      "result_table_name": "daily_data",
+      "host": "clickhouse",
+      "port": 8123,
+      "database": "analytics",
+      "table": "daily_data",
+      "username": "default",
+      "password": "",
+      "bulk_size": 20000
+    }
+  ]
+}

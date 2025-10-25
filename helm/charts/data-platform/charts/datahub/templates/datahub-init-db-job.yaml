@@ -58,15 +58,40 @@ spec:
       # Wait for Kafka to be ready
       - name: wait-for-kafka
         image: confluentinc/cp-kafka:7.4.0
+        env:
+        - name: KAFKA_CERT_PASSWORD_FILE
+          value: "/etc/kafka/secrets/user.password"
+        volumeMounts:
+        - name: kafka-client-cert
+          mountPath: /etc/kafka/secrets
+          readOnly: true
         command:
         - sh
         - -c
         - |
-          until /usr/bin/kafka-broker-api-versions --bootstrap-server kafka-service:9092 2>/dev/null | grep -q ApiVersion; do
+          PASSWORD="$(cat "${KAFKA_CERT_PASSWORD_FILE}")"
+          cat >/tmp/client.properties <<EOCONFIG
+          security.protocol=SSL
+          ssl.keystore.type=PKCS12
+          ssl.truststore.type=PKCS12
+          ssl.keystore.location=/etc/kafka/secrets/user.p12
+          ssl.truststore.location=/etc/kafka/secrets/user.p12
+          ssl.keystore.password=${PASSWORD}
+          ssl.truststore.password=${PASSWORD}
+          ssl.key.password=${PASSWORD}
+          ssl.endpoint.identification.algorithm=
+          EOCONFIG
+          chmod 600 /tmp/client.properties
+          until /usr/bin/kafka-broker-api-versions --bootstrap-server kafka-service:9093 --command-config /tmp/client.properties >/tmp/kafka-check 2>&1; do
             echo "Waiting for Kafka..."
             sleep 2
           done
+          if ! grep -q ApiVersion /tmp/kafka-check; then
+            cat /tmp/kafka-check
+            exit 1
+          fi
           echo "Kafka is ready"
+          rm -f /tmp/kafka-check /tmp/client.properties
       
       containers:
       - name: datahub-init-db
@@ -93,7 +118,36 @@ spec:
         
         # Kafka Configuration
         - name: KAFKA_BOOTSTRAP_SERVER
-          value: "kafka-service:9092"
+          value: "kafka-service:9093"
+        - name: KAFKA_BOOTSTRAP_SERVERS
+          value: "kafka-service:9093"
+        - name: SPRING_KAFKA_PROPERTIES_SECURITY_PROTOCOL
+          value: "SSL"
+        - name: SPRING_KAFKA_PROPERTIES_SSL_ENDPOINT_IDENTIFICATION_ALGORITHM
+          value: ""
+        - name: SPRING_KAFKA_PROPERTIES_SSL_TRUSTSTORE_TYPE
+          value: "PKCS12"
+        - name: SPRING_KAFKA_PROPERTIES_SSL_KEYSTORE_TYPE
+          value: "PKCS12"
+        - name: SPRING_KAFKA_PROPERTIES_SSL_TRUSTSTORE_LOCATION
+          value: "/etc/kafka/secrets/user.p12"
+        - name: SPRING_KAFKA_PROPERTIES_SSL_KEYSTORE_LOCATION
+          value: "/etc/kafka/secrets/user.p12"
+        - name: SPRING_KAFKA_PROPERTIES_SSL_TRUSTSTORE_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: kafka-datahub-tls
+              key: user.password
+        - name: SPRING_KAFKA_PROPERTIES_SSL_KEYSTORE_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: kafka-datahub-tls
+              key: user.password
+        - name: SPRING_KAFKA_PROPERTIES_SSL_KEY_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: kafka-datahub-tls
+              key: user.password
         - name: KAFKA_SCHEMAREGISTRY_URL
           value: "http://schema-registry-service:8081"
         - name: KAFKA_SCHEMA_REGISTRY_URL
@@ -128,7 +182,10 @@ spec:
           value: "datahub-gms"
         - name: DATAHUB_GMS_PORT
           value: "8080"
-        
+        volumeMounts:
+        - name: kafka-client-cert
+          mountPath: /etc/kafka/secrets
+          readOnly: true
         resources:
           requests:
             cpu: 200m
@@ -136,4 +193,8 @@ spec:
           limits:
             cpu: 500m
             memory: 1Gi
-
+      volumes:
+      - name: kafka-client-cert
+        secret:
+          secretName: kafka-datahub-tls
+          defaultMode: 0400

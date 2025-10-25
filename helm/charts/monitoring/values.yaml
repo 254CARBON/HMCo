@@ -159,3 +159,152 @@ nodeSelector: {}
 tolerations: []
 
 affinity: {}
+
+global:
+  sso:
+    enabled: false
+    issuerUrl: ""
+    authorizationUrl: ""
+    tokenUrl: ""
+    userInfoUrl: ""
+    logoutUrl: ""
+    scopes:
+      - openid
+      - profile
+      - email
+    claimMappings:
+      email: email
+      name: name
+      groups: groups
+      username: email
+    groups:
+      admin: platform-admins
+      editor: data-engineers
+      viewer: data-analysts
+
+grafana:
+  hostname: grafana.254carbon.com
+  sso:
+    enabled: false
+    providerName: "OIDC"
+    clientId: ""
+    clientSecret:
+      existingSecret: ""
+      key: client-secret
+    redirectUri: ""
+    allowSignUp: true
+    autoLogin: true
+    usePkce: true
+    scopes: []
+    roleAttributePath: ""
+
+kubecost:
+  enabled: true
+  global:
+    prometheus:
+      enabled: false
+      fqdn: http://prometheus.monitoring.svc:9090
+      insecureSkipVerify: false
+    grafana:
+      enabled: false
+    notifications:
+      alertmanager:
+        enabled: true
+        fqdn: http://alertmanager.monitoring.svc:9093
+      alertConfigs: {}
+  persistentVolume:
+    enabled: true
+    storageClass: local-storage-standard
+    size: 32Gi
+  service:
+    type: ClusterIP
+    port: 9090
+  ingress:
+    enabled: false
+    className: ""
+    annotations: {}
+    hosts:
+      - cost-analyzer.local
+    tls: []
+  kubecostFrontend:
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+
+kubecostBudgetThresholds: []
+
+blackboxExporter:
+  enabled: true
+  replicaCount: 1
+  image:
+    repository: prom/blackbox-exporter
+    tag: v0.24.0
+    pullPolicy: IfNotPresent
+  service:
+    port: 9115
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  config:
+    modules:
+      http_2xx:
+        prober: http
+        timeout: 5s
+        http:
+          method: GET
+          no_follow_redirects: false
+          preferred_ip_protocol: ip4
+      tcp_connect:
+        prober: tcp
+        timeout: 5s
+  probes:
+    interval: 30s
+    scrapeTimeout: 10s
+    defaultFor: 2m
+    targets:
+      - name: grafana
+        url: https://grafana.254carbon.com/
+        module: http_2xx
+        labels:
+          service: grafana
+          severity: critical
+          slo: platform-availability
+      - name: datahub
+        url: https://datahub.254carbon.com/health
+        module: http_2xx
+        labels:
+          service: datahub
+          severity: critical
+          slo: platform-availability
+      - name: superset
+        url: https://superset.254carbon.com/health
+        module: http_2xx
+        labels:
+          service: superset
+          severity: warning
+          slo: platform-availability
+      - name: trino
+        url: https://trino.254carbon.com/ui/
+        module: http_2xx
+        labels:
+          service: trino
+          severity: warning
+          slo: query-gateway-availability
+      - name: portal
+        url: https://254carbon.com/
+        module: http_2xx
+        labels:
+          service: portal
+          severity: critical
+          slo: portal-availability

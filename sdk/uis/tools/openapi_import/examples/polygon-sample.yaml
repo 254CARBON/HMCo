@@ -1,0 +1,205 @@
+openapi: 3.0.0
+info:
+  title: Polygon Stock API
+  version: 3.0.0
+  description: Real-time and historical stock market data from Polygon.io
+servers:
+  - url: https://api.polygon.io
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: Authorization
+      description: API key authentication
+security:
+  - ApiKeyAuth: []
+paths:
+  /v3/reference/tickers:
+    get:
+      summary: Get stock tickers
+      description: Get a list of stock tickers with basic information
+      parameters:
+        - name: market
+          in: query
+          schema:
+            type: string
+            enum: [stocks, crypto, forex]
+            default: stocks
+          description: Market type
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 1000
+            default: 100
+          description: Number of results to return
+        - name: cursor
+          in: query
+          schema:
+            type: string
+          description: Cursor for pagination
+      responses:
+        '200':
+          description: Stock tickers
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  results:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        ticker:
+                          type: string
+                          description: Stock ticker symbol
+                          example: AAPL
+                        name:
+                          type: string
+                          description: Company name
+                          example: Apple Inc.
+                        market:
+                          type: string
+                          enum: [stocks, crypto, forex]
+                          description: Market type
+                        locale:
+                          type: string
+                          enum: [us, global]
+                          description: Market locale
+                        active:
+                          type: boolean
+                          description: Whether the ticker is active
+                        currency_name:
+                          type: string
+                          description: Currency name
+                        last_updated_utc:
+                          type: string
+                          format: date-time
+                          description: Last update timestamp
+                  status:
+                    type: string
+                    description: Response status
+                  count:
+                    type: integer
+                    description: Number of results
+                  next_url:
+                    type: string
+                    description: URL for next page
+  /v3/aggs/ticker/{ticker}/range/{multiplier}/{timespan}/{from}/{to}:
+    get:
+      summary: Get aggregate data for a ticker
+      description: Get OHLCV aggregate data for a specific ticker
+      parameters:
+        - name: ticker
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Stock ticker symbol
+        - name: multiplier
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+          description: Size of the timespan multiplier
+        - name: timespan
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [second, minute, hour, day, week, month, quarter, year]
+          description: Timespan for the aggregate
+        - name: from
+          in: path
+          required: true
+          schema:
+            type: string
+            format: date
+          description: Start date
+        - name: to
+          in: path
+          required: true
+          schema:
+            type: string
+            format: date
+          description: End date
+        - name: adjusted
+          in: query
+          schema:
+            type: boolean
+            default: true
+          description: Whether to adjust for splits
+        - name: sort
+          in: query
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: asc
+          description: Sort order
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50000
+            default: 5000
+          description: Number of results
+      responses:
+        '200':
+          description: Aggregate data
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ticker:
+                    type: string
+                    description: Stock ticker
+                  queryCount:
+                    type: integer
+                    description: Number of queries
+                  resultsCount:
+                    type: integer
+                    description: Number of results
+                  adjusted:
+                    type: boolean
+                    description: Whether adjusted for splits
+                  results:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        v:
+                          type: integer
+                          description: Volume
+                        vw:
+                          type: number
+                          description: Volume weighted average price
+                        o:
+                          type: number
+                          description: Open price
+                        c:
+                          type: number
+                          description: Close price
+                        h:
+                          type: number
+                          description: High price
+                        l:
+                          type: number
+                          description: Low price
+                        t:
+                          type: integer
+                          description: Timestamp in milliseconds
+                        n:
+                          type: integer
+                          description: Number of transactions
+                  status:
+                    type: string
+                    description: Response status
+                  request_id:
+                    type: string
+                    description: Request ID

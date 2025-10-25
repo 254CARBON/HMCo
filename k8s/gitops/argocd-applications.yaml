@@ -30,9 +30,9 @@ spec:
         value: "true"
       - name: "trino.enabled"
         value: "true"
-      - name: "doris.enabled"
-        value: "true"
       - name: "superset.enabled"
+        value: "true"
+      - name: "clickhouse.enabled"
         value: "true"
   destination:
     server: https://kubernetes.default.svc

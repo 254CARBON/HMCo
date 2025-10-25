@@ -40,11 +40,36 @@ elasticsearch:
   port: 9200
 
 kafka:
-  bootstrap: datahub-kafka-kafka-bootstrap.kafka.svc.cluster.local:9092
+  bootstrapServers: kafka-service:9092
+  schemaRegistryUrl: http://schema-registry-service:8081
+  security:
+    protocol: PLAINTEXT
+    tls:
+      enabled: false
+      secretName: kafka-datahub-tls
+      passwordKey: user.password
+      keystorePath: /etc/kafka/secrets/user.p12
+      truststorePath: /etc/kafka/secrets/user.p12
 
 neo4j:
   host: graphdb-service
   port: 7687
+
+sso:
+  enabled: false
+  clientId: ""
+  clientSecretSecret:
+    name: ""
+    key: client-secret
+  redirectUri: ""
+  logoutUrl: ""
+  discoveryUrl: ""
+  baseUrl: ""
+  scopes: []
+  usernameClaim: email
+  nameClaim: name
+  groupsClaim: groups
+  extractGroups: true
 
 resources:
   frontend:
@@ -72,5 +97,3 @@ httpRoute:
 
 autoscaling:
   enabled: false
-
-

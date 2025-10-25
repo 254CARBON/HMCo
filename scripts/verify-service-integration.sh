@@ -95,9 +95,13 @@ check_component "Kafka Topics Creation" "kubectl get job -n data-platform kafka-
 
 echo ""
 echo "Kafka Topics Created:"
-kubectl exec -n data-platform kafka-0 -- kafka-topics --bootstrap-server kafka-service:9092 --list 2>/dev/null | grep -E "^(data-|system-|audit-|deployment-|config-|security-)" | while read topic; do
-    echo "  ✅ $topic"
-done
+if kubectl api-resources | grep -q "^kafkatopics"; then
+    kubectl get kafkatopic -n kafka -o jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}' 2>/dev/null | sort | grep -E "^(data-|system-|audit-|deployment-|config-|security-)" | while read -r topic; do
+        echo "  ✅ $topic"
+    done
+else
+    echo "  ⚠️  KafkaTopic CRD not available; run 'kubectl get kafkatopic -A' manually after installing Strimzi."
+fi
 
 # Phase 4: Monitoring
 echo ""
@@ -165,4 +169,3 @@ echo "  - Service Mesh: k8s/service-mesh/README.md"
 echo "  - API Gateway: k8s/api-gateway/README.md"
 echo "  - Event System: k8s/event-driven/README.md"
 echo "  - Deployment Guide: SERVICE_INTEGRATION_DEPLOYMENT_GUIDE.md"
-

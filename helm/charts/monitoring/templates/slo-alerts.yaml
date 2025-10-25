@@ -6,6 +6,7 @@ metadata:
   namespace: monitoring
   labels:
     role: slo
+    alertmanager: main
 spec:
   groups:
     - name: slo.burnrate
@@ -73,4 +74,3 @@ spec:
           annotations:
             summary: "Availability low for {{`{{ $labels.job }}`}}"
             description: "Service availability over last 5m dropped below 99.5%."
-

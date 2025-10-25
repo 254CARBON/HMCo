@@ -278,7 +278,7 @@ python3 ./scripts/import-workflows-from-files.py --port-forward  # 2. Import
 | `test-dolphinscheduler-workflows.sh` | Run test workflow | 30-45 min |
 | `verify-workflow-data-ingestion.sh` | Verify data in Trino | 1 min |
 
-See [`WORKFLOW_IMPORT_GUIDE.md`](../WORKFLOW_IMPORT_GUIDE.md) for detailed documentation.
+See [Automation Guide](../docs/automation/AUTOMATION_GUIDE.md) for detailed documentation.
 
 ---
 
@@ -301,8 +301,7 @@ See [`WORKFLOW_IMPORT_GUIDE.md`](../WORKFLOW_IMPORT_GUIDE.md) for detailed docum
 
 **Files Ready**: `/home/m/tff/254CARBON/HMCo/workflows/`  
 **Automation**: `/home/m/tff/254CARBON/HMCo/scripts/`  
-**Documentation**: [`WORKFLOW_IMPORT_GUIDE.md`](../WORKFLOW_IMPORT_GUIDE.md)  
+**Documentation**: [Automation Guide](../docs/automation/AUTOMATION_GUIDE.md)  
 **Status**: ✅ Ready for import!
 
 🎊 Run `./scripts/setup-dolphinscheduler-complete.sh` or log in to DolphinScheduler! 🎊
-

@@ -5,7 +5,7 @@ replicaCount:
 
 image:
   repository: trinodb/trino
-  tag: "438"
+  tag: "436"
   pullPolicy: IfNotPresent
 
 service:
@@ -41,17 +41,17 @@ resources:
   coordinator:
     requests:
       cpu: 2000m
-      memory: 8Gi
+      memory: 6Gi
     limits:
       cpu: 4000m
-      memory: 16Gi
+      memory: 8Gi
   worker:
     requests:
-      cpu: 4000m
-      memory: 16Gi
+      cpu: 3000m
+      memory: 6Gi
     limits:
-      cpu: 8000m
-      memory: 32Gi
+      cpu: 4000m
+      memory: 8Gi
 
 autoscaling:
   enabled: true
@@ -78,4 +78,13 @@ serviceAccount:
 httpRoute:
   enabled: false
 
+# S3 / MinIO defaults for Iceberg file system access
+s3:
+  endpoint: http://minio-service:9000
+  region: us-east-1
+  # Keep as string to avoid YAML bool coercion in Helm templating
+  pathStyle: true
 
+# Disable simple scaffolded templates in favor of explicit coordinator/worker manifests
+simple:
+  enabled: false

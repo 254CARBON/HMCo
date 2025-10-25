@@ -7,7 +7,7 @@ Client libraries for interacting with the 254Carbon data platform.
 ### Python SDK
 **Location**: `sdk/python/`  
 **PyPI Package**: `carbon254-platform`  
-**Documentation**: [Python SDK README](python/README.md)
+Documentation: See `sdk/python/` (docs coming soon)
 
 ```python
 from carbon254 import PlatformClient
@@ -27,7 +27,7 @@ prediction = client.ml.predict("price-predictor", features)
 ### Java SDK
 **Location**: `sdk/java/`  
 **Maven Package**: `com.carbon254:platform-sdk`  
-**Documentation**: [Java SDK README](java/README.md)
+Documentation: See `sdk/java/` (docs coming soon)
 
 ```java
 import com.carbon254.PlatformClient;
@@ -44,7 +44,7 @@ Workflow workflow = client.workflows().submit("daily-ingestion");
 ### Node.js SDK
 **Location**: `sdk/nodejs/`  
 **NPM Package**: `@carbon254/platform-sdk`  
-**Documentation**: [Node.js SDK README](nodejs/README.md)
+Documentation: See `sdk/nodejs/` (docs coming soon)
 
 ```javascript
 const { PlatformClient } = require('@carbon254/platform-sdk');
@@ -242,6 +242,5 @@ Full API documentation:
 **Version**: 1.0.0  
 **Last Updated**: October 22, 2025  
 **License**: Internal Use - 254Carbon
-
 
 

@@ -5,6 +5,8 @@ global:
   namespace: data-platform-staging
   domain: staging.254carbon.com
   storageClass: local-path
+  sso:
+    enabled: true
 
 datahub:
   enabled: true
@@ -18,6 +20,21 @@ datahub:
     enabled: true
     hostname: datahub-staging.254carbon.com
     tls: true
+  sso:
+    enabled: true
+    clientId: datahub-staging
+    clientSecretSecret:
+      name: datahub-staging-oidc-secret
+      key: client-secret
+    redirectUri: https://datahub-staging.254carbon.com/callback/oidc
+    discoveryUrl: https://auth.254carbon.com/auth/realms/master/.well-known/openid-configuration
+    baseUrl: https://datahub-staging.254carbon.com
+    logoutUrl: https://auth.254carbon.com/auth/realms/master/protocol/openid-connect/logout
+    scopes:
+      - openid
+      - profile
+      - email
+    extractGroups: true
 
 dolphinscheduler:
   enabled: true
@@ -54,6 +71,23 @@ superset:
     enabled: true
     hostname: superset-staging.254carbon.com
     tls: true
+  sso:
+    enabled: true
+    clientId: superset-staging
+    clientSecretSecret:
+      name: superset-staging-oidc-secret
+      key: client-secret
+    redirectUri: https://superset-staging.254carbon.com/oauth-authorized/oidc
+    discoveryUrl: https://auth.254carbon.com/auth/realms/master/.well-known/openid-configuration
+    userInfoUrl: https://auth.254carbon.com/auth/realms/master/protocol/openid-connect/userinfo
+    logoutUrl: https://auth.254carbon.com/auth/realms/master/protocol/openid-connect/logout
+    scopes:
+      - openid
+      - profile
+      - email
+    tokenMethod: client_secret_post
 
 
-
+spark-operator:
+  sparkHistory:
+    replicaCount: 1

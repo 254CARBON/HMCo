@@ -1,0 +1,61 @@
+{{- if .Values.kubecostBudgetThresholds }}
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: kubecost-budget-alerts
+  namespace: monitoring
+  labels:
+    app: kubecost
+    component: cost-monitoring
+spec:
+  groups:
+    - name: kubecost.monthly.budgets
+      interval: 5m
+      rules:
+        {{- range $idx, $budget := .Values.kubecostBudgetThresholds }}
+        {{- $budgetAmount := float64 $budget.monthlyBudgetUSD }}
+        {{- $warningPercent := float64 $budget.warningPercent }}
+        {{- $criticalPercent := float64 $budget.criticalPercent }}
+        {{- $warningThreshold := mul $budgetAmount $warningPercent }}
+        {{- $criticalThreshold := mul $budgetAmount $criticalPercent }}
+        {{- $warningPercentLabel := printf "%.0f" (mul 100 $warningPercent) }}
+        {{- $criticalPercentLabel := printf "%.0f" (mul 100 $criticalPercent) }}
+        {{- $warningThresholdLabel := printf "%.2f" $warningThreshold }}
+        {{- $criticalThresholdLabel := printf "%.2f" $criticalThreshold }}
+        {{- $budgetAmountLabel := printf "%.0f" $budgetAmount }}
+        - alert: KubecostMonthlyBudgetWarning
+          expr: |
+            sum(kubecost_namespace_total_cost{window="month", namespace="{{ $budget.namespace }}"}) > {{ printf "%.2f" $warningThreshold }}
+          for: 30m
+          labels:
+            severity: warning
+            namespace: {{ $budget.namespace }}
+            budget_usd: {{ printf "%.2f" $budgetAmount | quote }}
+          annotations:
+            summary: "{{ $budget.namespace }} monthly spend exceeds {{ $warningPercentLabel }}% of budget"
+            description: |
+              Namespace {{ $budget.namespace }} has consumed {{ $warningPercentLabel }}% (> ${{ $warningThresholdLabel }}) of the ${{ $budgetAmountLabel }} monthly budget according to Kubecost.
+              Investigate recent workload changes or adjust the budget if appropriate.
+            runbook_url: https://docs.254carbon.com/runbooks/finops/kubecost-budget-spikes
+            {{- with $budget.contacts.emails }}
+            contact_emails: {{ join "," . }}
+            {{- end }}
+        - alert: KubecostMonthlyBudgetCritical
+          expr: |
+            sum(kubecost_namespace_total_cost{window="month", namespace="{{ $budget.namespace }}"}) > {{ printf "%.2f" $criticalThreshold }}
+          for: 15m
+          labels:
+            severity: critical
+            namespace: {{ $budget.namespace }}
+            budget_usd: {{ printf "%.2f" $budgetAmount | quote }}
+          annotations:
+            summary: "{{ $budget.namespace }} monthly spend exceeded budget"
+            description: |
+              Namespace {{ $budget.namespace }} has consumed {{ $criticalPercentLabel }}% (> ${{ $criticalThresholdLabel }}) of the ${{ $budgetAmountLabel }} monthly budget.
+              Coordinate with product and finance stakeholders to mitigate overruns.
+            runbook_url: https://docs.254carbon.com/runbooks/finops/kubecost-budget-spikes
+            {{- with $budget.contacts.emails }}
+            contact_emails: {{ join "," . }}
+            {{- end }}
+        {{- end }}
+{{- end }}

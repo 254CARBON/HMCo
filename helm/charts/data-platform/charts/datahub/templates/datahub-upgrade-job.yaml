@@ -46,7 +46,36 @@ spec:
             value: org.postgresql.Driver
           # Kafka & Schema Registry
           - name: KAFKA_BOOTSTRAP_SERVER
-            value: kafka-service:9092
+            value: kafka-service:9093
+          - name: KAFKA_BOOTSTRAP_SERVERS
+            value: kafka-service:9093
+          - name: SPRING_KAFKA_PROPERTIES_SECURITY_PROTOCOL
+            value: SSL
+          - name: SPRING_KAFKA_PROPERTIES_SSL_ENDPOINT_IDENTIFICATION_ALGORITHM
+            value: ""
+          - name: SPRING_KAFKA_PROPERTIES_SSL_TRUSTSTORE_TYPE
+            value: PKCS12
+          - name: SPRING_KAFKA_PROPERTIES_SSL_KEYSTORE_TYPE
+            value: PKCS12
+          - name: SPRING_KAFKA_PROPERTIES_SSL_TRUSTSTORE_LOCATION
+            value: /etc/kafka/secrets/user.p12
+          - name: SPRING_KAFKA_PROPERTIES_SSL_KEYSTORE_LOCATION
+            value: /etc/kafka/secrets/user.p12
+          - name: SPRING_KAFKA_PROPERTIES_SSL_TRUSTSTORE_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: kafka-datahub-tls
+                key: user.password
+          - name: SPRING_KAFKA_PROPERTIES_SSL_KEYSTORE_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: kafka-datahub-tls
+                key: user.password
+          - name: SPRING_KAFKA_PROPERTIES_SSL_KEY_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: kafka-datahub-tls
+                key: user.password
           - name: KAFKA_SCHEMAREGISTRY_URL
             value: http://schema-registry-service:8081
           - name: KAFKA_SCHEMA_REGISTRY_URL
@@ -91,3 +120,12 @@ spec:
               secretKeyRef:
                 name: minio-secret
                 key: secret-key
+        volumeMounts:
+        - name: kafka-client-cert
+          mountPath: /etc/kafka/secrets
+          readOnly: true
+      volumes:
+      - name: kafka-client-cert
+        secret:
+          secretName: kafka-datahub-tls
+          defaultMode: 0400

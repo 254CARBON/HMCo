@@ -73,4 +73,16 @@ serviceAccount:
 httpRoute:
   enabled: false
 
-
+sso:
+  enabled: false
+  providerName: "254Carbon SSO"
+  clientId: ""
+  clientSecretSecret:
+    name: ""
+    key: client-secret
+  redirectUri: ""
+  discoveryUrl: ""
+  userInfoUrl: ""
+  logoutUrl: ""
+  scopes: []
+  tokenMethod: client_secret_post

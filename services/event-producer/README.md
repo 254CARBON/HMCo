@@ -189,7 +189,7 @@ producer.produce_api_call_event(
 
 ```bash
 # Kafka configuration
-export KAFKA_BOOTSTRAP_SERVERS="kafka-service.data-platform.svc.cluster.local:9092"
+export KAFKA_BOOTSTRAP_SERVERS="kafka-service.data-platform.svc.cluster.local:9093"
 export KAFKA_SCHEMA_REGISTRY_URL="http://schema-registry.data-platform.svc.cluster.local:8081"
 
 # Service identification
@@ -197,13 +197,28 @@ export SERVICE_NAME="my-service"
 export SERVICE_NAMESPACE="data-platform"
 ```
 
+#### TLS configuration
+
+TLS is enabled by default. Mount the Strimzi-generated certificate bundle and point the client to the files:
+
+```bash
+export KAFKA_SECURITY_PROTOCOL=SSL
+export KAFKA_SSL_CA_LOCATION="/var/run/secrets/kafka/ca.crt"
+export KAFKA_SSL_CERTIFICATE_LOCATION="/var/run/secrets/kafka/user.crt"
+export KAFKA_SSL_KEY_LOCATION="/var/run/secrets/kafka/user.key"
+# Optional if the key is encrypted
+export KAFKA_SSL_KEY_PASSWORD="$(cat /var/run/secrets/kafka/user.password)"
+```
+
+The Python and Node.js producers automatically pick up these values. Override them in code if you need custom paths.
+
 ### Advanced Configuration
 
 ```python
 from event_producer import EventProducer
 
 producer = EventProducer(
-    bootstrap_servers="kafka-service:9092",
+    bootstrap_servers="kafka-service:9093",
     schema_registry_url="http://schema-registry:8081",
     source_service="my-service"
 )
@@ -420,7 +435,7 @@ producer.close()
 kubectl get pods -n data-platform -l app=kafka
 
 # Test connectivity
-kubectl exec -it <your-pod> -- telnet kafka-service 9092
+kubectl exec -it <your-pod> -- telnet kafka-service 9093
 ```
 
 ### Events Not Appearing
@@ -504,7 +519,5 @@ For issues or questions:
 ## License
 
 MIT License - 254Carbon Platform Team
-
-
 
 

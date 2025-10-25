@@ -12,7 +12,7 @@ readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 readonly VELERO_NAMESPACE="${VELERO_NAMESPACE:-velero}"
 readonly VELERO_RELEASE_NAME="${VELERO_RELEASE_NAME:-velero}"
-readonly SECRET_NAME="${VELERO_CREDENTIALS_SECRET:-minio-backup-credentials}"
+readonly SECRET_NAME="${VELERO_CREDENTIALS_SECRET:-velero-minio-credentials}"
 readonly VALUES_FILE="${REPO_ROOT}/velero-values.yaml"
 readonly CONFIG_FILE="${REPO_ROOT}/k8s/storage/velero-backup-config.yaml"
 readonly HELM_REPO_NAME="${VELERO_HELM_REPO_NAME:-vmware-tanzu}"
@@ -64,8 +64,8 @@ EOF
   echo -e "${INFO} Creating/updating cloud credentials secret '${SECRET_NAME}'"
   kubectl -n "${VELERO_NAMESPACE}" create secret generic "${SECRET_NAME}" \
     --from-literal=cloud="[default]
-aws_access_key_id = ${access_key}
-aws_secret_access_key = ${secret_key}" \
+aws_access_key_id=${access_key}
+aws_secret_access_key=${secret_key}" \
     --dry-run=client -o yaml | kubectl apply -f -
   echo -e "${SUCCESS} Credentials secret ready"
 }

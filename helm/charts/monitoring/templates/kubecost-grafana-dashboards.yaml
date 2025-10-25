@@ -1,0 +1,319 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kubecost-grafana-dashboards
+  namespace: monitoring
+  labels:
+    grafana_dashboard: "1"
+data:
+  kubecost-budget-overview.json: |
+    {
+      "dashboard": {
+        "id": null,
+        "uid": null,
+        "title": "Kubecost Budget Overview",
+        "tags": ["kubecost", "finops"],
+        "timezone": "browser",
+        "schemaVersion": 38,
+        "version": 1,
+        "refresh": "30m",
+        "time": {
+          "from": "now-30d",
+          "to": "now"
+        },
+        "annotations": {
+          "list": [
+            {
+              "builtIn": 1,
+              "datasource": "-- Grafana --",
+              "enable": true,
+              "hide": true,
+              "iconColor": "rgba(0, 211, 255, 1)",
+              "name": "Annotations & Alerts",
+              "type": "dashboard"
+            }
+          ]
+        },
+        "templating": {
+          "list": []
+        },
+        "panels": [
+          {
+            "id": 1,
+            "type": "stat",
+            "title": "Data Platform Monthly Spend ($)",
+            "description": "Total month-to-date cost for the data-platform namespace.",
+            "gridPos": {
+              "h": 8,
+              "w": 8,
+              "x": 0,
+              "y": 0
+            },
+            "targets": [
+              {
+                "expr": "sum(kubecost_namespace_total_cost{window=\"month\", namespace=\"data-platform\"})",
+                "legendFormat": "data-platform"
+              }
+            ],
+            "options": {
+              "colorMode": "background",
+              "graphMode": "line",
+              "justifyMode": "auto",
+              "orientation": "horizontal",
+              "reduceOptions": {
+                "calcs": ["lastNotNull"],
+                "fields": "",
+                "values": false
+              },
+              "sparkline": {
+                "show": true
+              }
+            },
+            "fieldConfig": {
+              "defaults": {
+                "unit": "currencyUSD",
+                "mappings": [],
+                "thresholds": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green",
+                      "value": 0
+                    },
+                    {
+                      "color": "orange",
+                      "value": 4000
+                    },
+                    {
+                      "color": "red",
+                      "value": 5000
+                    }
+                  ]
+                }
+              },
+              "overrides": []
+            }
+          },
+          {
+            "id": 2,
+            "type": "stat",
+            "title": "ML Platform Monthly Spend ($)",
+            "description": "Total month-to-date cost for the ml-platform namespace.",
+            "gridPos": {
+              "h": 8,
+              "w": 8,
+              "x": 8,
+              "y": 0
+            },
+            "targets": [
+              {
+                "expr": "sum(kubecost_namespace_total_cost{window=\"month\", namespace=\"ml-platform\"})",
+                "legendFormat": "ml-platform"
+              }
+            ],
+            "options": {
+              "colorMode": "background",
+              "graphMode": "line",
+              "justifyMode": "auto",
+              "orientation": "horizontal",
+              "reduceOptions": {
+                "calcs": ["lastNotNull"],
+                "fields": "",
+                "values": false
+              },
+              "sparkline": {
+                "show": true
+              }
+            },
+            "fieldConfig": {
+              "defaults": {
+                "unit": "currencyUSD",
+                "mappings": [],
+                "thresholds": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green",
+                      "value": 0
+                    },
+                    {
+                      "color": "orange",
+                      "value": 3200
+                    },
+                    {
+                      "color": "red",
+                      "value": 4000
+                    }
+                  ]
+                }
+              },
+              "overrides": []
+            }
+          },
+          {
+            "id": 3,
+            "type": "stat",
+            "title": "Monitoring Monthly Spend ($)",
+            "description": "Total month-to-date cost for the monitoring namespace.",
+            "gridPos": {
+              "h": 8,
+              "w": 8,
+              "x": 16,
+              "y": 0
+            },
+            "targets": [
+              {
+                "expr": "sum(kubecost_namespace_total_cost{window=\"month\", namespace=\"monitoring\"})",
+                "legendFormat": "monitoring"
+              }
+            ],
+            "options": {
+              "colorMode": "background",
+              "graphMode": "line",
+              "justifyMode": "auto",
+              "orientation": "horizontal",
+              "reduceOptions": {
+                "calcs": ["lastNotNull"],
+                "fields": "",
+                "values": false
+              },
+              "sparkline": {
+                "show": true
+              }
+            },
+            "fieldConfig": {
+              "defaults": {
+                "unit": "currencyUSD",
+                "mappings": [],
+                "thresholds": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green",
+                      "value": 0
+                    },
+                    {
+                      "color": "orange",
+                      "value": 1600
+                    },
+                    {
+                      "color": "red",
+                      "value": 2000
+                    }
+                  ]
+                }
+              },
+              "overrides": []
+            }
+          },
+          {
+            "id": 4,
+            "type": "bargauge",
+            "title": "Budget Consumption (%)",
+            "description": "Percentage of monthly budget consumed per namespace.",
+            "gridPos": {
+              "h": 8,
+              "w": 24,
+              "x": 0,
+              "y": 8
+            },
+            "targets": [
+              {
+                "expr": "sum(kubecost_namespace_total_cost{window=\"month\", namespace=\"data-platform\"}) / 5000 * 100",
+                "legendFormat": "data-platform"
+              },
+              {
+                "expr": "sum(kubecost_namespace_total_cost{window=\"month\", namespace=\"ml-platform\"}) / 4000 * 100",
+                "legendFormat": "ml-platform"
+              },
+              {
+                "expr": "sum(kubecost_namespace_total_cost{window=\"month\", namespace=\"monitoring\"}) / 2000 * 100",
+                "legendFormat": "monitoring"
+              }
+            ],
+            "options": {
+              "displayMode": "lcd",
+              "orientation": "horizontal",
+              "reduceOptions": {
+                "calcs": ["lastNotNull"],
+                "fields": "",
+                "values": false
+              },
+              "showUnfilled": true
+            },
+            "fieldConfig": {
+              "defaults": {
+                "unit": "percentunit",
+                "min": 0,
+                "max": 150,
+                "mappings": [],
+                "thresholds": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green",
+                      "value": 0
+                    },
+                    {
+                      "color": "orange",
+                      "value": 80
+                    },
+                    {
+                      "color": "red",
+                      "value": 100
+                    }
+                  ]
+                }
+              },
+              "overrides": []
+            }
+          },
+          {
+            "id": 5,
+            "type": "timeseries",
+            "title": "Daily Spend by Namespace ($)",
+            "description": "Daily cost trend for core namespaces.",
+            "gridPos": {
+              "h": 8,
+              "w": 24,
+              "x": 0,
+              "y": 16
+            },
+            "targets": [
+              {
+                "expr": "sum(kubecost_namespace_total_cost{window=\"day\", namespace=~\"data-platform|ml-platform|monitoring\"}) by (namespace)",
+                "legendFormat": "\\u007b\\u007bnamespace\\u007d\\u007d"
+              }
+            ],
+            "options": {
+              "legend": {
+                "displayMode": "table",
+                "placement": "right"
+              },
+              "tooltip": {
+                "mode": "multi",
+                "sort": "desc"
+              }
+            },
+            "fieldConfig": {
+              "defaults": {
+                "unit": "currencyUSD",
+                "mappings": [],
+                "thresholds": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green",
+                      "value": null
+                    }
+                  ]
+                }
+              },
+              "overrides": []
+            }
+          }
+        ]
+      },
+      "overwrite": true,
+      "folderId": 0
+    }

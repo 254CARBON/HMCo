@@ -160,10 +160,10 @@ Create the following applications using the same process as Phase 2.3:
 - **Policy**: Allow → Everyone
 - **Session Duration**: `8 hours`
 
-#### Service 8: Doris
+#### Service 8: ClickHouse
 
-- **Application name**: `Doris.254Carbon`
-- **Subdomain**: `doris`
+- **Application name**: `ClickHouse.254Carbon`
+- **Subdomain**: `clickhouse`
 - **Domain**: `cloudflareaccess.com`
 - **Policy**: Allow → Everyone
 - **Session Duration**: `8 hours`
@@ -494,11 +494,11 @@ spec:
               number: 8080
 
 ---
-# Doris Ingress
+# ClickHouse Ingress
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: doris-ingress
+  name: clickhouse-ingress
   namespace: data-platform
   annotations:
     kubernetes.io/ingress.class: nginx
@@ -509,19 +509,19 @@ metadata:
 spec:
   tls:
   - hosts:
-    - doris.254carbon.com
-    secretName: doris-tls
+    - clickhouse.254carbon.com
+    secretName: clickhouse-tls
   rules:
-  - host: doris.254carbon.com
+  - host: clickhouse.254carbon.com
     http:
       paths:
       - path: /
         pathType: Prefix
         backend:
           service:
-            name: doris-fe
+            name: clickhouse
             port:
-              number: 8030
+              number: 8123
 
 ---
 # LakeFS Ingress
@@ -587,7 +587,7 @@ kubectl get pods -n data-platform -l app=minio
 kubectl get pods -n data-platform -l app=dolphinscheduler
 kubectl get pods -n data-platform -l app=datahub
 kubectl get pods -n data-platform -l app=trino
-kubectl get pods -n data-platform -l app=doris
+kubectl get pods -n data-platform -l app=clickhouse
 kubectl get pods -n data-platform -l app=lakefs
 
 # All should show Running status
@@ -628,7 +628,7 @@ https://minio.254carbon.com         # Should show MinIO console
 https://dolphin.254carbon.com       # Should show DolphinScheduler
 https://datahub.254carbon.com       # Should show DataHub
 https://trino.254carbon.com         # Should show Trino UI
-https://doris.254carbon.com         # Should show Doris console
+https://clickhouse.254carbon.com   # Should show ClickHouse interface
 https://lakefs.254carbon.com        # Should show LakeFS UI
 ```
 
@@ -778,7 +778,7 @@ curl -H "X-Vault-Token: $VAULT_TOKEN" https://vault.254carbon.com/v1/secret/data
 - [ ] Clicking service link redirects to correct service
 - [ ] Service page loads without requiring re-authentication
 - [ ] Session persists across all services
-- [ ] Can visit all 9 services: Grafana, Superset, Vault, MinIO, DolphinScheduler, DataHub, Trino, Doris, LakeFS
+- [ ] Can visit all 9 services: Grafana, Superset, Vault, MinIO, DolphinScheduler, DataHub, Trino, ClickHouse, LakeFS
 - [ ] Response times are <100ms
 - [ ] Audit logs show all access attempts
 - [ ] Unauthorized access is denied (401/403)

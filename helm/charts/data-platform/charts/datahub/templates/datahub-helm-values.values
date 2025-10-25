@@ -24,7 +24,7 @@ global:
   # Use existing Kafka
   kafka:
     bootstrap:
-      server: "kafka-service:9092"
+      server: "kafka-service:9093"
     schemaregistry:
       url: "http://schema-registry-service:8081"
 
@@ -119,4 +119,3 @@ datahubSystemUpdate:
 # Ingress configuration (if needed)
 datahub-ingress:
   enabled: false
-

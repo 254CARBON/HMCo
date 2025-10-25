@@ -5,6 +5,8 @@ global:
   namespace: ml-platform
   domain: 254carbon.com
   storageClass: local-path
+  vault:
+    enabled: true
 
 # MLflow - Experiment Tracking and Model Registry
 mlflow:
@@ -13,4 +15,3 @@ mlflow:
 # Kubeflow - ML Pipelines and Workflows
 kubeflow:
   enabled: true
-

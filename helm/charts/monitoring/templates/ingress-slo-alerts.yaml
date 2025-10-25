@@ -7,6 +7,7 @@ metadata:
   labels:
     role: slo
     component: ingress
+    alertmanager: main
 spec:
   groups:
     - name: ingress.slo.latency
@@ -68,18 +69,18 @@ spec:
             summary: "Trino ingress p95 latency high"
             description: "p95 {{`{{ $value }}`}}s > 2s over 5m."
 
-        # Doris FE
-        - alert: IngressLatencyP95HighDoris
+        # ClickHouse HTTP
+        - alert: IngressLatencyP95HighClickHouse
           expr: |
-            ingress:http_latency_p95_service:5m{namespace="data-platform",service="doris-fe-service"} > 2
+            ingress:http_latency_p95_service:5m{namespace="data-platform",service="clickhouse"} > 2
           for: 15m
           labels:
             severity: warning
-            service: doris-fe-service
+            service: clickhouse
             slo: ingress-p95
             target: "p95 < 2s"
           annotations:
-            summary: "Doris FE ingress p95 latency high"
+            summary: "ClickHouse ingress p95 latency high"
             description: "p95 {{`{{ $value }}`}}s > 2s over 5m."
 
         # Superset

@@ -1,0 +1,206 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: schema-registry-service
+  namespace: data-platform
+  labels:
+    app: schema-registry
+spec:
+  selector:
+    app: schema-registry
+  ports:
+  - name: http
+    port: 8081
+    targetPort: 8081
+  type: ClusterIP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: schema-registry
+  namespace: data-platform
+  labels:
+    app: schema-registry
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: schema-registry
+  template:
+    metadata:
+      labels:
+        app: schema-registry
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      initContainers:
+      - name: wait-for-kafka
+        image: busybox:1.36
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
+          runAsUser: 1000
+          capabilities:
+            drop:
+            - ALL
+        command:
+        - /bin/sh
+        - -c
+        args:
+        - |
+          set -e
+          echo "Waiting for kafka-service.data-platform.svc.cluster.local:9093..."
+          for attempt in $(seq 1 60); do
+            if nc -z kafka-service.data-platform.svc.cluster.local 9093 >/dev/null 2>&1; then
+              echo "Kafka is reachable."
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "Kafka did not become reachable in time."
+          exit 1
+        resources:
+          requests:
+            cpu: 25m
+            memory: 32Mi
+          limits:
+            cpu: 100m
+            memory: 64Mi
+      - name: build-truststore
+        image: eclipse-temurin:17-jre
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
+          runAsUser: 1000
+          capabilities:
+            drop:
+            - ALL
+        command:
+        - /bin/sh
+        - -c
+        args:
+        - |
+          set -euo pipefail
+          PASSWORD=$(cat /etc/kafka/user.password)
+          if [ -z "$PASSWORD" ]; then
+            echo "Kafka client password is empty; ensure secret kafka-schema-registry-tls has key user.password."
+            exit 1
+          fi
+          if [ ! -s /etc/cluster-ca/ca.crt ]; then
+            echo "Kafka cluster CA certificate missing at /etc/cluster-ca/ca.crt."
+            exit 1
+          fi
+          keytool -importcert -noprompt -alias kafka-ca -file /etc/cluster-ca/ca.crt -keystore /work/ca.p12 -storetype PKCS12 -storepass "$PASSWORD"
+        volumeMounts:
+        - name: kafka-client
+          mountPath: /etc/kafka
+          readOnly: true
+        - name: kafka-cluster-ca
+          mountPath: /etc/cluster-ca
+          readOnly: true
+        - name: tls-work
+          mountPath: /work
+        resources:
+          requests:
+            cpu: 50m
+            memory: 64Mi
+          limits:
+            cpu: 200m
+            memory: 128Mi
+      containers:
+      - name: schema-registry
+        image: confluentinc/cp-schema-registry:7.4.0
+        ports:
+        - containerPort: 8081
+          name: http
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
+          runAsUser: 1000
+          capabilities:
+            drop:
+            - NET_RAW
+        env:
+        - name: SCHEMA_REGISTRY_HOST_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
+        - name: SCHEMA_REGISTRY_LISTENERS
+          value: "http://0.0.0.0:8081"
+        - name: SCHEMA_REGISTRY_DEBUG
+          value: "true"
+        - name: SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS
+          value: "kafka-service.data-platform.svc.cluster.local:9093"
+        - name: SCHEMA_REGISTRY_KAFKASTORE_SECURITY_PROTOCOL
+          value: "SSL"
+        - name: SCHEMA_REGISTRY_KAFKASTORE_SSL_KEYSTORE_LOCATION
+          value: "/etc/kafka/user.p12"
+        - name: SCHEMA_REGISTRY_KAFKASTORE_SSL_TRUSTSTORE_LOCATION
+          value: "/tls/ca.p12"
+        - name: SCHEMA_REGISTRY_KAFKASTORE_SSL_KEYSTORE_TYPE
+          value: "PKCS12"
+        - name: SCHEMA_REGISTRY_KAFKASTORE_SSL_TRUSTSTORE_TYPE
+          value: "PKCS12"
+        - name: SCHEMA_REGISTRY_KAFKASTORE_SSL_KEYSTORE_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: kafka-schema-registry-tls
+              key: user.password
+        - name: SCHEMA_REGISTRY_KAFKASTORE_SSL_TRUSTSTORE_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: kafka-schema-registry-tls
+              key: user.password
+        - name: SCHEMA_REGISTRY_KAFKASTORE_SSL_KEY_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: kafka-schema-registry-tls
+              key: user.password
+        - name: SCHEMA_REGISTRY_KAFKASTORE_SSL_ENDPOINT_IDENTIFICATION_ALGORITHM
+          value: ""
+        readinessProbe:
+          httpGet:
+            path: /subjects
+            port: 8081
+            scheme: HTTP
+          initialDelaySeconds: 10
+          periodSeconds: 10
+        livenessProbe:
+          httpGet:
+            path: /subjects
+            port: 8081
+            scheme: HTTP
+          initialDelaySeconds: 20
+          periodSeconds: 20
+        resources:
+          requests:
+            cpu: 200m
+            memory: 512Mi
+          limits:
+            cpu: 500m
+            memory: 1Gi
+        volumeMounts:
+        - name: kafka-client
+          mountPath: /etc/kafka
+          readOnly: true
+        - name: tls-work
+          mountPath: /tls
+      volumes:
+      - name: kafka-client
+        secret:
+          secretName: kafka-schema-registry-tls
+          defaultMode: 0440
+      - name: kafka-cluster-ca
+        secret:
+          secretName: datahub-kafka-cluster-ca-cert
+          defaultMode: 0440
+      - name: tls-work
+        emptyDir: {}

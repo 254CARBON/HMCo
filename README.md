@@ -6,7 +6,7 @@ This repository contains the infrastructure-as-code for the 254Carbon Advanced A
 
 The platform is designed to be a scalable and resilient environment for data scientists and analysts to develop and deploy analytics and machine learning models. It is built on Kubernetes and leverages a variety of open-source technologies, including:
 
-*   **Data Platform:** A suite of tools for data storage, processing, and visualization, including a Data Lake with MinIO and Iceberg, a Data Warehouse with Doris, and a Data Query Engine with Trino. Data discovery and governance is provided by DataHub.
+*   **Data Platform:** A suite of tools for data storage, processing, and visualization, including a Data Lake with MinIO and Iceberg, a High-Performance Database with ClickHouse, and a Data Query Engine with Trino. Data discovery and governance is provided by DataHub.
 *   **ML Platform:** A comprehensive environment for machine learning, including MLflow for experiment tracking, Kubeflow for pipelines, and Ray for distributed computing.
 *   **Foundational Infrastructure:** A robust set of foundational services, including a service mesh with Istio, monitoring with Prometheus and Grafana, secrets management with Vault, and automated deployments with ArgoCD.
 

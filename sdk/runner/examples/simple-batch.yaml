@@ -1,0 +1,88 @@
+version: "1.1"
+name: "simple-batch-example"
+description: "Simple batch data ingestion example for testing"
+created_by: "sample.data.team@hmco.local"
+provider:
+  name: "sample_api"
+  display_name: "Sample API"
+  description: "Sample REST API for testing"
+  provider_type: "rest_api"
+  base_url: "https://jsonplaceholder.typicode.com"
+  mode: "batch"
+  parallelism: 1
+
+  # Configuration
+  config:
+    api_version: "1.0"
+    rate_limits:
+      requests_per_second: 10
+
+  # Scheduling (disabled for testing)
+  schedule_cron: null
+
+  # Data governance
+  tenant_id: "test-tenant"
+  owner: "test@example.com"
+  tags: ["sample", "test", "batch"]
+
+  # Simple endpoint
+  endpoints:
+    - name: "posts_endpoint"
+      path: "/posts"
+      method: "GET"
+      headers: {}
+      query_params:
+        _limit: "10"
+      pagination: "offset"
+      pagination_config:
+        offset_param: "_start"
+        limit_param: "_limit"
+        page_size: 10
+        max_pages: 5
+      response_path: "$"
+      field_mapping:
+        id: "id"
+        title: "title"
+        body: "body"
+        userId: "user_id"
+
+  # Data sinks
+  sinks:
+    - type: "iceberg"
+      table_name: "test_data.sample_posts"
+      config:
+        catalog: "hive_test"
+        namespace: "test_data"
+        warehouse: "s3://test-warehouse/"
+      partition_by: ["ingestion_date"]
+
+  # Quality gates
+  schema_contract:
+    type: "object"
+    properties:
+      id:
+        type: "integer"
+        minimum: 1
+      title:
+        type: "string"
+        minLength: 1
+      body:
+        type: "string"
+        minLength: 1
+      user_id:
+        type: "integer"
+        minimum: 1
+    required: ["id", "title", "body", "user_id"]
+
+  slos:
+    freshness_target_minutes: 60
+    accuracy_threshold: 0.99
+    completeness_threshold: 0.95
+    availability_target: 0.999
+    block_on_schema_drift: true
+    block_on_quality_drop: true
+
+# Global runtime settings
+global_config:
+  timeout_seconds: 300
+  retry_attempts: 3

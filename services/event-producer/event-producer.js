@@ -3,6 +3,7 @@
  * Simplified event production for all services
  */
 
+const fs = require('fs');
 const { Kafka } = require('kafkajs');
 const { v4: uuidv4 } = require('uuid');
 
@@ -42,6 +43,49 @@ const Topic = {
   AUDIT_ADMIN_OPS: 'audit-admin-operations'
 };
 
+function readFileOrThrow(filePath, label) {
+  if (!filePath) {
+    throw new Error(`Missing TLS ${label} path. Set KAFKA_SSL_${label.toUpperCase()}_LOCATION.`);
+  }
+  try {
+    return fs.readFileSync(filePath, 'utf-8');
+  } catch (err) {
+    throw new Error(`Failed to read TLS ${label} at ${filePath}: ${err.message}`);
+  }
+}
+
+function buildDefaultTlsConfig(env = process.env) {
+  const protocol = (env.KAFKA_SECURITY_PROTOCOL || 'SSL').toUpperCase();
+  if (protocol !== 'SSL' && protocol !== 'SASL_SSL') {
+    return null;
+  }
+
+  const caPath = env.KAFKA_SSL_CA_LOCATION;
+  const certPath = env.KAFKA_SSL_CERTIFICATE_LOCATION;
+  const keyPath = env.KAFKA_SSL_KEY_LOCATION;
+
+  if (!caPath || !certPath || !keyPath) {
+    return null;
+  }
+
+  const tlsConfig = {
+    ca: [readFileOrThrow(caPath, 'CA')],
+    cert: readFileOrThrow(certPath, 'CERTIFICATE'),
+    key: readFileOrThrow(keyPath, 'KEY'),
+  };
+
+  if (env.KAFKA_SSL_KEY_PASSWORD) {
+    tlsConfig.passphrase = env.KAFKA_SSL_KEY_PASSWORD;
+  }
+
+  const rejectUnauthorized = env.KAFKA_SSL_REJECT_UNAUTHORIZED;
+  if (rejectUnauthorized && rejectUnauthorized.toLowerCase() === 'false') {
+    tlsConfig.rejectUnauthorized = false;
+  }
+
+  return tlsConfig;
+}
+
 /**
  * 254Carbon Event Producer
  * 
@@ -54,24 +98,38 @@ const Topic = {
 class EventProducer {
   constructor(options = {}) {
     const {
-      bootstrapServers = 'kafka-service.data-platform.svc.cluster.local:9092',
+      bootstrapServers = process.env.KAFKA_BOOTSTRAP_SERVERS || 'kafka-service.data-platform.svc.cluster.local:9093',
       sourceService = 'unknown-service',
-      clientId = `${sourceService}-producer`
+      clientId = `${sourceService}-producer`,
+      tls = undefined
     } = options;
 
     this.sourceService = sourceService;
     this.deliveryCount = 0;
     this.errorCount = 0;
 
+    const brokers = Array.isArray(bootstrapServers)
+      ? bootstrapServers
+      : String(bootstrapServers)
+          .split(',')
+          .map(broker => broker.trim())
+          .filter(Boolean);
+
+    const tlsConfig = tls !== undefined ? tls : buildDefaultTlsConfig();
+    if (!tlsConfig && (process.env.KAFKA_SECURITY_PROTOCOL || 'SSL').toUpperCase() === 'SSL') {
+      console.warn('[EventProducer] TLS is enabled but no client certificates were provided; relying on default trust store.');
+    }
+
     // Initialize Kafka client
     this.kafka = new Kafka({
       clientId,
-      brokers: [bootstrapServers],
+      brokers,
       compression: 'GZIP',
       retry: {
         initialRetryTime: 100,
         retries: 8
-      }
+      },
+      ssl: tlsConfig || undefined
     });
 
     this.producer = this.kafka.producer({
@@ -386,7 +444,4 @@ if (require.main === module) {
     }
   })();
 }
-
-
-
 

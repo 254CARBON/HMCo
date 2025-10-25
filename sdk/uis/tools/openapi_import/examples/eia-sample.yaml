@@ -1,0 +1,157 @@
+openapi: 3.0.1
+info:
+  title: EIA Energy API
+  version: 2.0.0
+  description: Energy Information Administration sample API for testing importer
+servers:
+  - url: https://api.eia.gov
+tags:
+  - name: series
+    description: Data series endpoints
+  - name: category
+    description: Category endpoints
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: query
+      name: api_key
+      description: API key required on every request
+  parameters:
+    ApiKeyQuery:
+      name: api_key
+      in: query
+      required: true
+      schema:
+        type: string
+      description: EIA API key
+  responses:
+    CategoryResponse:
+      description: Category metadata response
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/CategoryResponse'
+  schemas:
+    BaseResponse:
+      type: object
+      properties:
+        request:
+          type: object
+          properties:
+            command:
+              type: string
+            series_id:
+              type: string
+            params:
+              type: object
+              additionalProperties: true
+    SeriesEntry:
+      type: object
+      required:
+        - series_id
+        - name
+      properties:
+        series_id:
+          type: string
+        name:
+          type: string
+        units:
+          type: string
+        f:
+          type: string
+        description:
+          type: string
+        data:
+          type: array
+          items:
+            type: array
+            items:
+              type: string
+    SeriesResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            response:
+              type: object
+              properties:
+                series:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/SeriesEntry'
+    CategoryResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+      properties:
+        category:
+          type: object
+          properties:
+            category_id:
+              type: integer
+            name:
+              type: string
+            childseries:
+              type: array
+              items:
+                type: object
+                properties:
+                  series_id:
+                    type: string
+                  name:
+                    type: string
+security:
+  - ApiKeyAuth: []
+paths:
+  /series/{series_id}:
+    tags:
+      - series
+    parameters:
+      - $ref: '#/components/parameters/ApiKeyQuery'
+    get:
+      operationId: getSeriesById
+      summary: Fetch a data series by ID
+      parameters:
+        - name: series_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+            minimum: 0
+          description: Offset into the result set
+        - name: length
+          in: query
+          schema:
+            type: integer
+            default: 5000
+            minimum: 1
+          description: Number of rows to return
+      responses:
+        '200':
+          description: Series data response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SeriesResponse'
+  /category/{category_id}:
+    tags:
+      - category
+    get:
+      operationId: getCategoryMetadata
+      summary: Fetch metadata for a category
+      parameters:
+        - $ref: '#/components/parameters/ApiKeyQuery'
+        - name: category_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          $ref: '#/components/responses/CategoryResponse'

@@ -34,6 +34,179 @@ global:
       limits:
         cpu: 4000m
         memory: 8Gi
+  sso:
+    enabled: false
+    issuerUrl: https://auth.254carbon.com/auth/realms/master
+    discoveryUrl: https://auth.254carbon.com/auth/realms/master/.well-known/openid-configuration
+    authorizationUrl: https://auth.254carbon.com/auth/realms/master/protocol/openid-connect/auth
+    tokenUrl: https://auth.254carbon.com/auth/realms/master/protocol/openid-connect/token
+    userInfoUrl: https://auth.254carbon.com/auth/realms/master/protocol/openid-connect/userinfo
+    logoutUrl: https://auth.254carbon.com/auth/realms/master/protocol/openid-connect/logout
+    scopes:
+      - openid
+      - profile
+      - email
+    claimMappings:
+      email: email
+      name: name
+      username: email
+      groups: groups
+    groups:
+      admin: platform-admins
+      editor: data-engineers
+      viewer: data-analysts
+  vault:
+    enabled: true
+    secretStoreRef:
+      name: platform-vault
+      kind: ClusterSecretStore
+    refreshInterval: 1h
+    creationPolicy: Owner
+
+vault:
+  externalSecrets:
+    enabled: true
+    secretStoreRef:
+      name: platform-vault
+      kind: ClusterSecretStore
+    refreshInterval: 1h
+    defaults:
+      namespace: data-platform
+      creationPolicy: Owner
+      labels: {}
+    secrets:
+      - name: minio-secret
+        data:
+          - secretKey: access-key
+            remoteRef:
+              key: secret/data-platform/minio
+              property: access-key
+          - secretKey: secret-key
+            remoteRef:
+              key: secret/data-platform/minio
+              property: secret-key
+      - name: postgres-shared-secret
+        data:
+          - secretKey: password
+            remoteRef:
+              key: secret/data-platform/postgres/shared
+              property: password
+      - name: postgres-workflow-secret
+        data:
+          - secretKey: password
+            remoteRef:
+              key: secret/data-platform/postgres/workflow
+              property: password
+      - name: datahub-secret
+        data:
+          - secretKey: DATAHUB_SECRET
+            remoteRef:
+              key: secret/data-platform/datahub
+              property: DATAHUB_SECRET
+      - name: superset-secret
+        data:
+          - secretKey: secret-key
+            remoteRef:
+              key: secret/data-platform/superset
+              property: secret-key
+          - secretKey: database-uri
+            remoteRef:
+              key: secret/data-platform/superset
+              property: database-uri
+          - secretKey: admin-password
+            remoteRef:
+              key: secret/data-platform/superset
+              property: admin-password
+      - name: superset-secrets
+        data:
+          - secretKey: SUPERSET_SECRET_KEY
+            remoteRef:
+              key: secret/data-platform/superset
+              property: SUPERSET_SECRET_KEY
+          - secretKey: DATABASE_URI
+            remoteRef:
+              key: secret/data-platform/superset
+              property: DATABASE_URI
+          - secretKey: DATABASE_USERNAME
+            remoteRef:
+              key: secret/data-platform/superset
+              property: DATABASE_USERNAME
+          - secretKey: DATABASE_PASSWORD
+            remoteRef:
+              key: secret/data-platform/superset
+              property: DATABASE_PASSWORD
+          - secretKey: SUPERSET_CLICKHOUSE_URI
+            remoteRef:
+              key: secret/data-platform/superset
+              property: SUPERSET_CLICKHOUSE_URI
+          - secretKey: SUPERSET_TRINO_URI
+            remoteRef:
+              key: secret/data-platform/superset
+              property: SUPERSET_TRINO_URI
+          - secretKey: ADMIN_USERNAME
+            remoteRef:
+              key: secret/data-platform/superset
+              property: ADMIN_USERNAME
+          - secretKey: ADMIN_PASSWORD
+            remoteRef:
+              key: secret/data-platform/superset
+              property: ADMIN_PASSWORD
+          - secretKey: ADMIN_EMAIL
+            remoteRef:
+              key: secret/data-platform/superset
+              property: ADMIN_EMAIL
+          - secretKey: ADMIN_FIRSTNAME
+            remoteRef:
+              key: secret/data-platform/superset
+              property: ADMIN_FIRSTNAME
+          - secretKey: ADMIN_LASTNAME
+            remoteRef:
+              key: secret/data-platform/superset
+              property: ADMIN_LASTNAME
+      - name: mlflow-backend-secret
+        data:
+          - secretKey: db_user
+            remoteRef:
+              key: secret/data-platform/mlflow/backend
+              property: db_user
+          - secretKey: db_password
+            remoteRef:
+              key: secret/data-platform/mlflow/backend
+              property: db_password
+          - secretKey: db_host
+            remoteRef:
+              key: secret/data-platform/mlflow/backend
+              property: db_host
+          - secretKey: db_port
+            remoteRef:
+              key: secret/data-platform/mlflow/backend
+              property: db_port
+          - secretKey: db_name
+            remoteRef:
+              key: secret/data-platform/mlflow/backend
+              property: db_name
+          - secretKey: backend_store_uri
+            remoteRef:
+              key: secret/data-platform/mlflow/backend
+              property: backend_store_uri
+      - name: mlflow-artifact-secret
+        data:
+          - secretKey: aws_access_key_id
+            remoteRef:
+              key: secret/data-platform/mlflow/artifact
+              property: aws_access_key_id
+          - secretKey: aws_secret_access_key
+            remoteRef:
+              key: secret/data-platform/mlflow/artifact
+              property: aws_secret_access_key
+          - secretKey: s3_endpoint_url
+            remoteRef:
+              key: secret/data-platform/mlflow/artifact
+              property: s3_endpoint_url
+          - secretKey: artifact_root
+            remoteRef:
+              key: secret/data-platform/mlflow/artifact
+              property: artifact_root
 
 # DataHub - Data Catalog and Governance
 datahub:
@@ -145,11 +318,87 @@ superset:
 data-lake:
   enabled: false
 
+# ClickHouse - High-performance columnar database
+clickhouse:
+  enabled: true
+  replicaCount: 1
+
+  image:
+    repository: clickhouse/clickhouse-server
+    tag: "24.8.7"
+    pullPolicy: IfNotPresent
+
+  clickhouse:
+    server:
+      httpPort: 8123
+      tcpPort: 9000
+      interPort: 9009
+
+    databases:
+      - name: default
+        engine: Atomic
+
+    storage:
+      dataPath: "/var/lib/clickhouse"
+      logsPath: "/var/log/clickhouse-server"
+
+    security:
+      enableSSL: false
+      allowEmptyPassword: false
+      defaultPassword: "ClickHouse@254Carbon2025"
+
+  resources:
+    requests:
+      cpu: 2000m
+      memory: 4Gi
+    limits:
+      cpu: 4000m
+      memory: 8Gi
+
+  persistence:
+    enabled: true
+    storageClass: local-path
+    size: 100Gi
+    accessModes:
+      - ReadWriteOnce
+
+  service:
+    type: ClusterIP
+    httpPort: 8123
+    tcpPort: 9000
+    interPort: 9009
+
+  ingress:
+    enabled: true
+    className: nginx
+    hostname: clickhouse.254carbon.com
+    tls: true
+
+  serviceMonitor:
+    enabled: true
+    namespace: monitoring
+
+  integrations:
+    superset:
+      enabled: true
+      uri: "clickhouse://clickhouse-service.data-platform:9000/default"
+    trino:
+      enabled: true
+
 doris:
-  enabled: false  # Temporarily disabled - missing startup script, will deploy via Doris Operator in Phase 3
+  enabled: false  # Permanently disabled - replaced with ClickHouse
 
 spark-operator:
   enabled: true
+  sparkHistory:
+    replicaCount: 1
+    resources:
+      requests:
+        cpu: 500m
+        memory: 1Gi
+      limits:
+        cpu: 1000m
+        memory: 2Gi
 
 # Redis - shared caching service for Superset and other components
 redis:
@@ -179,4 +428,3 @@ redis:
       capabilities:
         drop:
           - ALL
-

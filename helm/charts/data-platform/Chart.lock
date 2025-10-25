@@ -14,11 +14,11 @@ dependencies:
 - name: trino
   repository: file://./charts/trino
   version: 0.1.0
-- name: doris
-  repository: file://./charts/doris
+- name: clickhouse
+  repository: file://./charts/clickhouse
   version: 0.1.0
 - name: superset
   repository: file://./charts/superset
   version: 0.1.0
-digest: sha256:be0143eb95ca2b1c5b225dc4ef6ebcd06feab032eb5474b1dae4214450ce2995
-generated: "2025-10-23T20:47:38.033913997Z"
+digest: sha256:df1e254ab891fa6195ff581195019903abd404442523e6653cf51a1e5e910754
+generated: "2025-10-25T03:27:01.102367909Z"

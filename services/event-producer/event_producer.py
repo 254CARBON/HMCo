@@ -6,6 +6,7 @@ Simplified event production for all services
 import json
 import uuid
 import time
+import os
 from typing import Dict, Any, Optional, List
 from dataclasses import dataclass, asdict
 from enum import Enum
@@ -124,9 +125,15 @@ class EventProducer:
     
     def __init__(
         self,
-        bootstrap_servers: str = "kafka-service.data-platform.svc.cluster.local:9092",
+        bootstrap_servers: Optional[str] = None,
         schema_registry_url: Optional[str] = None,
-        source_service: str = "unknown-service"
+        source_service: str = "unknown-service",
+        security_protocol: Optional[str] = None,
+        ssl_ca_location: Optional[str] = None,
+        ssl_certificate_location: Optional[str] = None,
+        ssl_key_location: Optional[str] = None,
+        ssl_key_password: Optional[str] = None,
+        additional_config: Optional[Dict[str, Any]] = None
     ):
         """
         Initialize event producer
@@ -135,14 +142,25 @@ class EventProducer:
             bootstrap_servers: Kafka bootstrap servers
             schema_registry_url: Schema Registry URL (optional)
             source_service: Name of the service producing events
+            security_protocol: Kafka security protocol (defaults to env or SSL)
+            ssl_ca_location: Path to CA certificate file
+            ssl_certificate_location: Path to client certificate file
+            ssl_key_location: Path to client key file
+            ssl_key_password: Password for client key (if encrypted)
+            additional_config: Extra configuration overrides for the producer
         """
         self.source_service = source_service
         self.delivery_count = 0
         self.error_count = 0
+
+        resolved_bootstrap = bootstrap_servers or os.getenv(
+            'KAFKA_BOOTSTRAP_SERVERS',
+            'kafka-service.data-platform.svc.cluster.local:9093'
+        )
         
         # Kafka producer configuration
         conf = {
-            'bootstrap.servers': bootstrap_servers,
+            'bootstrap.servers': resolved_bootstrap,
             'client.id': f'{source_service}-producer',
             'compression.type': 'lz4',
             'linger.ms': 10,
@@ -152,6 +170,39 @@ class EventProducer:
             'max.in.flight.requests.per.connection': 5,
             'enable.idempotence': True
         }
+
+        resolved_security_protocol = (security_protocol or os.getenv(
+            'KAFKA_SECURITY_PROTOCOL',
+            'SSL'
+        )).upper()
+
+        if resolved_security_protocol:
+            conf['security.protocol'] = resolved_security_protocol
+
+        resolved_ssl_ca = ssl_ca_location or os.getenv('KAFKA_SSL_CA_LOCATION')
+        resolved_ssl_cert = ssl_certificate_location or os.getenv('KAFKA_SSL_CERTIFICATE_LOCATION')
+        resolved_ssl_key = ssl_key_location or os.getenv('KAFKA_SSL_KEY_LOCATION')
+        resolved_ssl_key_password = ssl_key_password or os.getenv('KAFKA_SSL_KEY_PASSWORD')
+
+        resolved_ssl_keystore = os.getenv('KAFKA_SSL_KEYSTORE_LOCATION')
+        resolved_ssl_keystore_password = os.getenv('KAFKA_SSL_KEYSTORE_PASSWORD')
+
+        if resolved_security_protocol in {'SSL', 'SASL_SSL'}:
+            if resolved_ssl_ca:
+                conf['ssl.ca.location'] = resolved_ssl_ca
+            if resolved_ssl_cert:
+                conf['ssl.certificate.location'] = resolved_ssl_cert
+            if resolved_ssl_key:
+                conf['ssl.key.location'] = resolved_ssl_key
+            if resolved_ssl_key_password:
+                conf['ssl.key.password'] = resolved_ssl_key_password
+            if resolved_ssl_keystore:
+                conf['ssl.keystore.location'] = resolved_ssl_keystore
+            if resolved_ssl_keystore_password:
+                conf['ssl.keystore.password'] = resolved_ssl_keystore_password
+
+        if additional_config:
+            conf.update(additional_config)
         
         self.producer = Producer(conf)
         self.string_serializer = StringSerializer('utf_8')
@@ -162,7 +213,12 @@ class EventProducer:
         else:
             self.schema_registry = None
         
-        logger.info(f"EventProducer initialized for service: {source_service}")
+        logger.info(
+            "EventProducer initialized for service %s (bootstrap=%s, protocol=%s)",
+            source_service,
+            resolved_bootstrap,
+            conf.get('security.protocol', 'PLAINTEXT')
+        )
     
     def _delivery_callback(self, err, msg):
         """Delivery report callback"""
@@ -451,7 +507,4 @@ if __name__ == "__main__":
     producer.close()
     
     print(f"Stats: {producer.get_stats()}")
-
-
-
 

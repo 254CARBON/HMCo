@@ -1,0 +1,106 @@
+{
+  "job_type": "micro_batch",
+  "spark_config": {
+    "spark.sql.adaptive.enabled": "true",
+    "spark.sql.adaptive.coalescePartitions.enabled": "true",
+    "spark.sql.adaptive.skewJoin.enabled": "true",
+    "spark.sql.adaptive.localShuffleReader.enabled": "true",
+    "spark.sql.adaptive.advisoryPartitionSizeInBytes": "64MB",
+    "spark.sql.streaming.trigger.processingTime": "5 minutes",
+    "spark.sql.streaming.checkpointLocation": "s3://spark-checkpoints/test-microbatch/",
+    "spark.sql.streaming.minBatchesToRetain": "10",
+    "spark.executor.memory": "4g",
+    "spark.executor.cores": "2",
+    "spark.driver.memory": "2g",
+    "spark.driver.cores": "2",
+    "spark.sql.extensions": "org.apache.iceberg.spark.extensions.IcebergSparkSessionExtensions",
+    "spark.sql.catalog.spark_catalog": "org.apache.iceberg.spark.SparkSessionCatalog",
+    "spark.sql.catalog.spark_catalog.type": "hive",
+    "spark.hadoop.fs.s3a.endpoint": "http://minio:9000",
+    "spark.hadoop.fs.s3a.access.key": "{{minio_access_key}}",
+    "spark.hadoop.fs.s3a.secret.key": "{{minio_secret_key}}",
+    "spark.hadoop.fs.s3a.path.style.access": "true",
+    "spark.hadoop.fs.s3a.impl": "org.apache.hadoop.fs.s3a.S3AFileSystem",
+    "spark.sql.warehouse.dir": "s3://warehouse/",
+    "hive.metastore.uris": "thrift://hive-metastore:9083",
+    "spark.sql.parquet.compression.codec": "snappy",
+    "spark.sql.parquet.mergeSchema": "false",
+    "spark.sql.broadcastTimeout": "300",
+    "spark.sql.autoBroadcastJoinThreshold": "10485760",
+    "spark.ui.enabled": "true",
+    "spark.eventLog.enabled": "true",
+    "spark.eventLog.dir": "s3://spark-logs/"
+  },
+  "sources": [
+    {
+      "type": "rest_api",
+      "name": "rest_users",
+      "url": "https://api.example.com/users",
+      "method": "GET",
+      "headers": {
+        "X-API-Key": "{{api_key}}"
+      },
+      "params": {
+        "limit": "1000"
+      },
+      "format": "json",
+      "response_path": "$.data",
+      "rate_limit": 20,
+      "retry_config": {
+        "max_retries": 3,
+        "retry_delay_seconds": 60
+      }
+    }
+  ],
+  "transforms": [
+    {
+      "type": "field_mapping",
+      "name": "map_users",
+      "mapping": {
+        "id": "user_id",
+        "name": "full_name"
+      },
+      "drop_unmapped": true
+    }
+  ],
+  "sinks": [
+    {
+      "type": "iceberg",
+      "name": "iceberg_analytics.users",
+      "table": "analytics.users",
+      "namespace": "analytics",
+      "catalog": "hive_prod",
+      "mode": "append",
+      "options": {
+        "format": "parquet",
+        "partitionBy": "date",
+        "write.wap.enabled": "true"
+      }
+    }
+  ],
+  "schedule": {
+    "trigger_type": "processing_time",
+    "trigger_interval": "5 minutes",
+    "max_offsets_per_trigger": 1000,
+    "checkpoint_location": "s3://spark-checkpoints/test-microbatch/"
+  },
+  "monitoring": {
+    "metrics_enabled": true,
+    "metrics_prefix": "uis.test-microbatch",
+    "streaming_metrics": {
+      "input_rows_per_second": "inputRate",
+      "processed_rows_per_second": "processingRate",
+      "backlog_rows": "inputRowsPerSecond"
+    },
+    "custom_metrics": [
+      "records_ingested",
+      "bytes_ingested",
+      "processing_latency_ms",
+      "schema_drift_detected"
+    ],
+    "alerts": {
+      "processing_delay_threshold_ms": 300000,
+      "error_rate_threshold": 0.05
+    }
+  }
+}
