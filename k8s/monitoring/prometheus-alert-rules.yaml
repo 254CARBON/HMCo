@@ -1,0 +1,199 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prometheus-alert-rules
+  namespace: monitoring
+data:
+  alert-rules.yml: |
+    groups:
+    - name: certificate-alerts
+      interval: 30s
+      rules:
+      # Certificate expiration warning (30 days)
+      - alert: CertificateExpirationWarning
+        expr: |
+          certmanager_certificate_expiration_timestamp_seconds - time() 
+          < 30 * 24 * 3600
+        for: 1h
+        labels:
+          severity: warning
+          service: certificate-management
+        annotations:
+          summary: "Certificate expiring in 30 days"
+          description: "Certificate {{ $labels.name }} in namespace {{ $labels.namespace }} will expire in 30 days"
+      
+      # Certificate expiration critical (7 days)
+      - alert: CertificateExpirationCritical
+        expr: |
+          certmanager_certificate_expiration_timestamp_seconds - time() 
+          < 7 * 24 * 3600
+        for: 10m
+        labels:
+          severity: critical
+          service: certificate-management
+        annotations:
+          summary: "Certificate expiring in 7 days - ACTION REQUIRED"
+          description: "Certificate {{ $labels.name }} in namespace {{ $labels.namespace }} will expire in 7 days. IMMEDIATE renewal action required."
+    
+    - name: tunnel-alerts
+      interval: 30s
+      rules:
+      # Tunnel health check
+      - alert: TunnelDown
+        expr: |
+          up{job="cloudflared"} == 0
+        for: 5m
+        labels:
+          severity: critical
+          service: tunnel
+        annotations:
+          summary: "Cloudflare tunnel is down"
+          description: "Tunnel pod {{ $labels.pod }} in namespace {{ $labels.namespace }} has been unreachable for 5 minutes"
+      
+      # Tunnel latency warning
+      - alert: TunnelHighLatency
+        expr: |
+          cloudflared_tunnel_latency_ms > 1000
+        for: 5m
+        labels:
+          severity: warning
+          service: tunnel
+        annotations:
+          summary: "High tunnel latency detected"
+          description: "Tunnel latency is {{ $value }}ms (threshold: 1000ms)"
+    
+    - name: service-health-alerts
+      interval: 30s
+      rules:
+      # Prometheus service health
+      - alert: ServiceDown
+        expr: |
+          up{job=~"prometheus|alertmanager|vault"} == 0
+        for: 5m
+        labels:
+          severity: critical
+          service: "{{ $labels.job }}"
+        annotations:
+          summary: "Service {{ $labels.job }} is down"
+          description: "Service {{ $labels.job }} in namespace {{ $labels.namespace }} has been unreachable for 5 minutes"
+      
+      # Service high error rate
+      - alert: HighErrorRate
+        expr: |
+          (sum(rate(http_requests_total{status=~"5.."}[5m])) by (service) 
+          / 
+          sum(rate(http_requests_total[5m])) by (service)) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+          service: "{{ $labels.service }}"
+        annotations:
+          summary: "High error rate detected in {{ $labels.service }}"
+          description: "Service {{ $labels.service }} has error rate of {{ $value | humanizePercentage }}"
+    
+    - name: waf-alerts
+      interval: 1m
+      rules:
+      # WAF violation threshold (5 violations in 5 minutes)
+      - alert: WAFViolationThreshold
+        expr: |
+          (sum(increase(cloudflare_waf_violations_total[5m])) by (rule_id)) > 5
+        for: 2m
+        labels:
+          severity: warning
+          service: waf
+        annotations:
+          summary: "WAF violation threshold exceeded"
+          description: "WAF rule {{ $labels.rule_id }} detected {{ $value }} violations in last 5 minutes"
+      
+      # DDoS attack detection (100+ blocked requests per minute)
+      - alert: DDoSAttackDetected
+        expr: |
+          (sum(rate(cloudflare_http_requests_blocked_total[1m])) by (reason)) > 100
+        for: 1m
+        labels:
+          severity: critical
+          service: waf
+        annotations:
+          summary: "Potential DDoS attack detected"
+          description: "Blocking {{ $value | humanize }}/min requests from {{ $labels.reason }}"
+      
+      # SQL Injection attempt
+      - alert: SQLInjectionAttempt
+        expr: |
+          increase(cloudflare_waf_violations_total{rule_id=~"sql.*"}[5m]) > 0
+        for: 1m
+        labels:
+          severity: warning
+          service: waf
+        annotations:
+          summary: "SQL injection attempt detected"
+          description: "WAF detected {{ $value }} SQL injection attempts"
+      
+      # XSS attempt
+      - alert: XSSAttempt
+        expr: |
+          increase(cloudflare_waf_violations_total{rule_id=~"xss.*"}[5m]) > 0
+        for: 1m
+        labels:
+          severity: warning
+          service: waf
+        annotations:
+          summary: "XSS attack attempt detected"
+          description: "WAF detected {{ $value }} XSS attack attempts"
+    
+    - name: tunnel-connectivity-alerts
+      interval: 30s
+      rules:
+      # Tunnel connection unstable
+      - alert: TunnelConnectionUnstable
+        expr: |
+          (sum(rate(cloudflared_tunnel_connection_attempts_total[1m])) 
+          / 
+          sum(rate(cloudflared_tunnel_connection_successful_total[1m]))) > 1.5
+        for: 5m
+        labels:
+          severity: warning
+          service: tunnel
+        annotations:
+          summary: "Tunnel connection stability issues"
+          description: "Tunnel is experiencing connection instability (failure ratio: {{ $value | humanizePercentage }})"
+    
+    - name: general-health-alerts
+      interval: 30s
+      rules:
+      # Node memory pressure
+      - alert: NodeMemoryPressure
+        expr: |
+          kubelet_node_condition{condition="MemoryPressure",status="true"} == 1
+        for: 5m
+        labels:
+          severity: warning
+          service: kubernetes
+        annotations:
+          summary: "Node memory pressure detected"
+          description: "Node {{ $labels.node }} has memory pressure"
+      
+      # Pod persistent volume space warning
+      - alert: PersistentVolumeSpaceWarning
+        expr: |
+          (kubelet_persistentvolume_used_bytes / kubelet_persistentvolume_limit_bytes) > 0.8
+        for: 5m
+        labels:
+          severity: warning
+          service: "{{ $labels.persistentvolume }}"
+        annotations:
+          summary: "PersistentVolume space warning"
+          description: "PV {{ $labels.persistentvolume }} is {{ $value | humanizePercentage }} full"
+      
+      # Pod persistent volume space critical
+      - alert: PersistentVolumeSpaceCritical
+        expr: |
+          (kubelet_persistentvolume_used_bytes / kubelet_persistentvolume_limit_bytes) > 0.95
+        for: 5m
+        labels:
+          severity: critical
+          service: "{{ $labels.persistentvolume }}"
+        annotations:
+          summary: "PersistentVolume CRITICAL space warning"
+          description: "PV {{ $labels.persistentvolume }} is {{ $value | humanizePercentage }} full - IMMEDIATE ACTION REQUIRED"

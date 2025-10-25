@@ -1,31 +1,32 @@
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: alertmanager-ingress
-  namespace: monitoring
+  name: vault-ingress
+  namespace: vault-prod
   annotations:
     cert-manager.io/cluster-issuer: letsencrypt-prod
     nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
     nginx.ingress.kubernetes.io/ssl-redirect: "true"
     # Cloudflare Access Authentication - Zero Trust
     # Note: Cluster has configuration-snippet disabled for security
+    # Access protection still active via Cloudflare edge
     nginx.ingress.kubernetes.io/auth-url: https://qagi.cloudflareaccess.com/cdn-cgi/access/authorize
     nginx.ingress.kubernetes.io/auth-signin: https://qagi.cloudflareaccess.com/cdn-cgi/access/login?redirect_url=$escaped_request_uri
     nginx.ingress.kubernetes.io/auth-response-headers: cf-access-jwt-assertion
 spec:
   ingressClassName: nginx
   rules:
-  - host: alertmanager.254carbon.com
+  - host: vault.254carbon.com
     http:
       paths:
       - path: /
         pathType: Prefix
         backend:
           service:
-            name: alertmanager
+            name: vault
             port:
-              number: 9093
+              number: 8200
   tls:
   - hosts:
-    - alertmanager.254carbon.com
-    secretName: alertmanager-tls
+    - vault.254carbon.com
+    secretName: vault-tls

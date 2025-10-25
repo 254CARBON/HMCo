@@ -7,6 +7,11 @@ metadata:
     cert-manager.io/cluster-issuer: letsencrypt-prod
     nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
     nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    # Cloudflare Access Authentication - Zero Trust
+    # Note: Cluster has configuration-snippet disabled for security
+    nginx.ingress.kubernetes.io/auth-url: https://qagi.cloudflareaccess.com/cdn-cgi/access/authorize
+    nginx.ingress.kubernetes.io/auth-signin: https://qagi.cloudflareaccess.com/cdn-cgi/access/login?redirect_url=$escaped_request_uri
+    nginx.ingress.kubernetes.io/auth-response-headers: cf-access-jwt-assertion
 spec:
   ingressClassName: nginx
   rules:

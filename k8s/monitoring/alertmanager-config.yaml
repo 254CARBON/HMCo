@@ -1,0 +1,155 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: alertmanager-config
+  namespace: monitoring
+data:
+  alertmanager.yml: |
+    global:
+      resolve_timeout: 5m
+    
+    route:
+      receiver: 'default'
+      group_by: ['alertname', 'cluster', 'service']
+      group_wait: 10s
+      group_interval: 10s
+      repeat_interval: 12h
+      routes:
+        # Certificate expiration alerts - higher priority
+        - match:
+            alertname: CertificateExpiration.*
+          receiver: 'certificate-alerts'
+          group_wait: 5m
+          repeat_interval: 24h
+        
+        # Tunnel connectivity alerts - critical
+        - match:
+            alertname: TunnelDown
+          receiver: 'tunnel-alerts'
+          group_wait: 2m
+          repeat_interval: 4h
+        
+        # WAF violation alerts
+        - match:
+            alertname: WAFViolation.*
+          receiver: 'security-alerts'
+          group_wait: 5m
+          repeat_interval: 1h
+        
+        # Service health alerts - critical
+        - match:
+            alertname: ServiceDown
+          receiver: 'platform-alerts'
+          group_wait: 3m
+          repeat_interval: 2h
+        
+        # DDoS detection
+        - match:
+            alertname: DDoSAttackDetected
+          receiver: 'security-alerts'
+          group_wait: 1m
+          repeat_interval: 30m
+    
+    receivers:
+      - name: 'default'
+        email_configs:
+          - to: 'qagiw3@gmail.com'
+            from: 'alertmanager@254carbon.com'
+            smarthost: 'smtp.gmail.com:587'
+            auth_username: 'qagiw3@gmail.com'
+            auth_password: '${GMAIL_APP_PASSWORD}'
+            tls_config:
+              insecure_skip_verify: false
+            headers:
+              Subject: '[254Carbon] Alert: {{ .GroupLabels.alertname }}'
+            html: |
+              <h3>Alert: {{ .GroupLabels.alertname }}</h3>
+              <p><b>Service:</b> {{ .GroupLabels.service }}</p>
+              <p><b>Cluster:</b> {{ .GroupLabels.cluster }}</p>
+              <p><b>Status:</b> {{ .Status }}</p>
+              <hr>
+              <p>{{ range .Alerts }}<b>{{ .Labels.severity }}:</b> {{ .Annotations.summary }}<br>{{ end }}</p>
+      
+      - name: 'certificate-alerts'
+        email_configs:
+          - to: 'qagiw3@gmail.com'
+            from: 'certificates@254carbon.com'
+            smarthost: 'smtp.gmail.com:587'
+            auth_username: 'qagiw3@gmail.com'
+            auth_password: '${GMAIL_APP_PASSWORD}'
+            tls_config:
+              insecure_skip_verify: false
+            headers:
+              Subject: '[URGENT] Certificate Expiration: {{ .GroupLabels.certificate }}'
+            html: |
+              <h2 style="color: red;">CERTIFICATE EXPIRATION ALERT</h2>
+              <p><b>Certificate:</b> {{ .GroupLabels.certificate }}</p>
+              <p><b>Status:</b> {{ .Status }}</p>
+              <p><b>Action Required:</b> Review and renew certificate immediately</p>
+              <hr>
+              <p>{{ range .Alerts }}<b>{{ .Annotations.summary }}</b><br>{{ .Annotations.description }}<br>{{ end }}</p>
+      
+      - name: 'tunnel-alerts'
+        email_configs:
+          - to: 'qagiw3@gmail.com'
+            from: 'tunnel@254carbon.com'
+            smarthost: 'smtp.gmail.com:587'
+            auth_username: 'qagiw3@gmail.com'
+            auth_password: '${GMAIL_APP_PASSWORD}'
+            tls_config:
+              insecure_skip_verify: false
+            headers:
+              Subject: '[CRITICAL] Cloudflare Tunnel Down'
+            html: |
+              <h2 style="color: darkred;">CRITICAL: CLOUDFLARE TUNNEL DOWN</h2>
+              <p><b>Status:</b> {{ .Status }}</p>
+              <p><b>Action Required:</b> IMMEDIATE action required - check tunnel connectivity</p>
+              <hr>
+              <p>{{ range .Alerts }}{{ .Annotations.summary }}<br>{{ .Annotations.description }}<br>{{ end }}</p>
+      
+      - name: 'security-alerts'
+        email_configs:
+          - to: 'qagiw3@gmail.com'
+            from: 'security@254carbon.com'
+            smarthost: 'smtp.gmail.com:587'
+            auth_username: 'qagiw3@gmail.com'
+            auth_password: '${GMAIL_APP_PASSWORD}'
+            tls_config:
+              insecure_skip_verify: false
+            headers:
+              Subject: '[SECURITY] WAF/DDoS Alert: {{ .GroupLabels.alertname }}'
+            html: |
+              <h2 style="color: orange;">SECURITY ALERT</h2>
+              <p><b>Alert Type:</b> {{ .GroupLabels.alertname }}</p>
+              <p><b>Service:</b> {{ .GroupLabels.service }}</p>
+              <p><b>Status:</b> {{ .Status }}</p>
+              <p><b>Action Required:</b> Review WAF logs in Cloudflare dashboard</p>
+              <hr>
+              <p>{{ range .Alerts }}<b>{{ .Labels.severity }}:</b> {{ .Annotations.summary }}<br>{{ end }}</p>
+      
+      - name: 'platform-alerts'
+        email_configs:
+          - to: 'qagiw3@gmail.com'
+            from: 'platform@254carbon.com'
+            smarthost: 'smtp.gmail.com:587'
+            auth_username: 'qagiw3@gmail.com'
+            auth_password: '${GMAIL_APP_PASSWORD}'
+            tls_config:
+              insecure_skip_verify: false
+            headers:
+              Subject: '[ALERT] Service Down: {{ .GroupLabels.service }}'
+            html: |
+              <h2 style="color: red;">SERVICE DOWN ALERT</h2>
+              <p><b>Service:</b> {{ .GroupLabels.service }}</p>
+              <p><b>Status:</b> {{ .Status }}</p>
+              <p><b>Severity:</b> CRITICAL - Immediate investigation required</p>
+              <hr>
+              <p>{{ range .Alerts }}{{ .Annotations.summary }}<br>{{ .Annotations.description }}<br>{{ end }}</p>
+    
+    inhibit_rules:
+      # Inhibit warning if critical already firing
+      - source_match:
+          severity: 'critical'
+        target_match:
+          severity: 'warning'
+        equal: ['alertname', 'service']
