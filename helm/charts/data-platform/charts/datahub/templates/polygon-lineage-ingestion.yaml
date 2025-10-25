@@ -47,11 +47,22 @@ spec:
       backoffLimit: 1
       template:
         spec:
+          securityContext:
+            runAsNonRoot: true
+            seccompProfile:
+              type: RuntimeDefault
           serviceAccountName: datahub-ingestion
           restartPolicy: Never
           containers:
             - name: datahub-ingestion
               image: acryldata/datahub-ingestion:head
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                runAsNonRoot: true
+                capabilities:
+                  drop:
+                    - NET_RAW
               env:
                 - name: DATAHUB_GMS_HOST
                   value: "datahub-gms.data-platform.svc.cluster.local"
@@ -73,6 +84,8 @@ spec:
                 - name: polygon-lineage
                   mountPath: /config
                   readOnly: true
+                - name: tmp
+                  mountPath: /tmp
               resources:
                 requests:
                   cpu: 100m
@@ -90,3 +103,5 @@ spec:
                   - key: recipe.yml
                     path: recipe.yml
                     mode: 420
+            - name: tmp
+              emptyDir: {}

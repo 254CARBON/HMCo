@@ -118,5 +118,45 @@
     "category": "API Gateway",
     "description": "API gateway administration and management interface.",
     "icon": "🦍"
+  },
+  {
+    "id": "prometheus",
+    "name": "Prometheus",
+    "url": "https://prometheus.254carbon.com",
+    "category": "Monitoring",
+    "description": "Time-series database and monitoring system for metrics collection and alerting.",
+    "icon": "📊"
+  },
+  {
+    "id": "alertmanager",
+    "name": "AlertManager",
+    "url": "https://alertmanager.254carbon.com",
+    "category": "Monitoring",
+    "description": "Alert management and routing for Prometheus alerts and notifications.",
+    "icon": "🔔"
+  },
+  {
+    "id": "victoria",
+    "name": "Victoria Metrics",
+    "url": "https://victoria.254carbon.com",
+    "category": "Monitoring",
+    "description": "Time-series database optimized for Prometheus metrics storage and querying.",
+    "icon": "📈"
+  },
+  {
+    "id": "loki",
+    "name": "Loki",
+    "url": "https://loki.254carbon.com",
+    "category": "Logging",
+    "description": "Log aggregation and querying system for centralized log management.",
+    "icon": "📝"
+  },
+  {
+    "id": "katib",
+    "name": "Katib UI",
+    "url": "https://katib.254carbon.com",
+    "category": "ML",
+    "description": "Hyperparameter tuning and neural architecture search platform for Kubeflow.",
+    "icon": "🔬"
   }
 ]
