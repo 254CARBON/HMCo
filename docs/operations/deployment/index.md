@@ -36,8 +36,7 @@
 | Document | Purpose | Audience |
 |----------|---------|----------|
 | [deployment-guide.md](deployment-guide.md) | Navigation & overview | Managers, leads |
-| [K8S_IMPLEMENTATION_SUMMARY.md](K8S_IMPLEMENTATION_SUMMARY.md) | What was built | Project stakeholders |
-| [k8s-bare.plan.md](k8s-bare.plan.md) | Approved migration plan | Decision makers |
+| [production-migration-plan.md](production-migration-plan.md) | Migration plan | Decision makers |
 
 ### Operational Level
 | Document | Purpose | Audience |
@@ -48,8 +47,8 @@
 ### Technical Details
 | Document | Purpose | Audience |
 |----------|---------|----------|
-| [k8s/storage/local-storage-provisioner.yaml](k8s/storage/local-storage-provisioner.yaml) | Storage config | Infrastructure team |
-| [scripts/](scripts/) | Automated procedures | Automation engineers |
+| [../../../k8s/storage/velero-backup-config.yaml](../../../k8s/storage/velero-backup-config.yaml) | Backup config | Infrastructure team |
+| [../../../scripts/](../../../scripts/) | Automated procedures | Automation engineers |
 
 ---
 
@@ -316,10 +315,10 @@ kubectl events --all-namespaces
 ## 🔗 Related Documentation
 
 ### Existing Project Docs
-- [../../readiness/production-readiness.md](../../../readiness/production-readiness.md) - Production hardening
-- [IMMEDIATE_REMEDIATION.md](../IMMEDIATE_REMEDIATION.md) - Fix current issues
-- [docs/cloudflare/](../docs/cloudflare/) - Tunnel setup
-- [docs/sso/](../docs/sso/) - Authentication setup
+- [../../readiness/production-readiness.md](../../readiness/production-readiness.md) - Production hardening
+- [../../troubleshooting/](../../troubleshooting/) - Fix current issues
+- [../../cloudflare/](../../cloudflare/) - Tunnel setup
+- [../../sso/](../../sso/) - Authentication setup
 
 ### External Resources
 - [Kubernetes Docs](https://kubernetes.io/docs/)

@@ -53,7 +53,7 @@ kubectl apply -f k8s/visualization/superset-secrets.yaml
 # Before
 postgres-shared-service:5432
 redis-service:6379
-kafka-service:9092
+kafka-service:9093
 zookeeper-service:2181
 
 # After
@@ -267,4 +267,3 @@ kubectl rollout restart deployment/<name> -n <namespace>
 ---
 
 **Bottom Line**: The 502 errors were caused by backend pods not running. The fixes are applied and services are coming online. Portal and Harbor are fully operational. Others are initializing.
-

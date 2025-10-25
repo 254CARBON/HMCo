@@ -13,6 +13,8 @@ This guide provides step-by-step instructions to complete the SSO implementation
 - **Phase 3**: Disable local authentication in services (2-3 days)
 - **Phase 4**: Test and validate the complete SSO system (1-2 days)
 
+For OIDC service-level integration details (Grafana, Superset, DataHub, ArgoCD) see `docs/sso/oidc-apps.md`.
+
 Phase 1 (Portal deployment) is **COMPLETE** and already deployed.
 
 ---

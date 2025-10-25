@@ -294,7 +294,6 @@ View available dashboards at: https://grafana.254carbon.com
 
 ### In This Repository
 
-- [MLFlow Server Deployment Guide](../../k8s/compute/mlflow/README.md)
 - [MLFlow Orchestration Client](../../services/mlflow-orchestration/README.md)
 - [DolphinScheduler Integration](integration-guide.md)
 - [DataHub Integration](integration-guide.md#part-2-datahub-integration)

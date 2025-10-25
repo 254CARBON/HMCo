@@ -1,0 +1,29 @@
+# Rehearsal restore template for disaster-recovery drills.
+#
+# Usage:
+#   export TARGET_NAMESPACE="data-platform"
+#   export RESTORE_NAMESPACE="${TARGET_NAMESPACE}-dr"
+#   export BACKUP_NAME="$(velero backup get --selector 'velero.io/schedule-name=daily-backup' \
+#     --output json | jq -r '.items | sort_by(.status.completionTimestamp) | last | .metadata.name')"
+#   kubectl create -f <(envsubst < k8s/storage/velero-restore-test.yaml)
+#
+# This manifest restores the specified namespace into a scratch namespace,
+# labels it for cleanup automation, and skips persistent volume restoration
+# by default. Adjust restorePVs to true if volume recovery should be tested.
+
+apiVersion: velero.io/v1
+kind: Restore
+metadata:
+  generateName: rehearsal-${TARGET_NAMESPACE}-
+  namespace: velero
+  labels:
+    velero.254carbon.com/purpose: rehearsal
+    velero.254carbon.com/target: ${TARGET_NAMESPACE:?Set TARGET_NAMESPACE}
+spec:
+  backupName: ${BACKUP_NAME:?Set BACKUP_NAME to an existing Velero backup}
+  includedNamespaces:
+  - ${TARGET_NAMESPACE:?Set TARGET_NAMESPACE}
+  namespaceMapping:
+    ${TARGET_NAMESPACE:?Set TARGET_NAMESPACE}: ${RESTORE_NAMESPACE:?Set RESTORE_NAMESPACE}
+  restorePVs: false
+  existingResourcePolicy: update

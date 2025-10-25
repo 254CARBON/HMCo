@@ -6,7 +6,7 @@ Welcome to the JupyterHub implementation for 254Carbon. This index will guide yo
 
 ### For Operators/Platform Teams
 
-1. **[JUPYTERHUB_IMPLEMENTATION_SUMMARY.md](../../JUPYTERHUB_IMPLEMENTATION_SUMMARY.md)** - Read this first!
+1. **[README.md](./README.md)** - Read this first!
    - What was implemented
    - Architecture overview
    - File structure
@@ -81,7 +81,6 @@ Welcome to the JupyterHub implementation for 254Carbon. This index will guide yo
 ## File Structure
 
 ```
-├── JUPYTERHUB_IMPLEMENTATION_SUMMARY.md    (Main summary - START HERE)
 ├── docs/jupyterhub/
 │   ├── INDEX.md                           (This file)
 │   ├── README.md                          (Technical reference)
@@ -120,7 +119,7 @@ Welcome to the JupyterHub implementation for 254Carbon. This index will guide yo
 
 | Phase | Duration | Actions |
 |-------|----------|---------|
-| **1. Preparation** | 15 min | Read JUPYTERHUB_IMPLEMENTATION_SUMMARY.md |
+| **1. Preparation** | 15 min | Read docs/jupyterhub/README.md |
 | **2. Build Image** | 15 min | Build and push custom Docker image |
 | **3. Cloudflare Setup** | 10 min | Create OAuth application in Cloudflare |
 | **4. Deploy** | 10 min | Create secrets, deploy via ArgoCD |

@@ -1,0 +1,29 @@
+# Application-scoped Velero restore template.
+#
+# Usage:
+#   export TARGET_NAMESPACE="data-platform"
+#   export BACKUP_NAME="daily-backup-20251021"
+#   export LABEL_KEY="app"
+#   export LABEL_VALUE="datahub-gms"
+#   kubectl create -f <(envsubst < k8s/storage/velero-restore-app.yaml)
+#
+# The selector restores only resources that match the provided label key/value.
+# Combine with namespace mapping if you need to restore into a temporary namespace.
+
+apiVersion: velero.io/v1
+kind: Restore
+metadata:
+  generateName: restore-${LABEL_VALUE}-
+  namespace: velero
+  labels:
+    velero.254carbon.com/purpose: selective
+    velero.254carbon.com/target: ${LABEL_VALUE:?Set LABEL_VALUE}
+spec:
+  backupName: ${BACKUP_NAME:?Set BACKUP_NAME to an existing Velero backup}
+  includedNamespaces:
+  - ${TARGET_NAMESPACE:?Set TARGET_NAMESPACE}
+  labelSelector:
+    matchLabels:
+      ${LABEL_KEY:?Set LABEL_KEY}: ${LABEL_VALUE:?Set LABEL_VALUE}
+  restorePVs: true
+  existingResourcePolicy: update

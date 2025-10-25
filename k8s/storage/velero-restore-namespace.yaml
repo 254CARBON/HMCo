@@ -1,0 +1,28 @@
+# Namespace-scoped Velero restore template.
+#
+# Usage:
+#   export TARGET_NAMESPACE="data-platform"
+#   export RESTORE_NAMESPACE="data-platform"
+#   export BACKUP_NAME="daily-backup-20251021"
+#   kubectl create -f <(envsubst < k8s/storage/velero-restore-namespace.yaml)
+#
+# When RESTORE_NAMESPACE differs from TARGET_NAMESPACE the backup
+# contents will be restored into the alternate namespace, allowing
+# rehearsal restores without overwriting production resources.
+
+apiVersion: velero.io/v1
+kind: Restore
+metadata:
+  generateName: restore-${TARGET_NAMESPACE}-
+  namespace: velero
+  labels:
+    velero.254carbon.com/purpose: namespace
+    velero.254carbon.com/target: ${TARGET_NAMESPACE:?Set TARGET_NAMESPACE}
+spec:
+  backupName: ${BACKUP_NAME:?Set BACKUP_NAME to an existing Velero backup}
+  includedNamespaces:
+  - ${TARGET_NAMESPACE:?Set TARGET_NAMESPACE}
+  namespaceMapping:
+    ${TARGET_NAMESPACE:?Set TARGET_NAMESPACE}: ${RESTORE_NAMESPACE:?Set RESTORE_NAMESPACE}
+  restorePVs: true
+  existingResourcePolicy: update

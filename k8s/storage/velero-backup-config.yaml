@@ -1,0 +1,100 @@
+# Velero backup storage location and schedules for 254Carbon
+#
+# Usage:
+#   kubectl apply -f k8s/storage/velero-backup-config.yaml
+#
+# Prerequisites:
+#   * Secret `velero-minio-credentials` exists in the `velero` namespace
+#     with a key named `cloud` that contains AWS-style credentials for MinIO.
+#   * Velero CRDs installed (via Helm chart or velero CLI install).
+
+---
+apiVersion: velero.io/v1
+kind: BackupStorageLocation
+metadata:
+  name: minio
+  namespace: velero
+  labels:
+    velero.254carbon.com/component: storage-location
+spec:
+  provider: aws
+  default: true
+  objectStorage:
+    bucket: velero-backups
+  config:
+    region: us-east-1
+    s3ForcePathStyle: "true"
+    s3Url: http://minio-service.data-platform.svc.cluster.local:9000
+    publicUrl: https://minio.254carbon.com
+  credential:
+    name: velero-minio-credentials
+    key: cloud
+
+---
+apiVersion: velero.io/v1
+kind: Schedule
+metadata:
+  name: daily-backup
+  namespace: velero
+  labels:
+    velero.254carbon.com/tier: critical
+    velero.io/schedule-name: daily-backup
+spec:
+  schedule: "0 2 * * *" # 02:00 UTC daily
+  template:
+    ttl: 720h0m0s # 30 days retention
+    storageLocation: minio
+    includedNamespaces:
+    - data-platform
+    - monitoring
+    - registry
+    - cert-manager
+    - cloudflare-tunnel
+    excludedResources:
+    - events
+    - events.events.k8s.io
+    snapshotVolumes: true
+    defaultVolumesToFsBackup: true
+
+---
+apiVersion: velero.io/v1
+kind: Schedule
+metadata:
+  name: hourly-critical-backup
+  namespace: velero
+  labels:
+    velero.254carbon.com/tier: critical
+    velero.io/schedule-name: hourly-critical-backup
+spec:
+  schedule: "0 * * * *" # Start of every hour
+  template:
+    ttl: 168h0m0s # 7 days retention
+    storageLocation: minio
+    includedNamespaces:
+    - data-platform
+    - monitoring
+    excludedResources:
+    - events
+    - events.events.k8s.io
+    snapshotVolumes: true
+    defaultVolumesToFsBackup: true
+
+---
+apiVersion: velero.io/v1
+kind: Schedule
+metadata:
+  name: weekly-full-backup
+  namespace: velero
+  labels:
+    velero.254carbon.com/tier: platform
+    velero.io/schedule-name: weekly-full-backup
+spec:
+  schedule: "0 3 * * 0" # Sunday 03:00 UTC
+  template:
+    ttl: 2160h0m0s # 90 days retention
+    storageLocation: minio
+    snapshotVolumes: true
+    excludedNamespaces:
+    - kube-node-lease
+    - kube-public
+    - kube-system

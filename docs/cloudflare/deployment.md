@@ -242,7 +242,7 @@ For protected services (Vault, MinIO, DolphinScheduler):
 
 1. Go to [Cloudflare Zero Trust](https://one.dash.cloudflare.com/)
 2. Navigate to **Applications** → **Create Application** → **Self-hosted**
-3. Follow instructions in [SECURITY_POLICIES.md](SECURITY_POLICIES.md)
+3. Follow instructions in [ACCESS_APPS_AND_POLICIES.md](ACCESS_APPS_AND_POLICIES.md)
 
 ### Step 5.2: Enable WAF Rules
 
@@ -357,5 +357,5 @@ For issues, check:
 1. Tunnel logs: `kubectl logs -n cloudflare-tunnel -f`
 2. Ingress logs: `kubectl logs -n ingress-nginx -f`
 3. Cloudflare dashboard → Networks → Tunnels → Analytics
-4. [Troubleshooting Guide](README.md#troubleshooting)
-5. [Security Policies](SECURITY_POLICIES.md)
+4. [Troubleshooting Guide](troubleshooting.md)
+5. [Access Apps & Policies](ACCESS_APPS_AND_POLICIES.md)

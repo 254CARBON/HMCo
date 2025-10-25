@@ -116,7 +116,7 @@ Detailed procedures in: **[full-migration-runbook.md](full-migration-runbook.md)
 
 ### For Migration Planning
 - **[full-migration-runbook.md](full-migration-runbook.md)** - Full 9-phase runbook with procedures, verification steps, and troubleshooting
-- **[k8s-bare.plan.md](k8s-bare.plan.md)** - Approved migration plan with scope and dependencies
+- **[production-migration-plan.md](production-migration-plan.md)** - Approved migration plan with scope and dependencies
 
 ### For Quick Reference
 - **[quick-reference.md](quick-reference.md)** - Command-line cheat sheet
@@ -124,12 +124,12 @@ Detailed procedures in: **[full-migration-runbook.md](full-migration-runbook.md)
 
 ### For Existing Deployments
 - **[../../readiness/production-readiness.md](../../readiness/production-readiness.md)** - Production hardening roadmap
-- **[IMMEDIATE_REMEDIATION.md](IMMEDIATE_REMEDIATION.md)** - Fix current Kind cluster issues (if staying on Kind)
+- **[../../troubleshooting/](../../troubleshooting/)** - Fix common issues
 
 ### For Day-2 Operations
-- **[scripts/](scripts/)** - Automated operational procedures
-- **[k8s/monitoring/](k8s/monitoring/)** - Monitoring and alerting setup
-- **[k8s/resilience/](k8s/resilience/)** - Backup and disaster recovery
+- **[../../../scripts/](../../../scripts/)** - Automated operational procedures
+- **[../../../k8s/monitoring/](../../../k8s/monitoring/)** - Monitoring and alerting setup
+- **[../../../k8s/backup/](../../../k8s/backup/)** - Backup and disaster recovery
 
 ---
 

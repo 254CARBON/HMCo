@@ -1,0 +1,29 @@
+# Full-cluster Velero restore template.
+#
+# Usage:
+#   export BACKUP_NAME="$(velero backup get --selector 'velero.io/schedule-name=weekly-full-backup' \
+#     --output json | jq -r '.items | sort_by(.status.completionTimestamp) | last | .metadata.name')"
+#   kubectl create -f <(envsubst < k8s/storage/velero-restore-full.yaml)
+#
+# The resulting restore will replay the specified backup across all namespaces
+# except the system namespaces listed below. The manifest runs as-is with
+# envsubst; edit excluded namespaces if additional scopes should be skipped.
+
+apiVersion: velero.io/v1
+kind: Restore
+metadata:
+  generateName: restore-full-
+  namespace: velero
+  labels:
+    velero.254carbon.com/purpose: full-cluster
+spec:
+  backupName: ${BACKUP_NAME:?Set BACKUP_NAME to an existing Velero backup}
+  excludedNamespaces:
+  - kube-node-lease
+  - kube-public
+  - kube-system
+  - velero
+  restorePVs: true
+  existingResourcePolicy: update # Replace resources in-place
+  includeClusterResources: true
+  defaultVolumesToFsBackup: true

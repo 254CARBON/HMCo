@@ -265,9 +265,9 @@ Successfully implemented comprehensive Cloudflare Tunnel integration to expose t
 ## Support & Resources
 
 ### Documentation
-- [docs/cloudflare/deployment.md](docs/cloudflare/deployment.md) - Step-by-step deployment
-- [docs/cloudflare/credentials.md](docs/cloudflare/credentials.md) - Credential management
-- [k8s/cloudflare/SECURITY_POLICIES.md](k8s/cloudflare/SECURITY_POLICIES.md) - Security configuration
+- [deployment.md](deployment.md) - Step-by-step deployment
+- [credentials.md](credentials.md) - Credential management
+- [ACCESS_APPS_AND_POLICIES.md](ACCESS_APPS_AND_POLICIES.md) - Access apps and policies
 
 ### External Resources
 - [Cloudflare Tunnel Docs](https://developers.cloudflare.com/cloudflare-one/connections/connect-apps/)
@@ -275,7 +275,7 @@ Successfully implemented comprehensive Cloudflare Tunnel integration to expose t
 - [Cloudflare API Reference](https://developers.cloudflare.com/api/)
 
 ### Troubleshooting
-Refer to [docs/cloudflare/troubleshooting.md](docs/cloudflare/troubleshooting.md) for common issues.
+Refer to [troubleshooting.md](troubleshooting.md) for common issues.
 
 ---
 

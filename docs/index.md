@@ -39,12 +39,16 @@ This directory now contains the canonical runbooks, guides, and references for 2
   - [Automated Deployment](operations/deployment/automated-deployment.md)
   - [Full Deployment Guide](operations/deployment/deployment-guide.md)
   - [Operations Runbook](operations/deployment/operations-runbook.md)
-  - [Troubleshooting](operations/deployment/troubleshooting.md)
-  - [Quick Reference](operations/deployment/quick-reference.md)
-  - [Migration Runbook](operations/deployment/full-migration-runbook.md)
-  - [Production Migration Plan](operations/deployment/production-migration-plan.md)
-  - [Start Here](operations/deployment/start-here.md)
+- [Troubleshooting](operations/deployment/troubleshooting.md)
+- [Quick Reference](operations/deployment/quick-reference.md)
+- [Migration Runbook](operations/deployment/full-migration-runbook.md)
+- [Production Migration Plan](operations/deployment/production-migration-plan.md)
+- [Start Here](operations/deployment/start-here.md)
 - Environment Preparation: files under [`operations/environment/`](operations/environment/)
+
+## Disaster Recovery
+- [DR Runbook](disaster-recovery/DR_RUNBOOK.md)
+- [Velero Restore Validation](disaster-recovery/VELERO_RESTORE_VALIDATION.md)
 
 ## Data Platform
 - Iceberg

@@ -39,17 +39,22 @@ This guide implements comprehensive backup and disaster recovery capabilities fo
 - **Retention**: 30 days
 - **Frequency**: Daily at 2:00 AM
 
-### 2. Critical Backups (Every 6 hours)
-- **Scope**: Critical namespaces only (data-platform, vault-prod)
+### 2. Critical Backups (Hourly)
+- **Scope**: Critical namespaces only (data-platform, monitoring)
 - **Retention**: 7 days
-- **Frequency**: Every 6 hours
+- **Frequency**: Top of every hour
 
-### 3. PostgreSQL Backups (3 AM)
-- **Scope**: Database-only backups
+### 3. Weekly Full Backups (Sunday 03:00)
+- **Scope**: Entire platform (all namespaces except Kubernetes system)
+- **Retention**: 90 days
+- **Frequency**: Weekly on Sunday at 03:00 UTC
+
+### 4. PostgreSQL Backups (3 AM)
+- **Scope**: Database-only backups (via DolphinScheduler workflow)
 - **Retention**: 7 days
 - **Frequency**: Daily at 3:00 AM
 
-### 4. Manual Backups
+### 5. Manual Backups
 - **Scope**: Custom selection
 - **Retention**: Configurable
 - **Trigger**: Manual execution
@@ -68,6 +73,7 @@ export VELERO_S3_ACCESS_KEY="<minio-access-key>"
 export VELERO_S3_SECRET_KEY="<minio-secret-key>"
 ./scripts/deploy-velero-backup.sh
 ```
+The script provisions the `velero-minio-credentials` secret, installs the Helm chart, and applies `k8s/storage/velero-backup-config.yaml` (storage location + schedules).
 
 ### Step 2: Verify Deployment
 ```bash
@@ -95,20 +101,44 @@ kubectl -n velero exec deploy/velero -- \
 
 ### 1. Full Cluster Recovery
 ```bash
-# Restore entire cluster
-kubectl apply -f k8s/storage/velero-restore-full.yaml
+# Identify the latest weekly full backup
+export BACKUP_NAME=$(velero backup get \
+  --selector velero.io/schedule-name=weekly-full-backup \
+  --output json | jq -r '.items | map(select(.status.phase=="Completed")) | sort_by(.status.completionTimestamp) | last | .metadata.name')
+
+# Create the restore (server generates name via generateName)
+kubectl create -f <(envsubst < k8s/storage/velero-restore-full.yaml)
 ```
 
 ### 2. Namespace-Specific Recovery
 ```bash
-# Restore specific namespace
-kubectl apply -f k8s/storage/velero-restore-namespace.yaml
+export TARGET_NAMESPACE="data-platform"
+export RESTORE_NAMESPACE="data-platform"   # or "data-platform-dr" for rehearsal
+export BACKUP_NAME=$(velero backup get \
+  --selector velero.io/schedule-name=daily-backup \
+  --output json | jq -r '.items | map(select(.status.phase=="Completed")) | sort_by(.status.completionTimestamp) | last | .metadata.name')
+
+kubectl create -f <(envsubst < k8s/storage/velero-restore-namespace.yaml)
 ```
 
 ### 3. Application Recovery
 ```bash
-# Restore specific application
-kubectl apply -f k8s/storage/velero-restore-app.yaml
+export TARGET_NAMESPACE="data-platform"
+export LABEL_KEY="app"
+export LABEL_VALUE="datahub-gms"
+export BACKUP_NAME=daily-backup-$(date +%Y%m%d020000)
+
+kubectl create -f <(envsubst < k8s/storage/velero-restore-app.yaml)
+```
+
+### 4. Automate Restore Validation
+```bash
+# Restore latest completed backup into a scratch namespace and wait for completion
+./scripts/velero-restore-validate.sh \
+  --schedule daily-backup \
+  --namespace data-platform \
+  --restore-namespace data-platform-dr \
+  --wait --cleanup
 ```
 
 ## Monitoring & Alerting
@@ -159,8 +189,15 @@ kubectl apply -f k8s/storage/velero-restore-app.yaml
 # Validate backup integrity
 kubectl exec -n velero deployment/velero -- ./velero backup describe <backup-name>
 
-# Test restore without affecting production
-kubectl apply -f k8s/storage/velero-restore-test.yaml
+# Rehearse restore into a scratch namespace
+export TARGET_NAMESPACE="data-platform"
+export RESTORE_NAMESPACE="data-platform-dr"
+export BACKUP_NAME=$(velero backup get --selector velero.io/schedule-name=daily-backup \
+  --output json | jq -r '.items | map(select(.status.phase=="Completed")) | sort_by(.status.completionTimestamp) | last | .metadata.name')
+kubectl create -f <(envsubst < k8s/storage/velero-restore-test.yaml)
+
+# Or run the helper script (auto handles selection/cleanup)
+./scripts/velero-restore-validate.sh --schedule daily-backup --namespace data-platform --wait --cleanup
 ```
 
 ### Cleanup

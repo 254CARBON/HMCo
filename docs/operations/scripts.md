@@ -17,6 +17,10 @@ Platform Operations
 - `scripts/phase4-testing.sh` — Runs Phase 4 end-to-end tests
 - `scripts/verify-tunnel.sh` — Checks tunnel health and common failure modes
 
+Backup & DR
+- `scripts/deploy-velero-backup.sh` — Installs Velero, creates credentials secret, and applies backup schedules
+- `scripts/velero-restore-validate.sh` — Automates namespace/full restores with optional cleanup and waiting
+
 See also
 - [Operations runbook](deployment/operations-runbook.md) — Operational procedures
 - [Deployment troubleshooting](deployment/troubleshooting.md) — Common issues and fixes

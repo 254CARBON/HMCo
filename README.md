@@ -37,3 +37,12 @@ All platform components are managed as Helm charts and deployed via ArgoCD. The 
 *   `docs/`: Contains detailed documentation for the platform.
 *   `services/`: Contains source code for custom services.
 *   `workflows/`: Contains workflow definitions for the platform.
+
+## Documentation Guide
+
+- Start here: `docs/index.md`
+- Quickstart: `docs/getting-started/quickstart.md`
+- Cloudflare: `docs/cloudflare/overview.md`, `docs/cloudflare/deployment.md`
+- Single Sign-On (SSO): `docs/sso/index.md`, `docs/sso/guide.md`
+- Operations: `docs/operations/deployment/index.md`, `docs/operations/scripts.md`
+- Disaster Recovery: `docs/disaster-recovery/DR_RUNBOOK.md`

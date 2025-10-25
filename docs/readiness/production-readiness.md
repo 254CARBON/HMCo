@@ -544,10 +544,10 @@ kubectl describe certificate portal-tls -n data-platform
 ```
 
 ### Important Files
-- Main README: [README.md](README.md)
-- Cloudflare Setup: [k8s/cloudflare/README.md](k8s/cloudflare/README.md)
-- SSO Setup: [k8s/cloudflare/SSO_PHASE2_SETUP.md](k8s/cloudflare/SSO_PHASE2_SETUP.md)
-- Portal: [portal/README.md](portal/README.md)
+- Documentation Index: [../index.md](../index.md)
+- Cloudflare Setup: [../cloudflare/deployment.md](../cloudflare/deployment.md)
+- SSO Setup: [../sso/guide.md](../sso/guide.md)
+- Portal: [../../portal/README.md](../../portal/README.md)
 
 ---
 

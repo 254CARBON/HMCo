@@ -420,8 +420,8 @@ kubectl get pod <pod-name> -n jupyter -o yaml | grep -A 10 resources:
 
 ## Next Steps
 
-1. [Create example notebooks](./examples/)
-2. [Configure additional authentication methods](./authentication.md)
-3. [Set up monitoring dashboards](../monitoring/jupyter-dashboards.md)
-4. [Configure backup and disaster recovery](../backup/README.md)
-5. [Scale to production](./production-scaling.md)
+1. [Create example notebooks](../../docker/jupyter-notebook/examples)
+2. Review [JupyterHub README](./README.md) for authentication details
+3. Review [Observability and monitoring](./README.md#observability)
+4. [Backups and restore](../backup/velero-installation.md)
+5. [Operations runbook](../operations/deployment/operations-runbook.md)

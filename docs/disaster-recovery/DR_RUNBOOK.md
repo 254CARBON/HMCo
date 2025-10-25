@@ -3,7 +3,7 @@
 **Validated**: October 21, 2025  
 **Backup Solution**: Velero + MinIO  
 **RTO**: 15 minutes  
-**RPO**: 24 hours (daily backups)
+**RPO**: 1 hour (hourly critical backups + daily full)
 
 ---
 
@@ -45,6 +45,7 @@
 **Storage Backend**: MinIO (bucket: `velero-backups`)  
 **Backup Schedules**:
 - **Daily**: 2 AM UTC, 30-day retention
+- **Hourly Critical**: Top of every hour, 7-day retention
 - **Weekly**: Sunday 3 AM UTC, 90-day retention
 
 ### Backup Scope
@@ -55,6 +56,7 @@
 - `registry` - Harbor registry
 - `cert-manager` - Certificates
 - `cloudflare-tunnel` - Tunnel configuration
+- Hourly schedule targets `data-platform` and `monitoring` for 1-hour RPO
 
 **Excluded**:
 - `kube-system` - System components (rebuilt on cluster init)
@@ -152,6 +154,8 @@ kubectl rollout status deployment/<name> -n data-platform
 kubectl get pods -n <namespace-name>
 ```
 
+**Automation**: `./scripts/velero-restore-validate.sh --schedule daily-backup --namespace <namespace-name> --wait` performs the same workflow and can map restores into scratch namespaces for rehearsal.
+
 ### Full Platform Recovery
 
 **Use when**: Complete platform failure
@@ -178,6 +182,8 @@ kubectl get pods -A | grep -v Running
 # Step 5: Test service access
 curl -I https://portal.254carbon.com
 ```
+
+**Template option**: export `BACKUP_NAME=<latest-weekly-backup>` and run `kubectl create -f <(envsubst < k8s/storage/velero-restore-full.yaml)` to replay the entire platform in a single restore object.
 
 ### Database-Only Recovery
 
@@ -348,10 +354,10 @@ mc mirror minio-local/velero-backups s3-remote/254carbon-backups
 | Data Type | RPO Target | Current |
 |-----------|------------|---------|
 | Application config | 24 hours | 24 hours |
-| Database data | 1 hour | 24 hours* |
-| Object storage | 24 hours | 24 hours |
+| Database data | 1 hour | 1 hour ✅ (hourly-critical) |
+| Object storage | 24 hours | 1 hour ✅ (hourly-critical) |
 
-*Consider more frequent database backups for critical data
+*DolphinScheduler pg_dump workflow retains database export history for gap coverage.
 
 ---
 
@@ -364,6 +370,7 @@ mc mirror minio-local/velero-backups s3-remote/254carbon-backups
 - Verify all resources recover
 - Document any issues
 - Update runbook
+- Automate via `./scripts/velero-restore-validate.sh --schedule daily-backup --namespace data-platform --wait --cleanup`
 
 **Quarterly**:
 - Full cluster rebuild test
@@ -475,8 +482,3 @@ kubectl describe pvc <pvc-name> -n <namespace>
 **Last Tested**: October 21, 2025  
 **Test Result**: ✅ PASS  
 **Next Test Due**: November 3, 2025 (First Sunday)
-
-
-
-
-

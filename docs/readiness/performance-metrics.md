@@ -60,6 +60,7 @@ Implementation Artifacts
 - Prometheus recording rules: `k8s/monitoring/slo-recording-rules.yaml`
 - SLO alerts: `k8s/monitoring/slo-alerts.yaml`
 - Grafana SLO dashboard: `k8s/monitoring/grafana-dashboards.yaml` (slo-overview.json)
+- Synthetic canary checks: `helm/charts/monitoring/values.yaml` (`blackboxExporter` section)
 
 Deployment
 - kubectl apply -f k8s/monitoring/slo-recording-rules.yaml
@@ -72,4 +73,6 @@ Validation
   - sli:http_error_ratio:5m
   - sli:http_latency_p95:5m
   - sli:service_availability:5m
-
+- Verify synthetic canaries:
+  - `kubectl get probes -n monitoring`
+  - `kubectl logs -n monitoring deploy/blackbox-exporter`

@@ -23,15 +23,14 @@ kind delete cluster --name dev-cluster && kind create cluster --name dev-cluster
 ## 📚 Documentation Files
 
 ### 🎯 START HERE
-- **[IMMEDIATE_REMEDIATION.md](./IMMEDIATE_REMEDIATION.md)** - Quick reference with 3 solution options
-- **[DEPLOYMENT_SUMMARY.md](./DEPLOYMENT_SUMMARY.md)** - Overall project status and achievements
+- **[connectivity-immediate-remediation.md](./connectivity-immediate-remediation.md)** - Quick reference with 3 solution options
+- **[network-issue-summary.md](./network-issue-summary.md)** - Executive summary
 
 ### 🔍 Deep Dive
-- **[CONNECTIVITY_TIMEOUT_DIAGNOSIS.md](./CONNECTIVITY_TIMEOUT_DIAGNOSIS.md)** - Comprehensive diagnosis with root cause analysis
-- **[NETWORK_ISSUE_SUMMARY.txt](./NETWORK_ISSUE_SUMMARY.txt)** - Executive summary in plain text
+- See additional guides in this folder (502, 504, redirect loop)
 
 ### 🛠️ Automation
-- **[scripts/troubleshoot-connectivity.sh](./scripts/troubleshoot-connectivity.sh)** - Automated diagnostic script
+- **[scripts/troubleshoot-connectivity.sh](../../scripts/troubleshoot-connectivity.sh)** - Automated diagnostic script
 
 ## 🎓 Issue Breakdown
 
@@ -68,7 +67,7 @@ Docker Network: kind (bridge)
 
 ## 💡 Next Steps After Fix
 
-1. Run verification tests from IMMEDIATE_REMEDIATION.md
+1. Run verification tests from connectivity-immediate-remediation.md
 2. Check all monitoring dashboards in Grafana
 3. Test data pipelines with SeaTunnel
 4. Validate PostgreSQL replication
@@ -78,15 +77,13 @@ Docker Network: kind (bridge)
 
 | Scenario | Document |
 |----------|----------|
-| I need to fix this NOW | IMMEDIATE_REMEDIATION.md |
-| I want to understand the problem | CONNECTIVITY_TIMEOUT_DIAGNOSIS.md |
-| I need a quick summary | NETWORK_ISSUE_SUMMARY.txt |
-| I'm debugging the issue | scripts/troubleshoot-connectivity.sh |
-| I want overall platform status | DEPLOYMENT_SUMMARY.md |
+| I need to fix this NOW | connectivity-immediate-remediation.md |
+| I need a quick summary | network-issue-summary.md |
+| I'm debugging the issue | ../../scripts/troubleshoot-connectivity.sh |
 
 ## 📞 Support Checklist
 
-- [ ] Read IMMEDIATE_REMEDIATION.md
+- [ ] Read connectivity-immediate-remediation.md
 - [ ] Run troubleshoot-connectivity.sh
 - [ ] Try one of the 3 solutions
 - [ ] Run verification tests

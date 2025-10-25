@@ -25,6 +25,26 @@ The issue is that Let's Encrypt cannot reach the ACME HTTP-01 challenge endpoint
 
 **Fix**: Configure Cloudflare to allow /.well-known/acme-challenge paths or use DNS-01 challenge instead.
 
+#### Automated Cloudflare Access exemption + renewal
+
+```bash
+# 1. Reconcile Access apps and add ACME bypass policies
+CLOUDFLARE_API_TOKEN=... \
+CLOUDFLARE_ACCOUNT_ID=... \
+./scripts/create-cloudflare-access-apps.sh \
+  --mode zone \
+  --zone-domain 254carbon.com \
+  --force
+
+# 2. Trigger new ACME orders once bypass is in place
+./scripts/reissue-letsencrypt-certs.sh \
+  --cert data-platform/spark-history-tls \
+  --cert data-platform/graphql-gateway-tls \
+  --wait
+```
+
+Step 1 creates dedicated Access applications scoped to `/.well-known/acme-challenge/*` for each hostname and attaches a `decision: bypass` policy so Let’s Encrypt can fetch challenge tokens without authenticating. Step 2 forces cert-manager to renew the affected certificates after the bypass is active.
+
 ## Option 2: Cloudflare Origin Certificates (Recommended)
 
 Cloudflare Origin Certificates provide free, 15-year certificates specifically designed for use with Cloudflare.
@@ -189,7 +209,6 @@ Total time: ~10 minutes
 - Use Kubernetes secrets (not ConfigMaps) for certificates
 - Rotate certificates before expiry
 - Monitor certificate expiration dates
-
 
 
 

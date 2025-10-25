@@ -407,7 +407,13 @@ data:
     
     source {
       Kafka {
-        bootstrap.servers = "kafka-service:9092"
+        bootstrap.servers = "kafka-service:9093"
+        security.protocol = "SSL"
+        ssl.keystore.location = "/etc/kafka/secrets/user.p12"
+        ssl.truststore.location = "/etc/kafka/secrets/user.p12"
+        ssl.keystore.password = "${KAFKA_USER_PASSWORD}"
+        ssl.truststore.password = "${KAFKA_USER_PASSWORD}"
+        ssl.key.password = "${KAFKA_USER_PASSWORD}"
         topic = "test-events"
         consumer.group = "seatunnel-test"
         result_table_name = "kafka_source"
@@ -435,6 +441,8 @@ EOF
 kubectl exec -it -n data-platform seatunnel-xxx -- \
   /opt/seatunnel/bin/seatunnel.sh \
   --config /etc/seatunnel/config/kafka-to-iceberg-test.conf
+
+> ℹ️ Mount the `kafka-platform-apps-tls` secret into the SeaTunnel pod and set `KAFKA_USER_PASSWORD=$(cat /etc/kafka/secrets/user.password)` before running the job so TLS credentials are available.
 ```
 
 ### 6.5 Verify SeaTunnel Data

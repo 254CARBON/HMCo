@@ -180,13 +180,19 @@ env {
 
 source {
   Kafka {
-    bootstrap.servers = "kafka-service:9092"
+    bootstrap.servers = "kafka-service:9093"
+    security.protocol = "SSL"
+    ssl.keystore.location = "/etc/kafka/secrets/user.p12"
+    ssl.truststore.location = "/etc/kafka/secrets/user.p12"
+    ssl.keystore.password = "${KAFKA_USER_PASSWORD}"
+    ssl.truststore.password = "${KAFKA_USER_PASSWORD}"
+    ssl.key.password = "${KAFKA_USER_PASSWORD}"
     topic = "events"
     result_table_name = "events_stream"
   }
 }
 
-sink {
+ sink {
   Iceberg {
     catalog_name = "rest"
     uri = "http://iceberg-rest-catalog:8181"
@@ -196,6 +202,8 @@ sink {
   }
 }
 ```
+
+> ℹ️ Mount the `kafka-platform-apps-tls` secret into the SeaTunnel job pod and export `KAFKA_USER_PASSWORD=$(cat /etc/kafka/secrets/user.password)` so the SSL properties resolve correctly.
 
 ### Discover Metadata with DataHub
 
@@ -216,14 +224,10 @@ Comprehensive guides for each component:
 
 | Guide | Purpose | Link |
 |-------|---------|------|
-| Deployment | Setup and configuration | [k8s/data-lake/ICEBERG_DEPLOYMENT.md](k8s/data-lake/ICEBERG_DEPLOYMENT.md) |
-| Trino Integration | SQL query engine setup | [k8s/compute/trino/TRINO_ICEBERG_GUIDE.md](k8s/compute/trino/TRINO_ICEBERG_GUIDE.md) |
-| DataHub Integration | Metadata catalog setup | [k8s/datahub/DATAHUB_ICEBERG_INTEGRATION.md](k8s/datahub/DATAHUB_ICEBERG_INTEGRATION.md) |
-| SeaTunnel Integration | Data pipeline setup | [k8s/seatunnel/SEATUNNEL_ICEBERG_GUIDE.md](k8s/seatunnel/SEATUNNEL_ICEBERG_GUIDE.md) |
-| Testing Guide | End-to-end testing procedures | [ICEBERG_INTEGRATION_TEST_GUIDE.md](ICEBERG_INTEGRATION_TEST_GUIDE.md) |
-| Security Hardening | Security best practices | [ICEBERG_SECURITY_HARDENING.md](ICEBERG_SECURITY_HARDENING.md) |
-| Monitoring & Alerting | Observability setup | [ICEBERG_MONITORING_GUIDE.md](ICEBERG_MONITORING_GUIDE.md) |
-| Operations Runbook | Daily operational procedures | [ICEBERG_OPERATIONS_RUNBOOK.md](ICEBERG_OPERATIONS_RUNBOOK.md) |
+| Deployment & Operations | Setup and operational procedures | [operations-runbook.md](operations-runbook.md) |
+| Testing Guide | End-to-end testing procedures | [testing-guide.md](testing-guide.md) |
+| Security Hardening | Security best practices | [security-hardening.md](security-hardening.md) |
+| Monitoring & Alerting | Observability setup | [monitoring.md](monitoring.md) |
 
 ## Configuration Files
 
@@ -322,7 +326,7 @@ FOR VERSION AS OF TIMESTAMP '...';
 | DataHub not discovering tables | Run ingestion job, check credentials | DataHub Guide |
 | Slow queries | Check partitioning, monitor resources | Monitoring Guide |
 
-See [ICEBERG_OPERATIONS_RUNBOOK.md](ICEBERG_OPERATIONS_RUNBOOK.md) for detailed troubleshooting procedures.
+See [operations-runbook.md](operations-runbook.md) for detailed troubleshooting procedures.
 
 ## Performance Benchmarks
 
@@ -384,7 +388,7 @@ This integration is built on:
 
 For issues or questions:
 1. Check relevant documentation above
-2. Review [ICEBERG_OPERATIONS_RUNBOOK.md](ICEBERG_OPERATIONS_RUNBOOK.md)
+2. Review [operations-runbook.md](operations-runbook.md)
 3. Contact platform engineering team
 4. Escalate to infrastructure team if critical
 
