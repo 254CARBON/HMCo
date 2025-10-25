@@ -31,7 +31,7 @@ spec:
           type: RuntimeDefault
       initContainers:
       - name: install-dependencies
-        image: node:18-alpine
+        image: node:lts-alpine
         securityContext:
           allowPrivilegeEscalation: false
           capabilities:
@@ -62,7 +62,7 @@ spec:
         emptyDir: {}
       containers:
       - name: gateway
-        image: node:18-alpine
+        image: node:lts-alpine
         securityContext:
           allowPrivilegeEscalation: false
           capabilities:
