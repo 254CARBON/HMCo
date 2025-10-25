@@ -368,6 +368,13 @@ export class JobExecutor {
 
 ## Phase 5: End-to-End Polygon Provider
 
+> ✅ **Status (Nov 2025)**: Polygon provider MVP is implemented. Refer to:
+> - `sdk/uis/templates/polygon-stocks.uis.yaml` for the production UIS template.
+> - `jobs/polygon_ingestion.py` and `jobs/polygon_quality_checks.py` for Spark ingestion and Deequ validation.
+> - `infrastructure/iceberg/polygon_market_ohlc.sql` / `polygon_quality_checks.sql` for table DDLs.
+> - Scheduled Spark jobs in `helm/charts/data-platform/charts/spark-operator/templates/`.
+> - DataHub lineage recipe `helm/charts/data-platform/charts/datahub/templates/polygon-lineage-ingestion.yaml`.
+
 ### 5.1 Create Polygon UIS Template
 
 ```yaml

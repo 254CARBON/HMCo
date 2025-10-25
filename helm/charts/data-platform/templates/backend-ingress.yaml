@@ -1,0 +1,30 @@
+{{- if and .Values.backend.enabled .Values.backend.ingress.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: hmco-backend-ingress
+  namespace: {{ .Values.global.namespace | default "data-platform" }}
+  labels:
+    app.kubernetes.io/name: hmco-backend
+    app.kubernetes.io/part-of: data-platform
+  annotations:
+    kubernetes.io/ingress.class: {{ .Values.backend.ingress.className | quote }}
+spec:
+  {{- if .Values.backend.ingress.tls }}
+  tls:
+    - hosts:
+        - {{ .Values.backend.ingress.hostname | quote }}
+  {{- end }}
+  rules:
+    - host: {{ .Values.backend.ingress.hostname | quote }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: hmco-backend-service
+                port:
+                  name: http
+{{- end }}
+

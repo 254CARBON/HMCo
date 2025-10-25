@@ -1,0 +1,19 @@
+{{- if .Values.backend.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: hmco-backend-service
+  namespace: {{ .Values.global.namespace | default "data-platform" }}
+  labels:
+    app.kubernetes.io/name: hmco-backend
+    app.kubernetes.io/part-of: data-platform
+spec:
+  type: {{ .Values.backend.service.type | default "ClusterIP" }}
+  selector:
+    app.kubernetes.io/name: hmco-backend
+  ports:
+    - name: http
+      port: {{ .Values.backend.service.port | default 3001 }}
+      targetPort: http
+{{- end }}
+

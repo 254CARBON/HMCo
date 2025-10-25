@@ -23,7 +23,8 @@
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.0.0",
     "lucide-react": "^0.263.0",
-    "axios": "^1.6.0"
+    "axios": "^1.6.0",
+    "jose": "^5.2.0"
   },
   "devDependencies": {
     "eslint": "^8.50.0",

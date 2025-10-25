@@ -1,0 +1,92 @@
+# DataHub manual lineage for Polygon market pipeline
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: datahub-polygon-lineage
+  namespace: data-platform
+  labels:
+    app: datahub
+    component: ingestion
+data:
+  polygon-lineage.json: |
+    {"entityType":"dataFlow","entityUrn":"urn:li:dataFlow:(urn:li:dataPlatform:spark,polygon-market-ingestion,PROD)","changeType":"UPSERT","aspectName":"dataFlowInfo","aspect":{"name":"Polygon Market Data Pipeline","description":"Daily Spark ingestion of Polygon.io aggregates into Iceberg","project":"spark","externalUrl":"https://dolphinscheduler.254carbon.com/projects/polygon"}}
+    {"entityType":"dataFlow","entityUrn":"urn:li:dataFlow:(urn:li:dataPlatform:spark,polygon-market-ingestion,PROD)","changeType":"UPSERT","aspectName":"ownership","aspect":{"owners":[{"owner":"urn:li:corpuser:data-platform","type":"DATAOWNER"}]}}
+    {"entityType":"dataJob","entityUrn":"urn:li:dataJob:(urn:li:dataFlow:(urn:li:dataPlatform:spark,polygon-market-ingestion,PROD),daily_ingestion)","changeType":"UPSERT","aspectName":"dataJobInfo","aspect":{"name":"polygon_ingestion","type":"BATCH","description":"Spark job that loads Polygon daily aggregates into Iceberg"}}
+    {"entityType":"dataJob","entityUrn":"urn:li:dataJob:(urn:li:dataFlow:(urn:li:dataPlatform:spark,polygon-market-ingestion,PROD),daily_ingestion)","changeType":"UPSERT","aspectName":"dataJobSchedule","aspect":{"schedule":{"type":"cron","interval":"0 1 * * *","timezone":"UTC"}}}
+    {"entityType":"dataJob","entityUrn":"urn:li:dataJob:(urn:li:dataFlow:(urn:li:dataPlatform:spark,polygon-market-ingestion,PROD),daily_ingestion)","changeType":"UPSERT","aspectName":"ownership","aspect":{"owners":[{"owner":"urn:li:corpuser:data-platform","type":"DATAOWNER"}]}}
+    {"entityType":"dataset","entityUrn":"urn:li:dataset:(urn:li:dataPlatform:iceberg,raw.polygon_market_ohlc,PROD)","changeType":"UPSERT","aspectName":"datasetProperties","aspect":{"description":"Polygon.io OHLC aggregates stored as Iceberg table raw.polygon_market_ohlc","customProperties":{"source":"Polygon.io","schedule":"hourly","contact":"data-platform@hmco.com"}}}
+    {"entityType":"dataset","entityUrn":"urn:li:dataset:(urn:li:dataPlatform:iceberg,raw.polygon_market_ohlc,PROD)","changeType":"UPSERT","aspectName":"ownership","aspect":{"owners":[{"owner":"urn:li:corpuser:data-platform","type":"DATAOWNER"}]}}
+    {"entityType":"dataJob","entityUrn":"urn:li:dataJob:(urn:li:dataFlow:(urn:li:dataPlatform:spark,polygon-market-ingestion,PROD),daily_ingestion)","changeType":"UPSERT","aspectName":"dataJobInputOutput","aspect":{"inputDatasets":[],"outputDatasets":["urn:li:dataset:(urn:li:dataPlatform:iceberg,raw.polygon_market_ohlc,PROD)"],"inputDataJobs":[]}}
+  recipe.yml: |
+    source:
+      type: file
+      config:
+        filename: /config/polygon-lineage.json
+    sink:
+      type: datahub-rest
+      config:
+        server: "http://datahub-gms.data-platform.svc.cluster.local:8080"
+        token: "${DATAHUB_SYSTEM_TOKEN}"
+    pipeline_name: "polygon_lineage_ingestion"
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: datahub-polygon-lineage-ingestion
+  namespace: data-platform
+  labels:
+    app: datahub-ingestion
+    source: polygon
+spec:
+  schedule: "10 1 * * *"
+  successfulJobsHistoryLimit: 2
+  failedJobsHistoryLimit: 2
+  concurrencyPolicy: Forbid
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      template:
+        spec:
+          serviceAccountName: datahub-ingestion
+          restartPolicy: Never
+          containers:
+            - name: datahub-ingestion
+              image: acryldata/datahub-ingestion:head
+              env:
+                - name: DATAHUB_GMS_HOST
+                  value: "datahub-gms.data-platform.svc.cluster.local"
+                - name: DATAHUB_GMS_PORT
+                  value: "8080"
+                - name: DATAHUB_SYSTEM_TOKEN
+                  valueFrom:
+                    secretKeyRef:
+                      name: datahub-secret
+                      key: DATAHUB_SECRET
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  echo "Publishing Polygon lineage metadata to DataHub..."
+                  datahub ingest -c /config/recipe.yml
+                  echo "Polygon lineage ingestion complete."
+              volumeMounts:
+                - name: polygon-lineage
+                  mountPath: /config
+                  readOnly: true
+              resources:
+                requests:
+                  cpu: 100m
+                  memory: 256Mi
+                limits:
+                  cpu: 300m
+                  memory: 512Mi
+          volumes:
+            - name: polygon-lineage
+              configMap:
+                name: datahub-polygon-lineage
+                items:
+                  - key: polygon-lineage.json
+                    path: polygon-lineage.json
+                  - key: recipe.yml
+                    path: recipe.yml
+                    mode: 420

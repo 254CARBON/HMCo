@@ -5,6 +5,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.createProvidersRouter = createProvidersRouter;
 const express_1 = __importDefault(require("express"));
+const JobExecutor_1 = require("../services/JobExecutor");
 function parseQueryNumber(value, fallback) {
     if (typeof value !== 'string') {
         return fallback;
@@ -12,7 +13,7 @@ function parseQueryNumber(value, fallback) {
     const parsed = Number.parseInt(value, 10);
     return Number.isNaN(parsed) ? fallback : parsed;
 }
-function createProvidersRouter(providersService) {
+function createProvidersRouter(providersService, jobExecutor) {
     const router = express_1.default.Router();
     router.get('/', async (req, res) => {
         try {
@@ -29,18 +30,69 @@ function createProvidersRouter(providersService) {
     });
     router.post('/', async (req, res) => {
         try {
-            const { name, type, uis, config, schedule } = req.body;
+            const { name, type, uis, config, schedule } = req.body ?? {};
             if (!name || !type || !uis) {
                 return res.status(400).json({ error: 'Missing required fields' });
+            }
+            if (schedule && typeof schedule === 'string' && !(0, JobExecutor_1.validateCronExpression)(schedule)) {
+                return res
+                    .status(400)
+                    .json({ error: 'Invalid cron expression for schedule.' });
+            }
+            const validation = jobExecutor.validateUIS(String(uis));
+            if (!validation.valid || !validation.spec) {
+                return res.status(400).json({
+                    error: 'UIS validation failed',
+                    details: validation.errors,
+                });
             }
             const provider = await providersService.createProvider({
                 name,
                 type,
-                uis,
+                uis: validation.normalized ?? String(uis),
                 config,
                 schedule,
             });
             res.status(201).json(provider);
+        }
+        catch (error) {
+            const err = error;
+            res.status(500).json({ error: err.message });
+        }
+    });
+    router.post('/validate', (req, res) => {
+        try {
+            const { uis } = req.body ?? {};
+            if (typeof uis !== 'string') {
+                return res
+                    .status(400)
+                    .json({ error: 'UIS specification must be a string.' });
+            }
+            const validation = jobExecutor.validateUIS(uis);
+            res.json(validation);
+        }
+        catch (error) {
+            const err = error;
+            res.status(500).json({ error: err.message });
+        }
+    });
+    router.post('/test', async (req, res) => {
+        try {
+            const { uis } = req.body ?? {};
+            if (typeof uis !== 'string') {
+                return res
+                    .status(400)
+                    .json({ error: 'UIS specification must be a string.' });
+            }
+            const validation = jobExecutor.validateUIS(uis);
+            if (!validation.valid || !validation.spec) {
+                return res.status(400).json({
+                    error: 'UIS validation failed',
+                    details: validation.errors,
+                });
+            }
+            const result = await jobExecutor.testConnection(uis);
+            res.json({ success: true, result });
         }
         catch (error) {
             const err = error;
@@ -59,7 +111,15 @@ function createProvidersRouter(providersService) {
     });
     router.patch('/:id', async (req, res) => {
         try {
-            const provider = await providersService.updateProvider(req.params.id, req.body ?? {});
+            const body = req.body ?? {};
+            if (typeof body.schedule === 'string' &&
+                body.schedule.length > 0 &&
+                !(0, JobExecutor_1.validateCronExpression)(body.schedule)) {
+                return res
+                    .status(400)
+                    .json({ error: 'Invalid cron expression for schedule.' });
+            }
+            const provider = await providersService.updateProvider(req.params.id, body);
             res.json(provider);
         }
         catch (error) {
@@ -71,6 +131,17 @@ function createProvidersRouter(providersService) {
         try {
             await providersService.deleteProvider(req.params.id);
             res.json({ success: true });
+        }
+        catch (error) {
+            const err = error;
+            res.status(500).json({ error: err.message });
+        }
+    });
+    router.post('/:id/test', async (req, res) => {
+        try {
+            const provider = await providersService.getProvider(req.params.id);
+            const result = await jobExecutor.testConnection(provider.uis);
+            res.json({ success: true, result });
         }
         catch (error) {
             const err = error;

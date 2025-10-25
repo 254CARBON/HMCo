@@ -1,21 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
-import {
-  verifySessionToken,
-  getSessionCookieName,
-} from '@/lib/auth/session';
+import { getUserFromRequest } from '@/lib/auth/cloudflare';
 
 export async function GET(req: NextRequest) {
-  const cookie = req.cookies.get(getSessionCookieName());
-  const session = verifySessionToken(cookie?.value);
+  const user = await getUserFromRequest(req);
 
-  if (!session) {
+  if (!user) {
     return NextResponse.json({ user: null }, { status: 401 });
   }
 
   return NextResponse.json({
-    user: {
-      username: session.username,
-      expiresAt: session.expiresAt,
-    },
+    user,
   });
 }

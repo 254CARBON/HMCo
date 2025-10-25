@@ -1,5 +1,8 @@
 # DataHub Helm Chart Values - Using Existing Infrastructure
 # Reference: https://artifacthub.io/packages/helm/datahub/datahub
+{{- $kafkaVals := default (dict) .Values.kafka }}
+{{- $kafkaBootstrap := default "kafka-service:9092" (get $kafkaVals "bootstrapServers") }}
+{{- $schemaRegistryUrl := default "http://schema-registry-service:8081" (get $kafkaVals "schemaRegistryUrl") }}
 
 # Global configuration
 global:
@@ -39,9 +42,9 @@ global:
   # Kafka configuration (using existing service)
   kafka:
     bootstrap:
-      server: "kafka-service:9093"
+      server: {{ $kafkaBootstrap | quote }}
     schemaregistry:
-      url: "http://schema-registry-service:8081"
+      url: {{ $schemaRegistryUrl | quote }}
 
 # Disable all prerequisite charts (using existing infrastructure)
 elasticsearch:

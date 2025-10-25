@@ -1,0 +1,82 @@
+# Scheduled SparkApplication for Polygon Deequ quality checks
+apiVersion: sparkoperator.k8s.io/v1beta2
+kind: ScheduledSparkApplication
+metadata:
+  name: polygon-quality-checks
+  namespace: data-platform
+  labels:
+    app: spark
+    component: quality
+    datahub.lineage/enabled: "true"
+    data-source: polygon
+spec:
+  schedule: "30 5 * * *"
+  concurrencyPolicy: Forbid
+  successfulRunHistoryLimit: 3
+  failedRunHistoryLimit: 3
+  template:
+    type: Python
+    mode: cluster
+    image: apache/spark:3.5.0
+    imagePullPolicy: IfNotPresent
+    pythonVersion: "3"
+    mainApplicationFile: s3a://spark-code/quality/polygon_quality_checks.py
+    arguments:
+      - "--catalog"
+      - "iceberg"
+      - "--source-table"
+      - "raw.polygon_market_ohlc"
+      - "--target-table"
+      - "monitoring.polygon_quality_checks"
+      - "--iceberg-uri"
+      - "http://iceberg-rest-catalog:8181"
+      - "--iceberg-warehouse"
+      - "s3://iceberg-warehouse/"
+      - "--freshness-threshold-hours"
+      - "6"
+    sparkVersion: "3.5.0"
+    restartPolicy:
+      type: OnFailure
+      onFailureRetries: 3
+      onFailureRetryInterval: 30
+    driver:
+      cores: 1
+      memory: "2g"
+      serviceAccount: spark-app
+      env:
+        - name: AWS_ACCESS_KEY_ID
+          valueFrom:
+            secretKeyRef:
+              name: minio-secret
+              key: access-key
+        - name: AWS_SECRET_ACCESS_KEY
+          valueFrom:
+            secretKeyRef:
+              name: minio-secret
+              key: secret-key
+    executor:
+      cores: 1
+      instances: 2
+      memory: "3g"
+      env:
+        - name: AWS_ACCESS_KEY_ID
+          valueFrom:
+            secretKeyRef:
+              name: minio-secret
+              key: access-key
+        - name: AWS_SECRET_ACCESS_KEY
+          valueFrom:
+            secretKeyRef:
+              name: minio-secret
+              key: secret-key
+    sparkConf:
+      spark.sql.extensions: org.apache.iceberg.spark.extensions.IcebergSparkSessionExtensions
+      spark.sql.catalog.iceberg: org.apache.iceberg.spark.SparkCatalog
+      spark.sql.catalog.iceberg.type: rest
+      spark.sql.catalog.iceberg.uri: http://iceberg-rest-catalog:8181
+      spark.sql.catalog.iceberg.warehouse: s3://iceberg-warehouse/
+      spark.hadoop.fs.s3a.endpoint: http://minio-service:9000
+      spark.hadoop.fs.s3a.access.key: minioadmin
+      spark.hadoop.fs.s3a.secret.key: minioadmin123
+      spark.hadoop.fs.s3a.path.style.access: "true"
+      spark.hadoop.fs.s3a.connection.ssl.enabled: "false"

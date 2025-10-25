@@ -218,6 +218,37 @@ kubectl port-forward svc/datahub-frontend 9002:9002
 # Search for Iceberg tables
 ```
 
+## Polygon Market Data Pipeline
+
+The Polygon provider MVP delivers an end-to-end Spark ingestion workflow, Deequ guardrails, and DataHub lineage for market datasets.
+
+- **UIS Template**: `sdk/uis/templates/polygon-stocks.uis.yaml` standardises runtime configuration for the Polygon provider.
+- **Ingestion Job**: `jobs/polygon_ingestion.py` reads Polygon.io daily aggregates, enriches reference metadata, and appends records into `iceberg.raw.polygon_market_ohlc`.
+- **Quality Checks**: `jobs/polygon_quality_checks.py` runs Deequ completeness, uniqueness, and freshness validations, storing metrics in `iceberg.monitoring.polygon_quality_checks`.
+- **Iceberg DDLs**: `infrastructure/iceberg/polygon_market_ohlc.sql` and `infrastructure/iceberg/polygon_quality_checks.sql` provision the raw and monitoring tables.
+- **Scheduled Runs**: `helm/charts/data-platform/charts/spark-operator/templates/polygon-market-sparkapp.yaml` and `.../polygon-quality-sparkapp.yaml` create ScheduledSparkApplications for daily ingestion and quality enforcement.
+- **DataHub Lineage**: `helm/charts/data-platform/charts/datahub/templates/polygon-lineage-ingestion.yaml` publishes pipeline, job, and ownership metadata to DataHub.
+
+### Deploy the Pipeline
+
+```bash
+# Schedule ingestion and quality jobs
+kubectl apply -f helm/charts/data-platform/charts/spark-operator/templates/polygon-market-sparkapp.yaml
+kubectl apply -f helm/charts/data-platform/charts/spark-operator/templates/polygon-quality-sparkapp.yaml
+
+# Register lineage metadata in DataHub
+kubectl apply -f helm/charts/data-platform/charts/datahub/templates/polygon-lineage-ingestion.yaml
+```
+
+### Validate in Trino
+
+```sql
+SELECT ticker, trading_day, close_price, volume
+FROM iceberg.raw.polygon_market_ohlc
+WHERE trading_day >= CURRENT_DATE - INTERVAL '7' DAY
+ORDER BY trading_day DESC, ticker;
+```
+
 ## Documentation
 
 Comprehensive guides for each component:

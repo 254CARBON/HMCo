@@ -235,7 +235,12 @@ datahub:
   
   kafka:
     enabled: true
-    bootstrap: datahub-kafka-kafka-bootstrap.kafka.svc.cluster.local:9092
+    bootstrapServers: kafka-service:9092
+    schemaRegistryUrl: http://schema-registry-service:8081
+    security:
+      protocol: PLAINTEXT
+      tls:
+        enabled: false
   
   neo4j:
     enabled: true
@@ -428,3 +433,41 @@ redis:
       capabilities:
         drop:
           - ALL
+
+# Backend API (HMCo)
+backend:
+  enabled: true
+  replicaCount: 1
+
+  image:
+    repository: ghcr.io/254carbon/hmco-backend
+    tag: "latest"
+    pullPolicy: IfNotPresent
+
+  service:
+    type: ClusterIP
+    port: 3001
+
+  # Cluster Postgres wiring
+  postgres:
+    host: postgres-shared-service
+    port: 5432
+    database: datahub
+    user: postgres
+    passwordSecretRef:
+      name: postgres-shared-secret
+      key: password
+
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+  ingress:
+    enabled: false
+    className: nginx
+    hostname: backend.254carbon.com
+    tls: true

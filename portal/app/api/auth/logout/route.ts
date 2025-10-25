@@ -1,18 +1,31 @@
-import { NextResponse } from 'next/server';
-import { getSessionCookieName } from '@/lib/auth/session';
+import { NextRequest, NextResponse } from 'next/server';
+import {
+  buildCloudflareLogoutUrl,
+  isCloudflareAccessEnabled,
+} from '@/lib/auth/cloudflare';
 
-export async function POST() {
-  const response = NextResponse.json({ success: true });
+export async function GET(req: NextRequest) {
+  const returnTo =
+    req.nextUrl.searchParams.get('returnTo') ??
+    req.headers.get('referer') ??
+    req.nextUrl.origin;
 
-  response.cookies.set({
-    name: getSessionCookieName(),
-    value: '',
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production' ? true : false,
-    sameSite: 'lax',
-    path: '/',
-    maxAge: 0,
-  });
+  if (!isCloudflareAccessEnabled()) {
+    return NextResponse.redirect(returnTo);
+  }
 
-  return response;
+  try {
+    const logoutUrl = buildCloudflareLogoutUrl(returnTo);
+    return NextResponse.redirect(logoutUrl);
+  } catch (error) {
+    console.error('Failed to construct Cloudflare Access logout URL', error);
+    return NextResponse.json(
+      { error: 'Unable to perform Cloudflare Access logout' },
+      { status: 500 }
+    );
+  }
+}
+
+export async function POST(req: NextRequest) {
+  return GET(req);
 }

@@ -30,7 +30,19 @@ export async function GET(req: NextRequest) {
     }
 
     const data = await response.json();
-    return NextResponse.json(data);
+    const providers = Array.isArray(data.providers)
+      ? data.providers.map((p: any) => ({
+          id: p.id,
+          name: p.name,
+          type: p.type,
+          status: p.status,
+          lastRunAt: p.last_run_at ?? null,
+          nextRunAt: p.next_run_at ?? null,
+          totalRuns: p.total_runs ?? 0,
+          successRate: p.success_rate ?? 100,
+        }))
+      : [];
+    return NextResponse.json({ providers, total: data.total ?? providers.length });
   } catch (error) {
     console.error('Provider list error:', error);
     return NextResponse.json(

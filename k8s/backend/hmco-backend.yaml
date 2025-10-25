@@ -1,0 +1,70 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hmco-backend
+  namespace: data-platform
+  labels:
+    app: hmco-backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: hmco-backend
+  template:
+    metadata:
+      labels:
+        app: hmco-backend
+    spec:
+      containers:
+        - name: api
+          image: ghcr.io/254carbon/hmco-backend:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 3001
+          env:
+            - name: PORT
+              value: "3001"
+            - name: POSTGRES_HOST
+              value: postgres-shared-service
+            - name: POSTGRES_PORT
+              value: "5432"
+            - name: POSTGRES_DB
+              value: datahub
+            - name: POSTGRES_USER
+              value: postgres
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-shared-secret
+                  key: password
+            - name: RUN_MIGRATIONS
+              value: "true"
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 3001
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 3001
+            initialDelaySeconds: 10
+            periodSeconds: 20
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hmco-backend-service
+  namespace: data-platform
+  labels:
+    app: hmco-backend
+spec:
+  type: ClusterIP
+  selector:
+    app: hmco-backend
+  ports:
+    - name: http
+      port: 3001
+      targetPort: 3001
+

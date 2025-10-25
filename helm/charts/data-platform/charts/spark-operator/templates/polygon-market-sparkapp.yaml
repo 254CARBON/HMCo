@@ -1,0 +1,101 @@
+# Scheduled SparkApplication for Polygon Market Data ingestion
+apiVersion: sparkoperator.k8s.io/v1beta2
+kind: ScheduledSparkApplication
+metadata:
+  name: polygon-market-ingestion
+  namespace: data-platform
+  labels:
+    app: spark
+    component: ingestion
+    datahub.lineage/enabled: "true"
+    data-source: polygon
+spec:
+  schedule: "0 5 * * *"
+  concurrencyPolicy: Forbid
+  successfulRunHistoryLimit: 3
+  failedRunHistoryLimit: 3
+  template:
+    type: Python
+    mode: cluster
+    image: apache/spark:3.5.0
+    imagePullPolicy: IfNotPresent
+    pythonVersion: "3"
+    mainApplicationFile: s3a://spark-code/ingestion/polygon_ingestion.py
+    arguments:
+      - "--tickers"
+      - "C:CL,C:NG,C:HO,C:RB"
+      - "--lookback-days"
+      - "7"
+      - "--iceberg-catalog"
+      - "iceberg"
+      - "--iceberg-namespace"
+      - "raw"
+      - "--iceberg-table"
+      - "polygon_market_ohlc"
+      - "--iceberg-uri"
+      - "http://iceberg-rest-catalog:8181"
+      - "--iceberg-warehouse"
+      - "s3://iceberg-warehouse/"
+      - "--s3-endpoint"
+      - "http://minio-service:9000"
+      - "--request-limit"
+      - "5000"
+    sparkVersion: "3.5.0"
+    restartPolicy:
+      type: OnFailure
+      onFailureRetries: 3
+      onFailureRetryInterval: 30
+      onSubmissionFailureRetries: 5
+      onSubmissionFailureRetryInterval: 30
+    driver:
+      cores: 2
+      coreLimit: "2000m"
+      memory: "2g"
+      serviceAccount: spark-app
+      env:
+        - name: POLYGON_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: dolphinscheduler-api-keys
+              key: POLYGON_API_KEY
+        - name: AWS_ACCESS_KEY_ID
+          valueFrom:
+            secretKeyRef:
+              name: minio-secret
+              key: access-key
+        - name: AWS_SECRET_ACCESS_KEY
+          valueFrom:
+            secretKeyRef:
+              name: minio-secret
+              key: secret-key
+    executor:
+      cores: 2
+      instances: 3
+      memory: "4g"
+      env:
+        - name: POLYGON_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: dolphinscheduler-api-keys
+              key: POLYGON_API_KEY
+        - name: AWS_ACCESS_KEY_ID
+          valueFrom:
+            secretKeyRef:
+              name: minio-secret
+              key: access-key
+        - name: AWS_SECRET_ACCESS_KEY
+          valueFrom:
+            secretKeyRef:
+              name: minio-secret
+              key: secret-key
+    sparkConf:
+      spark.sql.extensions: org.apache.iceberg.spark.extensions.IcebergSparkSessionExtensions
+      spark.sql.catalog.iceberg: org.apache.iceberg.spark.SparkCatalog
+      spark.sql.catalog.iceberg.type: rest
+      spark.sql.catalog.iceberg.uri: http://iceberg-rest-catalog:8181
+      spark.sql.catalog.iceberg.warehouse: s3://iceberg-warehouse/
+      spark.hadoop.fs.s3a.endpoint: http://minio-service:9000
+      spark.hadoop.fs.s3a.access.key: minioadmin
+      spark.hadoop.fs.s3a.secret.key: minioadmin123
+      spark.hadoop.fs.s3a.path.style.access: "true"
+      spark.hadoop.fs.s3a.connection.ssl.enabled: "false"

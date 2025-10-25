@@ -17,7 +17,9 @@ export async function GET(req: NextRequest) {
     if (status) query.append('status', status);
     query.append('limit', limit);
     query.append('offset', offset);
-    query.append('sortBy', sortBy);
+    // Map camelCase -> snake_case for backend
+    const sortByMapped = sortBy === 'createdAt' ? 'created_at' : sortBy === 'startedAt' ? 'started_at' : sortBy;
+    query.append('sortBy', sortByMapped);
     query.append('sortOrder', sortOrder);
 
     const response = await fetch(`${API_BASE}/api/runs?${query}`, {
@@ -35,7 +37,20 @@ export async function GET(req: NextRequest) {
     }
 
     const data = await response.json();
-    return NextResponse.json(data);
+    const runs = Array.isArray(data.runs)
+      ? data.runs.map((r: any) => ({
+          id: r.id,
+          providerId: r.provider_id,
+          providerName: r.provider_name,
+          status: r.status,
+          startedAt: r.started_at,
+          completedAt: r.completed_at,
+          recordsIngested: r.records_ingested ?? 0,
+          recordsFailed: r.records_failed ?? 0,
+          duration: r.duration ?? 0,
+        }))
+      : [];
+    return NextResponse.json({ runs });
   } catch (error) {
     console.error('Runs list error:', error);
     return NextResponse.json(

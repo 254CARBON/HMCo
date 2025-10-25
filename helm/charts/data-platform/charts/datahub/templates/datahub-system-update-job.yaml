@@ -1,7 +1,32 @@
 # DataHub System Update Job
 # This job initializes the database schema and Elasticsearch indices
 # Run this after fresh deployment or version upgrades
-
+{{- $kafkaVals := default (dict) .Values.kafka }}
+{{- $bootstrap := default "kafka-service:9092" (get $kafkaVals "bootstrapServers") }}
+{{- $schemaReg := default "http://schema-registry-service:8081" (get $kafkaVals "schemaRegistryUrl") }}
+{{- $securityVals := default (dict) (get $kafkaVals "security") }}
+{{- $protocol := upper (default "PLAINTEXT" (get $securityVals "protocol")) }}
+{{- $tlsVals := default (dict) (get $securityVals "tls") }}
+{{- $tlsConfig := dict }}
+{{- if hasKey $tlsVals "enabled" }}
+{{- $_ := set $tlsConfig "enabled" (get $tlsVals "enabled") }}
+{{- else }}
+{{- $_ := set $tlsConfig "enabled" (eq $protocol "SSL") }}
+{{- end }}
+{{- $_ := set $tlsConfig "secretName" (default "kafka-datahub-tls" (get $tlsVals "secretName")) }}
+{{- $_ := set $tlsConfig "passwordKey" (default "user.password" (get $tlsVals "passwordKey")) }}
+{{- $_ := set $tlsConfig "keystorePath" (default "/etc/kafka/secrets/user.p12" (get $tlsVals "keystorePath")) }}
+{{- $_ := set $tlsConfig "truststorePath" (default "/etc/kafka/secrets/user.p12" (get $tlsVals "truststorePath")) }}
+{{- $_ := set $tlsConfig "mountPath" (default "/etc/kafka/secrets" (get $tlsVals "mountPath")) }}
+{{- $kafkaBootstrap := $bootstrap }}
+{{- $schemaRegistryUrl := $schemaReg }}
+{{- $kafkaProtocol := $protocol }}
+{{- $kafkaTlsEnabled := get $tlsConfig "enabled" }}
+{{- $kafkaSecretName := get $tlsConfig "secretName" }}
+{{- $kafkaPasswordKey := get $tlsConfig "passwordKey" }}
+{{- $kafkaKeystorePath := get $tlsConfig "keystorePath" }}
+{{- $kafkaTruststorePath := get $tlsConfig "truststorePath" }}
+{{- $kafkaMountPath := get $tlsConfig "mountPath" }}
 apiVersion: batch/v1
 kind: Job
 metadata:
@@ -59,40 +84,49 @@ spec:
       # Wait for Kafka to be ready
       - name: wait-for-kafka
         image: confluentinc/cp-kafka:7.4.0
+{{- if $kafkaTlsEnabled }}
         env:
         - name: KAFKA_CERT_PASSWORD_FILE
-          value: "/etc/kafka/secrets/user.password"
+          value: {{ printf "%s/%s" $kafkaMountPath $kafkaPasswordKey | quote }}
         volumeMounts:
         - name: kafka-client-cert
-          mountPath: /etc/kafka/secrets
+          mountPath: {{ $kafkaMountPath | quote }}
           readOnly: true
+{{- end }}
         command:
         - sh
         - -c
         - |
+{{- if $kafkaTlsEnabled }}
           PASSWORD="$(cat "${KAFKA_CERT_PASSWORD_FILE}")"
           cat >/tmp/client.properties <<EOCONFIG
-          security.protocol=SSL
+          security.protocol={{ $kafkaProtocol }}
           ssl.keystore.type=PKCS12
           ssl.truststore.type=PKCS12
-          ssl.keystore.location=/etc/kafka/secrets/user.p12
-          ssl.truststore.location=/etc/kafka/secrets/user.p12
+          ssl.keystore.location={{ $kafkaKeystorePath }}
+          ssl.truststore.location={{ $kafkaTruststorePath }}
           ssl.keystore.password=${PASSWORD}
           ssl.truststore.password=${PASSWORD}
           ssl.key.password=${PASSWORD}
           ssl.endpoint.identification.algorithm=
           EOCONFIG
           chmod 600 /tmp/client.properties
-          until /usr/bin/kafka-broker-api-versions --bootstrap-server kafka-service:9093 --command-config /tmp/client.properties >/tmp/kafka-check 2>&1; do
+          until /usr/bin/kafka-broker-api-versions --bootstrap-server {{ $kafkaBootstrap | quote }} --command-config /tmp/client.properties >/tmp/kafka-check 2>&1; do
             echo "Waiting for Kafka..."
             sleep 2
           done
+{{- else }}
+          until /usr/bin/kafka-broker-api-versions --bootstrap-server {{ $kafkaBootstrap | quote }} >/tmp/kafka-check 2>&1; do
+            echo "Waiting for Kafka..."
+            sleep 2
+          done
+{{- end }}
           if ! grep -q ApiVersion /tmp/kafka-check; then
             cat /tmp/kafka-check
             exit 1
           fi
           echo "Kafka is ready"
-          rm -f /tmp/kafka-check /tmp/client.properties
+          rm -f /tmp/kafka-check{{- if $kafkaTlsEnabled }} /tmp/client.properties{{- end }}
       
       containers:
       - name: datahub-system-update
@@ -119,11 +153,12 @@ spec:
         
         # Kafka Configuration
         - name: KAFKA_BOOTSTRAP_SERVER
-          value: "kafka-service:9093"
+          value: {{ $kafkaBootstrap | quote }}
         - name: KAFKA_BOOTSTRAP_SERVERS
-          value: "kafka-service:9093"
+          value: {{ $kafkaBootstrap | quote }}
         - name: SPRING_KAFKA_PROPERTIES_SECURITY_PROTOCOL
-          value: "SSL"
+          value: {{ $kafkaProtocol | quote }}
+{{- if $kafkaTlsEnabled }}
         - name: SPRING_KAFKA_PROPERTIES_SSL_ENDPOINT_IDENTIFICATION_ALGORITHM
           value: ""
         - name: SPRING_KAFKA_PROPERTIES_SSL_TRUSTSTORE_TYPE
@@ -131,30 +166,31 @@ spec:
         - name: SPRING_KAFKA_PROPERTIES_SSL_KEYSTORE_TYPE
           value: "PKCS12"
         - name: SPRING_KAFKA_PROPERTIES_SSL_TRUSTSTORE_LOCATION
-          value: "/etc/kafka/secrets/user.p12"
+          value: {{ $kafkaTruststorePath | quote }}
         - name: SPRING_KAFKA_PROPERTIES_SSL_KEYSTORE_LOCATION
-          value: "/etc/kafka/secrets/user.p12"
+          value: {{ $kafkaKeystorePath | quote }}
         - name: SPRING_KAFKA_PROPERTIES_SSL_TRUSTSTORE_PASSWORD
           valueFrom:
             secretKeyRef:
-              name: kafka-datahub-tls
-              key: user.password
+              name: {{ $kafkaSecretName | quote }}
+              key: {{ $kafkaPasswordKey | quote }}
         - name: SPRING_KAFKA_PROPERTIES_SSL_KEYSTORE_PASSWORD
           valueFrom:
             secretKeyRef:
-              name: kafka-datahub-tls
-              key: user.password
+              name: {{ $kafkaSecretName | quote }}
+              key: {{ $kafkaPasswordKey | quote }}
         - name: SPRING_KAFKA_PROPERTIES_SSL_KEY_PASSWORD
           valueFrom:
             secretKeyRef:
-              name: kafka-datahub-tls
-              key: user.password
+              name: {{ $kafkaSecretName | quote }}
+              key: {{ $kafkaPasswordKey | quote }}
+{{- end }}
         - name: KAFKA_SCHEMAREGISTRY_URL
-          value: "http://schema-registry-service:8081"
+          value: {{ $schemaRegistryUrl | quote }}
         - name: KAFKA_SCHEMA_REGISTRY_URL
-          value: "http://schema-registry-service:8081"
+          value: {{ $schemaRegistryUrl | quote }}
         - name: SCHEMA_REGISTRY_URL
-          value: "http://schema-registry-service:8081"
+          value: {{ $schemaRegistryUrl | quote }}
         
         # Elasticsearch Configuration
         - name: ELASTICSEARCH_HOST
@@ -209,14 +245,16 @@ spec:
           limits:
             cpu: 500m
             memory: 1Gi
+{{- if $kafkaTlsEnabled }}
         volumeMounts:
         - name: kafka-client-cert
-          mountPath: /etc/kafka/secrets
+          mountPath: {{ $kafkaMountPath | quote }}
           readOnly: true
+{{- end }}
+{{- if $kafkaTlsEnabled }}
       volumes:
       - name: kafka-client-cert
         secret:
-          secretName: kafka-datahub-tls
+          secretName: {{ $kafkaSecretName | quote }}
           defaultMode: 0400
-
-
+{{- end }}

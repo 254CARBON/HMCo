@@ -1,5 +1,8 @@
 # DataHub Ingestion Recipe for Kafka
 # Discovers Kafka topics and their schemas
+{{- $kafkaVals := default (dict) .Values.kafka }}
+{{- $kafkaBootstrap := default "kafka-service:9092" (get $kafkaVals "bootstrapServers") }}
+{{- $schemaRegistryUrl := default "http://schema-registry-service:8081" (get $kafkaVals "schemaRegistryUrl") }}
 
 apiVersion: v1
 kind: ConfigMap
@@ -15,8 +18,8 @@ data:
       type: kafka
       config:
         connection:
-          bootstrap: "kafka-service.data-platform.svc.cluster.local:9093"
-          schema_registry_url: "http://schema-registry-service.data-platform.svc.cluster.local:8081"
+          bootstrap: {{ $kafkaBootstrap | quote }}
+          schema_registry_url: {{ $schemaRegistryUrl | quote }}
         
         # Topic filtering
         topic_patterns:

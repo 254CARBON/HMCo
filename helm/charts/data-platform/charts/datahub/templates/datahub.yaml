@@ -17,38 +17,38 @@
 {{- $baseUrl := default "" (get $datahubSso "baseUrl") -}}
 {{- $redirectUri := default "" (get $datahubSso "redirectUri") -}}
 {{- $extractGroups := default true (get $datahubSso "extractGroups") -}}
-{{- $kafkaVals := default (dict) .Values.kafka -}}
-{{- $kafkaConfig := dict -}}
-{{- $bootstrap := default "kafka-service:9092" (get $kafkaVals "bootstrapServers") -}}
-{{- $_ := set $kafkaConfig "bootstrap" $bootstrap -}}
-{{- $schemaReg := default "http://schema-registry-service:8081" (get $kafkaVals "schemaRegistryUrl") -}}
-{{- $_ := set $kafkaConfig "schemaRegistryUrl" $schemaReg -}}
-{{- $securityVals := default (dict) (get $kafkaVals "security") -}}
-{{- $protocol := upper (default "PLAINTEXT" (get $securityVals "protocol")) -}}
-{{- $_ := set $kafkaConfig "protocol" $protocol -}}
-{{- $tlsVals := default (dict) (get $securityVals "tls") -}}
-{{- $tlsConfig := dict -}}
-{{- if hasKey $tlsVals "enabled" -}}
-{{- $_ := set $tlsConfig "enabled" (get $tlsVals "enabled") -}}
-{{- else -}}
-{{- $_ := set $tlsConfig "enabled" (eq $protocol "SSL") -}}
-{{- end -}}
-{{- $_ := set $tlsConfig "secretName" (default "kafka-datahub-tls" (get $tlsVals "secretName")) -}}
-{{- $_ := set $tlsConfig "passwordKey" (default "user.password" (get $tlsVals "passwordKey")) -}}
-{{- $_ := set $tlsConfig "keystorePath" (default "/etc/kafka/secrets/user.p12" (get $tlsVals "keystorePath")) -}}
-{{- $_ := set $tlsConfig "truststorePath" (default "/etc/kafka/secrets/user.p12" (get $tlsVals "truststorePath")) -}}
-{{- $_ := set $tlsConfig "mountPath" (default "/etc/kafka/secrets" (get $tlsVals "mountPath")) -}}
-{{- $_ := set $kafkaConfig "tls" $tlsConfig -}}
-{{- $kafkaBootstrap := get $kafkaConfig "bootstrap" -}}
-{{- $schemaRegistryUrl := get $kafkaConfig "schemaRegistryUrl" -}}
-{{- $kafkaProtocol := get $kafkaConfig "protocol" -}}
-{{- $kafkaTls := get $kafkaConfig "tls" -}}
-{{- $kafkaTlsEnabled := get $kafkaTls "enabled" -}}
-{{- $kafkaSecretName := get $kafkaTls "secretName" -}}
-{{- $kafkaPasswordKey := get $kafkaTls "passwordKey" -}}
-{{- $kafkaKeystorePath := get $kafkaTls "keystorePath" -}}
-{{- $kafkaTruststorePath := get $kafkaTls "truststorePath" -}}
-{{- $kafkaMountPath := get $kafkaTls "mountPath" -}}
+{{- $kafkaVals := default (dict) .Values.kafka }}
+{{- $kafkaConfig := dict }}
+{{- $bootstrap := default "kafka-service:9092" (get $kafkaVals "bootstrapServers") }}
+{{- $_ := set $kafkaConfig "bootstrap" $bootstrap }}
+{{- $schemaReg := default "http://schema-registry-service:8081" (get $kafkaVals "schemaRegistryUrl") }}
+{{- $_ := set $kafkaConfig "schemaRegistryUrl" $schemaReg }}
+{{- $securityVals := default (dict) (get $kafkaVals "security") }}
+{{- $protocol := upper (default "PLAINTEXT" (get $securityVals "protocol")) }}
+{{- $_ := set $kafkaConfig "protocol" $protocol }}
+{{- $tlsVals := default (dict) (get $securityVals "tls") }}
+{{- $tlsConfig := dict }}
+{{- if hasKey $tlsVals "enabled" }}
+{{- $_ := set $tlsConfig "enabled" (get $tlsVals "enabled") }}
+{{- else }}
+{{- $_ := set $tlsConfig "enabled" (eq $protocol "SSL") }}
+{{- end }}
+{{- $_ := set $tlsConfig "secretName" (default "kafka-datahub-tls" (get $tlsVals "secretName")) }}
+{{- $_ := set $tlsConfig "passwordKey" (default "user.password" (get $tlsVals "passwordKey")) }}
+{{- $_ := set $tlsConfig "keystorePath" (default "/etc/kafka/secrets/user.p12" (get $tlsVals "keystorePath")) }}
+{{- $_ := set $tlsConfig "truststorePath" (default "/etc/kafka/secrets/user.p12" (get $tlsVals "truststorePath")) }}
+{{- $_ := set $tlsConfig "mountPath" (default "/etc/kafka/secrets" (get $tlsVals "mountPath")) }}
+{{- $_ := set $kafkaConfig "tls" $tlsConfig }}
+{{- $kafkaBootstrap := get $kafkaConfig "bootstrap" }}
+{{- $schemaRegistryUrl := get $kafkaConfig "schemaRegistryUrl" }}
+{{- $kafkaProtocol := get $kafkaConfig "protocol" }}
+{{- $kafkaTls := get $kafkaConfig "tls" }}
+{{- $kafkaTlsEnabled := get $kafkaTls "enabled" }}
+{{- $kafkaSecretName := get $kafkaTls "secretName" }}
+{{- $kafkaPasswordKey := get $kafkaTls "passwordKey" }}
+{{- $kafkaKeystorePath := get $kafkaTls "keystorePath" }}
+{{- $kafkaTruststorePath := get $kafkaTls "truststorePath" }}
+{{- $kafkaMountPath := get $kafkaTls "mountPath" }}
 
 # DataHub deployment with all core services
 # This includes GMS, Frontend, MAE, and MCE consumers
@@ -527,6 +527,8 @@ spec:
             secretKeyRef:
               name: minio-secret
               key: secret-key
+        - name: ENTITY_REGISTRY_CONFIG_PATH
+          value: "/datahub/datahub-mae-consumer/resources/entity-registry.yml"
         volumeMounts:
         - name: runtime-tmp
           mountPath: /tmp

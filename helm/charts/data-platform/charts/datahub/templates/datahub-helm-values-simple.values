@@ -1,13 +1,16 @@
 # DataHub Helm Chart Values - Simplified with default MySQL
 # Reference: https://artifacthub.io/packages/helm/datahub/datahub
+{{- $kafkaVals := default (dict) .Values.kafka }}
+{{- $kafkaBootstrap := default "kafka-service:9092" (get $kafkaVals "bootstrapServers") }}
+{{- $schemaRegistryUrl := default "http://schema-registry-service:8081" (get $kafkaVals "schemaRegistryUrl") }}
 
 global:
   # Use existing Kafka
   kafka:
     bootstrap:
-      server: "kafka-service:9093"
+      server: {{ $kafkaBootstrap | quote }}
     schemaregistry:
-      url: "http://schema-registry-service:8081"
+      url: {{ $schemaRegistryUrl | quote }}
   
   # Use existing Elasticsearch
   elasticsearch:

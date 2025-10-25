@@ -1,5 +1,5 @@
-import Header from '../components/Header'
-import ServiceGrid from '../components/ServiceGrid'
+import Header from '@/components/Header'
+import ServiceGrid from '@/components/ServiceGrid'
 import {
   Activity,
   ArrowUpRight,
@@ -94,7 +94,7 @@ export default function Home() {
                         className={`mt-3 inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-medium ${
                           card.intent === 'positive'
                             ? 'bg-emerald-500/10 text-emerald-300'
-                            : 'bg-amber-500/10 text-amber-300'
+                            : 'bg-rose-500/10 text-rose-300'
                         }`}
                       >
                         <TrendingUp className="h-3 w-3" />
@@ -105,34 +105,40 @@ export default function Home() {
                 </div>
               </div>
 
-              <div className="space-y-6">
+              <div className="space-y-4">
                 <div className="rounded-3xl border border-slate-800 bg-slate-900/60 p-6 shadow-lg shadow-slate-950/40">
                   <div className="flex items-center justify-between">
                     <div>
-                      <h2 className="text-lg font-semibold text-white">Today&apos;s Market Pulse</h2>
-                      <p className="text-xs uppercase tracking-wide text-slate-500">Updated 4 minutes ago</p>
+                      <h2 className="text-lg font-semibold text-white">Market pulse</h2>
+                      <p className="text-xs text-slate-400">Real-time insights across asset classes</p>
                     </div>
-                    <ArrowUpRight className="h-4 w-4 text-slate-500" />
+                    <span className="inline-flex items-center gap-2 rounded-full bg-slate-900 px-3 py-1 text-xs text-slate-400">
+                      <Zap className="h-3.5 w-3.5 text-carbon" />
+                      Live feed
+                    </span>
                   </div>
-                  <div className="mt-5 space-y-4">
+
+                  <div className="mt-6 space-y-4">
                     {MARKET_MOVERS.map(mover => (
                       <div
                         key={mover.name}
-                        className="flex items-start justify-between rounded-2xl bg-slate-900/70 p-4"
+                        className="rounded-2xl border border-slate-800 bg-slate-900/70 p-4"
                       >
-                        <div>
-                          <p className="text-sm font-medium text-white">{mover.name}</p>
-                          <p className="text-xs text-slate-400">{mover.note}</p>
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="text-sm font-semibold text-white">{mover.name}</p>
+                            <p className="text-xs text-slate-400">{mover.note}</p>
+                          </div>
+                          <span
+                            className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-medium ${
+                              mover.trend === 'up'
+                                ? 'bg-emerald-500/10 text-emerald-300'
+                                : 'bg-rose-500/10 text-rose-300'
+                            }`}
+                          >
+                            {mover.change}
+                          </span>
                         </div>
-                        <span
-                          className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium ${
-                            mover.trend === 'up'
-                              ? 'bg-emerald-500/10 text-emerald-300'
-                              : 'bg-rose-500/10 text-rose-300'
-                          }`}
-                        >
-                          {mover.change}
-                        </span>
                       </div>
                     ))}
                   </div>

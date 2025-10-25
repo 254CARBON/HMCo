@@ -130,11 +130,11 @@ The MVP Data Platform Portal is progressing through planned phases. Phases 1-2 a
 - **DolphinScheduler** already deployed for scheduling
 
 ### What Needs to Be Built
-- [ ] Polygon.io provider template (YAML UIS)
-- [ ] Spark Polygon ingestion job
-- [ ] Deequ quality checks
-- [ ] Iceberg table creation
-- [ ] DataHub lineage integration
+- [x] Polygon.io provider template (YAML UIS)
+- [x] Spark Polygon ingestion job
+- [x] Deequ quality checks
+- [x] Iceberg table creation
+- [x] DataHub lineage integration
 
 ### Estimated Effort: 3-4 days
 

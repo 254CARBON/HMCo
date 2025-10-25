@@ -1,0 +1,218 @@
+version: "1.1"
+name: "polygon-market-data"
+runtime: "spark"
+description: "Daily Polygon.io aggregates for core energy tickers"
+created_by: "data-platform-team"
+
+provider:
+  name: "polygon_market_data"
+  display_name: "Polygon Commodities Market Data"
+  description: "Daily OHLCV aggregates for front-month energy contracts from Polygon.io"
+  provider_type: "rest_api"
+  base_url: "https://api.polygon.io"
+  tenant_id: "hmco-energy"
+  owner: "data-platform@hmco.com"
+  schedule_cron: "0 */1 * * *"
+  schedule_timezone: "UTC"
+  credentials_ref: "vault://providers/polygon"
+  tags:
+    - market-data
+    - polygon
+    - commodities
+    - spark
+  config:
+    default_tickers:
+      - "C:CL"
+      - "C:NG"
+      - "C:HO"
+      - "C:RB"
+    lookback_days: 7
+    request_batch_size: 5000
+    concurrent_requests: 4
+    retry:
+      max_attempts: 3
+      backoff_seconds: 60
+    spark_config:
+      spark.sql.shuffle.partitions: "24"
+      spark.default.parallelism: "24"
+      spark.sql.execution.arrow.pyspark.enabled: "true"
+    iceberg:
+      catalog: "iceberg"
+      namespace: "raw"
+      table: "polygon_market_ohlc"
+      warehouse: "s3://iceberg-warehouse/"
+    monitoring_topic: "kafka://quality.polygon_market_data"
+  endpoints:
+    - name: "daily_aggregates"
+      path: "/v2/aggs/ticker/{{ ticker }}/range/1/day/{{ start_date }}/{{ end_date }}"
+      method: "GET"
+      headers:
+        Authorization: "Bearer {{ secrets.POLYGON_API_KEY }}"
+      query_params:
+        adjusted: "true"
+        sort: "asc"
+        limit: "{{ config.request_batch_size }}"
+      pagination: "cursor"
+      pagination_config:
+        cursor_param: "cursor"
+        page_size: "{{ config.request_batch_size }}"
+        max_pages: 30
+      response_path: "$.results"
+      rate_limit_group: "aggregates_core"
+      rate_limit_per_second: 5
+      field_mapping:
+        ticker: "{{ ticker }}"
+        event_timestamp: "t"
+        open_price: "o"
+        high_price: "h"
+        low_price: "l"
+        close_price: "c"
+        volume: "v"
+        transactions: "n"
+        vwap: "vw"
+      validation_rules:
+        required_fields:
+          - "t"
+          - "o"
+          - "h"
+          - "l"
+          - "c"
+          - "v"
+        numeric_ranges:
+          o: [0, null]
+          h: [0, null]
+          l: [0, null]
+          c: [0, null]
+          v: [0, null]
+    - name: "ticker_reference"
+      path: "/v3/reference/tickers"
+      method: "GET"
+      headers:
+        Authorization: "Bearer {{ secrets.POLYGON_API_KEY }}"
+      query_params:
+        market: "stocks"
+        limit: "1000"
+        ticker: "{{ ticker }}"
+      pagination: "cursor"
+      pagination_config:
+        cursor_param: "cursor"
+        page_size: 1000
+        max_pages: 5
+      response_path: "$.results"
+      rate_limit_group: "reference"
+      rate_limit_per_second: 10
+      field_mapping:
+        ticker: "ticker"
+        name: "name"
+        primary_exchange: "primary_exchange"
+        currency: "currency_name"
+        locale: "locale"
+      validation_rules:
+        required_fields:
+          - "ticker"
+          - "name"
+          - "primary_exchange"
+
+  transforms:
+    - name: "normalize_polygon_records"
+      type: "spark"
+      sql_query: |
+        SELECT
+          agg.ticker                                      AS ticker,
+          FROM_UNIXTIME(agg.event_timestamp / 1000)       AS event_time_utc,
+          DATE(FROM_UNIXTIME(agg.event_timestamp / 1000)) AS trading_day,
+          CAST(agg.open_price AS DOUBLE)                  AS open_price,
+          CAST(agg.high_price AS DOUBLE)                  AS high_price,
+          CAST(agg.low_price AS DOUBLE)                   AS low_price,
+          CAST(agg.close_price AS DOUBLE)                 AS close_price,
+          CAST(agg.volume AS BIGINT)                      AS volume,
+          CAST(agg.transactions AS BIGINT)                AS transactions,
+          CAST(agg.vwap AS DOUBLE)                        AS vwap,
+          ref.name                                        AS instrument_name,
+          ref.primary_exchange                            AS primary_exchange,
+          CURRENT_TIMESTAMP                               AS ingested_at
+        FROM aggregates agg
+        LEFT JOIN reference ref
+          ON agg.ticker = ref.ticker
+      parameters:
+        views:
+          aggregates: "rest_daily_aggregates"
+          reference: "rest_ticker_reference"
+
+  sinks:
+    - type: "iceberg"
+      table_name: "raw.polygon_market_ohlc"
+      partition_by:
+        - "trading_day"
+        - "ticker"
+      config:
+        catalog: "iceberg"
+        warehouse: "s3://iceberg-warehouse/"
+        format-version: 2
+        target_file_size_mb: 256
+    - type: "kafka"
+      kafka_topic: "quality.polygon_market_data"
+      config:
+        bootstrap_servers: "kafka:9092"
+        serialization: "json"
+        delivery_semantics: "at_least_once"
+
+  schema_contract:
+    type: "object"
+    required:
+      - "ticker"
+      - "trading_day"
+      - "open_price"
+      - "close_price"
+      - "volume"
+    properties:
+      ticker:
+        type: "string"
+        minLength: 2
+      trading_day:
+        type: "string"
+        format: "date"
+      event_time_utc:
+        type: "string"
+        format: "date-time"
+      open_price:
+        type: "number"
+        minimum: 0
+      high_price:
+        type: "number"
+        minimum: 0
+      low_price:
+        type: "number"
+        minimum: 0
+      close_price:
+        type: "number"
+        minimum: 0
+      volume:
+        type: "integer"
+        minimum: 0
+      transactions:
+        type: "integer"
+        minimum: 0
+      vwap:
+        type: ["number", "null"]
+        minimum: 0
+      instrument_name:
+        type: ["string", "null"]
+      primary_exchange:
+        type: ["string", "null"]
+      ingested_at:
+        type: "string"
+        format: "date-time"
+
+  slos:
+    freshness_target_minutes: 60
+    completeness_threshold: 0.97
+    accuracy_threshold: 0.99
+    availability_target: 0.999
+    block_on_schema_drift: true
+    block_on_quality_drop: true
+
+global_config:
+  runtime_timeout_minutes: 30
+  secrets:
+    POLYGON_API_KEY: "vault://providers/polygon#api_key"

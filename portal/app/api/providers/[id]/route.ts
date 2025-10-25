@@ -21,8 +21,23 @@ export async function GET(
       );
     }
 
-    const data = await response.json();
-    return NextResponse.json(data);
+    const p = await response.json();
+    const provider = {
+      id: p.id,
+      name: p.name,
+      type: p.type,
+      status: p.status,
+      lastRunAt: p.last_run_at ?? null,
+      nextRunAt: p.next_run_at ?? null,
+      totalRuns: p.total_runs ?? 0,
+      successRate: p.success_rate ?? 100,
+      uis: p.uis,
+      config: p.config,
+      schedule: p.schedule,
+      createdAt: p.created_at,
+      updatedAt: p.updated_at,
+    };
+    return NextResponse.json(provider);
   } catch (error) {
     console.error('Provider detail error:', error);
     return NextResponse.json(

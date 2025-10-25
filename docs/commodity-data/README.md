@@ -128,6 +128,11 @@ The 254Carbon platform is optimized for processing commodity, financial, and alt
 5. Validate data completeness
 6. Send success notification
 
+**Polygon Provider MVP Enhancements**:
+- Spark job `jobs/polygon_ingestion.py` persists Polygon.io OHLC data to `iceberg.raw.polygon_market_ohlc`.
+- Deequ checks `jobs/polygon_quality_checks.py` append results to `iceberg.monitoring.polygon_quality_checks`.
+- DataHub lineage and ownership are synced by `helm/charts/data-platform/charts/datahub/templates/polygon-lineage-ingestion.yaml`.
+
 **Import**: See `COMMODITY_QUICKSTART.md`
 
 ### 2. Daily Economic Indicators
@@ -567,4 +572,3 @@ kubectl logs -n data-platform -l app=rapids
 ---
 
 **Questions?** Check the comprehensive deployment guide in `COMMODITY_PLATFORM_DEPLOYMENT.md`
-

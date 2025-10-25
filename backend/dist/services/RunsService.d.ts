@@ -1,8 +1,10 @@
 import { Client } from 'pg';
 import { RunRow } from '../models/Run';
+import { JobExecutor } from './JobExecutor';
 export declare class RunsService {
     private readonly db;
-    constructor(db: Client);
+    private readonly jobExecutor;
+    constructor(db: Client, jobExecutor: JobExecutor);
     listRuns(providerId?: string, status?: string, sortBy?: string, sortOrder?: string, limit?: number): Promise<{
         runs: RunRow[];
     }>;
@@ -15,5 +17,7 @@ export declare class RunsService {
         logs?: string;
         errorMessage?: string;
     }): Promise<RunRow>;
+    private getProvider;
+    private updateProviderAfterRun;
 }
 //# sourceMappingURL=RunsService.d.ts.map

@@ -1,13 +1,35 @@
 'use client'
 
 import { Menu, LogOut, User } from 'lucide-react'
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
+import { useAuth } from '@/contexts/AuthContext'
 
 export default function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const { user, logout } = useAuth()
+
+  const userInitials = useMemo(() => {
+    if (user?.name) {
+      const initials = user.name
+        .split(' ')
+        .filter(Boolean)
+        .slice(0, 2)
+        .map(part => part[0]?.toUpperCase() ?? '')
+        .join('')
+      if (initials) return initials
+    }
+    if (user?.email) {
+      return user.email.slice(0, 2).toUpperCase()
+    }
+    return undefined
+  }, [user])
+
+  function handleSignOut() {
+    logout()
+  }
 
   return (
-    <header className="sticky top-0 z-50 border-b border-slate-800 bg-slate-950/80 backdrop-blur">
+    <header className="sticky top-16 z-40 border-b border-slate-800 bg-slate-950/80 backdrop-blur">
       <nav className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16 text-slate-100">
           <div className="flex items-center space-x-3">
@@ -30,12 +52,15 @@ export default function Header() {
             <a href="#docs" className="text-sm font-medium text-slate-300 hover:text-white transition-colors">
               Documentation
             </a>
-            <button className="flex items-center space-x-2 px-4 py-2 text-sm font-medium text-slate-300 hover:text-red-400 transition-colors">
+            <button
+              onClick={handleSignOut}
+              className="flex items-center space-x-2 px-4 py-2 text-sm font-medium text-slate-300 hover:text-red-400 transition-colors"
+            >
               <LogOut className="w-4 h-4" />
               <span>Sign out</span>
             </button>
-            <div className="flex items-center justify-center w-10 h-10 rounded-full bg-slate-800 border border-slate-700">
-              <User className="w-4 h-4 text-slate-300" />
+            <div className="flex items-center justify-center w-10 h-10 rounded-full bg-slate-800 border border-slate-700 text-xs font-semibold text-slate-200">
+              {userInitials ?? <User className="w-4 h-4 text-slate-300" />}
             </div>
           </div>
 
@@ -58,7 +83,10 @@ export default function Header() {
             <a href="#docs" className="block px-4 py-2 hover:bg-slate-900 rounded-lg transition-colors">
               Documentation
             </a>
-            <button className="w-full text-left px-4 py-2 hover:bg-slate-900 rounded-lg transition-colors flex items-center space-x-2">
+            <button
+              onClick={handleSignOut}
+              className="w-full text-left px-4 py-2 hover:bg-slate-900 rounded-lg transition-colors flex items-center space-x-2"
+            >
               <LogOut className="w-4 h-4" />
               <span>Sign Out</span>
             </button>

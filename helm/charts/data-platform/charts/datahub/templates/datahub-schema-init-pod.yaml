@@ -1,5 +1,31 @@
 # DataHub Schema Initialization Pod
 # Simple pod that runs GMS once to initialize database schema
+{{- $kafkaVals := default (dict) .Values.kafka }}
+{{- $bootstrap := default "kafka-service:9092" (get $kafkaVals "bootstrapServers") }}
+{{- $schemaReg := default "http://schema-registry-service:8081" (get $kafkaVals "schemaRegistryUrl") }}
+{{- $securityVals := default (dict) (get $kafkaVals "security") }}
+{{- $protocol := upper (default "PLAINTEXT" (get $securityVals "protocol")) }}
+{{- $tlsVals := default (dict) (get $securityVals "tls") }}
+{{- $tlsConfig := dict }}
+{{- if hasKey $tlsVals "enabled" }}
+{{- $_ := set $tlsConfig "enabled" (get $tlsVals "enabled") }}
+{{- else }}
+{{- $_ := set $tlsConfig "enabled" (eq $protocol "SSL") }}
+{{- end }}
+{{- $_ := set $tlsConfig "secretName" (default "kafka-datahub-tls" (get $tlsVals "secretName")) }}
+{{- $_ := set $tlsConfig "passwordKey" (default "user.password" (get $tlsVals "passwordKey")) }}
+{{- $_ := set $tlsConfig "keystorePath" (default "/etc/kafka/secrets/user.p12" (get $tlsVals "keystorePath")) }}
+{{- $_ := set $tlsConfig "truststorePath" (default "/etc/kafka/secrets/user.p12" (get $tlsVals "truststorePath")) }}
+{{- $_ := set $tlsConfig "mountPath" (default "/etc/kafka/secrets" (get $tlsVals "mountPath")) }}
+{{- $kafkaBootstrap := $bootstrap }}
+{{- $schemaRegistryUrl := $schemaReg }}
+{{- $kafkaProtocol := $protocol }}
+{{- $kafkaTlsEnabled := get $tlsConfig "enabled" }}
+{{- $kafkaSecretName := get $tlsConfig "secretName" }}
+{{- $kafkaPasswordKey := get $tlsConfig "passwordKey" }}
+{{- $kafkaKeystorePath := get $tlsConfig "keystorePath" }}
+{{- $kafkaTruststorePath := get $tlsConfig "truststorePath" }}
+{{- $kafkaMountPath := get $tlsConfig "mountPath" }}
 apiVersion: v1
 kind: Pod
 metadata:
@@ -58,11 +84,12 @@ spec:
     - name: ELASTICSEARCH_PORT
       value: "9200"
     - name: KAFKA_BOOTSTRAP_SERVER
-      value: "kafka-service:9093"
+      value: {{ $kafkaBootstrap | quote }}
     - name: KAFKA_BOOTSTRAP_SERVERS
-      value: "kafka-service:9093"
+      value: {{ $kafkaBootstrap | quote }}
     - name: SPRING_KAFKA_PROPERTIES_SECURITY_PROTOCOL
-      value: "SSL"
+      value: {{ $kafkaProtocol | quote }}
+{{- if $kafkaTlsEnabled }}
     - name: SPRING_KAFKA_PROPERTIES_SSL_ENDPOINT_IDENTIFICATION_ALGORITHM
       value: ""
     - name: SPRING_KAFKA_PROPERTIES_SSL_TRUSTSTORE_TYPE
@@ -70,34 +97,37 @@ spec:
     - name: SPRING_KAFKA_PROPERTIES_SSL_KEYSTORE_TYPE
       value: "PKCS12"
     - name: SPRING_KAFKA_PROPERTIES_SSL_TRUSTSTORE_LOCATION
-      value: "/etc/kafka/secrets/user.p12"
+      value: {{ $kafkaTruststorePath | quote }}
     - name: SPRING_KAFKA_PROPERTIES_SSL_KEYSTORE_LOCATION
-      value: "/etc/kafka/secrets/user.p12"
+      value: {{ $kafkaKeystorePath | quote }}
     - name: SPRING_KAFKA_PROPERTIES_SSL_TRUSTSTORE_PASSWORD
       valueFrom:
         secretKeyRef:
-          name: kafka-datahub-tls
-          key: user.password
+          name: {{ $kafkaSecretName | quote }}
+          key: {{ $kafkaPasswordKey | quote }}
     - name: SPRING_KAFKA_PROPERTIES_SSL_KEYSTORE_PASSWORD
       valueFrom:
         secretKeyRef:
-          name: kafka-datahub-tls
-          key: user.password
+          name: {{ $kafkaSecretName | quote }}
+          key: {{ $kafkaPasswordKey | quote }}
     - name: SPRING_KAFKA_PROPERTIES_SSL_KEY_PASSWORD
       valueFrom:
         secretKeyRef:
-          name: kafka-datahub-tls
-          key: user.password
+          name: {{ $kafkaSecretName | quote }}
+          key: {{ $kafkaPasswordKey | quote }}
+{{- end }}
     - name: KAFKA_SCHEMAREGISTRY_URL
-      value: "http://schema-registry-service:8081"
+      value: {{ $schemaRegistryUrl | quote }}
     - name: SKIP_ELASTICSEARCH_CHECK
       value: "false"
     - name: SKIP_KAFKA_CHECK
       value: "false"
+{{- if $kafkaTlsEnabled }}
     volumeMounts:
     - name: kafka-client-cert
-      mountPath: /etc/kafka/secrets
+      mountPath: {{ $kafkaMountPath | quote }}
       readOnly: true
+{{- end }}
     resources:
       requests:
         cpu: 500m
@@ -105,8 +135,10 @@ spec:
       limits:
         cpu: "1"
         memory: 2Gi
+{{- if $kafkaTlsEnabled }}
   volumes:
   - name: kafka-client-cert
     secret:
-      secretName: kafka-datahub-tls
+      secretName: {{ $kafkaSecretName | quote }}
       defaultMode: 0400
+{{- end }}

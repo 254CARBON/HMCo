@@ -1,14 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import {
-  verifySessionToken,
-  getSessionCookieName,
-} from '@/lib/auth/session';
+  buildCloudflareLoginUrl,
+  getUserFromRequest,
+  isCloudflareAccessEnabled,
+} from '@/lib/auth/cloudflare';
 
 const PUBLIC_PATHS = new Set([
   '/login',
+  '/api/auth/session',
   '/api/auth/login',
   '/api/auth/logout',
-  '/api/auth/session',
   '/_next/static',
   '/_next/image',
   '/favicon.ico',
@@ -22,7 +23,7 @@ function isPublicPath(pathname: string) {
   );
 }
 
-export function middleware(req: NextRequest) {
+export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
   if (
@@ -33,25 +34,46 @@ export function middleware(req: NextRequest) {
     return NextResponse.next();
   }
 
-  const sessionCookie = req.cookies.get(getSessionCookieName());
-  const session = verifySessionToken(sessionCookie?.value);
+  const user = await getUserFromRequest(req);
   const isPublic = isPublicPath(pathname);
 
-  if (session && pathname === '/login') {
+  if (user && pathname === '/login') {
     const url = req.nextUrl.clone();
     url.pathname = '/';
     url.searchParams.delete('next');
     return NextResponse.redirect(url);
   }
 
-  if (!session && !isPublic) {
+  if (!user && !isPublic) {
+    if (!isCloudflareAccessEnabled()) {
+      // Allow access when Cloudflare Access is not configured (e.g., local development).
+      return NextResponse.next();
+    }
+
     if (pathname.startsWith('/api/')) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-    const loginUrl = req.nextUrl.clone();
-    loginUrl.pathname = '/login';
-    loginUrl.searchParams.set('next', pathname);
-    return NextResponse.redirect(loginUrl);
+
+    try {
+      const redirectUrl = buildCloudflareLoginUrl(req.nextUrl.toString());
+      return NextResponse.redirect(redirectUrl);
+    } catch (error) {
+      console.error('Failed to build Cloudflare Access login URL', error);
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+  }
+
+  if (user) {
+    const requestHeaders = new Headers(req.headers);
+    requestHeaders.set('x-authenticated-user-email', user.email);
+    if (user.name) {
+      requestHeaders.set('x-authenticated-user-name', user.name);
+    }
+    return NextResponse.next({
+      request: {
+        headers: requestHeaders,
+      },
+    });
   }
 
   return NextResponse.next();

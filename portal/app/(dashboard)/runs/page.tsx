@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
-import { Clock, CheckCircle, AlertCircle, Play, Search, Filter } from 'lucide-react';
+import { useSearchParams } from 'next/navigation';
+import { Clock, CheckCircle, AlertCircle, Play, Filter } from 'lucide-react';
 
 interface Run {
   id: string;
@@ -30,12 +31,14 @@ export default function RunsPage() {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [sortBy, setSortBy] = useState<'date' | 'duration'>('date');
   const [providerId, setProviderId] = useState<string>('');
+  const searchParams = useSearchParams();
 
   useEffect(() => {
-    fetchRuns();
-  }, [statusFilter, sortBy, providerId]);
+    const providerParam = searchParams.get('providerId') || '';
+    setProviderId(providerParam);
+  }, [searchParams]);
 
-  async function fetchRuns() {
+  const fetchRuns = useCallback(async () => {
     try {
       setLoading(true);
       const query = new URLSearchParams();
@@ -56,7 +59,11 @@ export default function RunsPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [providerId, sortBy, statusFilter]);
+
+  useEffect(() => {
+    fetchRuns();
+  }, [fetchRuns]);
 
   const formatDuration = (ms: number) => {
     const seconds = Math.floor(ms / 1000);
@@ -98,6 +105,12 @@ export default function RunsPage() {
               <option value="cancelled">Cancelled</option>
             </select>
           </div>
+          <input
+            value={providerId}
+            onChange={(event) => setProviderId(event.target.value)}
+            placeholder="Filter by provider ID"
+            className="rounded-lg border border-slate-800 bg-slate-900/70 px-3 py-2 text-sm text-white outline-none transition focus:border-carbon focus:ring-2 focus:ring-carbon/20 sm:max-w-xs"
+          />
           <select
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value as 'date' | 'duration')}
@@ -125,16 +138,28 @@ export default function RunsPage() {
             <table className="w-full text-sm">
               <thead className="border-b border-slate-800 bg-slate-900/50">
                 <tr>
-                  <th className="px-6 py-4 text-left font-medium text-slate-300">Provider</th>
-                  <th className="px-6 py-4 text-left font-medium text-slate-300">Status</th>
-                  <th className="px-6 py-4 text-left font-medium text-slate-300">Started</th>
-                  <th className="px-6 py-4 text-right font-medium text-slate-300">Records</th>
-                  <th className="px-6 py-4 text-right font-medium text-slate-300">Duration</th>
-                  <th className="px-6 py-4 text-left font-medium text-slate-300">Action</th>
+                  <th className="px-6 py-4 text-left font-medium text-slate-300">
+                    Provider
+                  </th>
+                  <th className="px-6 py-4 text-left font-medium text-slate-300">
+                    Status
+                  </th>
+                  <th className="px-6 py-4 text-left font-medium text-slate-300">
+                    Started
+                  </th>
+                  <th className="px-6 py-4 text-right font-medium text-slate-300">
+                    Records
+                  </th>
+                  <th className="px-6 py-4 text-right font-medium text-slate-300">
+                    Duration
+                  </th>
+                  <th className="px-6 py-4 text-left font-medium text-slate-300">
+                    Action
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800">
-                {runs.map(run => {
+                {runs.map((run) => {
                   const config = statusConfig[run.status];
                   const StatusIcon = config.icon;
                   return (
@@ -147,7 +172,9 @@ export default function RunsPage() {
                         </Link>
                       </td>
                       <td className="px-6 py-4">
-                        <div className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-medium bg-${config.color}-500/10 text-${config.color}-300`}>
+                        <div
+                          className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-medium bg-${config.color}-500/10 text-${config.color}-300`}
+                        >
                           <StatusIcon className="h-3 w-3" />
                           {config.label}
                         </div>
@@ -157,9 +184,13 @@ export default function RunsPage() {
                         {new Date(run.startedAt).toLocaleTimeString()}
                       </td>
                       <td className="px-6 py-4 text-right">
-                        <div className="text-white">{run.recordsIngested.toLocaleString()}</div>
+                        <div className="text-white">
+                          {run.recordsIngested.toLocaleString()}
+                        </div>
                         {run.recordsFailed > 0 && (
-                          <div className="text-xs text-rose-400">{run.recordsFailed} failed</div>
+                          <div className="text-xs text-rose-400">
+                            {run.recordsFailed} failed
+                          </div>
                         )}
                       </td>
                       <td className="px-6 py-4 text-right text-slate-300">

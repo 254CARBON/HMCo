@@ -1,5 +1,8 @@
 # DataHub Helm Chart Values
 # Using existing infrastructure services
+{{- $kafkaVals := default (dict) .Values.kafka }}
+{{- $kafkaBootstrap := default "kafka-service:9092" (get $kafkaVals "bootstrapServers") }}
+{{- $schemaRegistryUrl := default "http://schema-registry-service:8081" (get $kafkaVals "schemaRegistryUrl") }}
 
 # Global settings
 global:
@@ -24,9 +27,9 @@ global:
   # Use existing Kafka
   kafka:
     bootstrap:
-      server: "kafka-service:9093"
+      server: {{ $kafkaBootstrap | quote }}
     schemaregistry:
-      url: "http://schema-registry-service:8081"
+      url: {{ $schemaRegistryUrl | quote }}
 
   # Use existing Elasticsearch
   elasticsearch:

@@ -81,6 +81,12 @@ npm run lint
 # .env.local
 API_URL=http://localhost:3001              # Backend API URL
 NEXT_PUBLIC_API_URL=http://localhost:3001  # Public API URL (for client-side)
+CLOUDFLARE_ACCESS_AUD=xxxxxxxxxxxxxxxxxxxx # Cloudflare Access application AUD
+CLOUDFLARE_ACCESS_TEAM_DOMAIN=254carbon.cloudflareaccess.com
+NEXT_PUBLIC_CLOUDFLARE_ACCESS_DOMAIN=254carbon.cloudflareaccess.com
+NEXT_PUBLIC_PORTAL_URL=https://portal.254carbon.com
+# Optional: bypass Cloudflare when running locally
+# PORTAL_DEV_BYPASS_USER=dev@254carbon.com
 ```
 
 ## Backend API Requirements

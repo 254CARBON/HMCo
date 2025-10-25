@@ -1,0 +1,61 @@
+{{- if .Values.backend.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hmco-backend
+  namespace: {{ .Values.global.namespace | default "data-platform" }}
+  labels:
+    app.kubernetes.io/name: hmco-backend
+    app.kubernetes.io/part-of: data-platform
+spec:
+  replicas: {{ .Values.backend.replicaCount | default 1 }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: hmco-backend
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: hmco-backend
+        app.kubernetes.io/part-of: data-platform
+    spec:
+      containers:
+        - name: api
+          image: "{{ .Values.backend.image.repository }}:{{ .Values.backend.image.tag }}"
+          imagePullPolicy: {{ .Values.backend.image.pullPolicy | default "IfNotPresent" }}
+          ports:
+            - containerPort: {{ .Values.backend.service.port | default 3001 }}
+              name: http
+          env:
+            - name: PORT
+              value: "{{ .Values.backend.service.port | default 3001 }}"
+            - name: POSTGRES_HOST
+              value: {{ .Values.backend.postgres.host | quote }}
+            - name: POSTGRES_PORT
+              value: "{{ .Values.backend.postgres.port | default 5432 }}"
+            - name: POSTGRES_DB
+              value: {{ .Values.backend.postgres.database | quote }}
+            - name: POSTGRES_USER
+              value: {{ .Values.backend.postgres.user | quote }}
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.backend.postgres.passwordSecretRef.name | quote }}
+                  key: {{ .Values.backend.postgres.passwordSecretRef.key | quote }}
+            - name: RUN_MIGRATIONS
+              value: "true"
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 20
+          resources:
+            {{- toYaml .Values.backend.resources | nindent 12 }}
+{{- end }}
+

@@ -8,14 +8,14 @@ import {
   useMemo,
   useState,
 } from 'react';
-import type { SessionUser } from '@/lib/auth/session';
+import type { AccessUser } from '@/lib/auth/cloudflare';
 
 interface AuthContextValue {
-  user: SessionUser | null;
+  user: AccessUser | null;
   loading: boolean;
   error: string | null;
-  login: (input: { username: string; password: string }) => Promise<boolean>;
-  logout: () => Promise<void>;
+  login: (input?: { redirectTo?: string }) => Promise<void>;
+  logout: (input?: { returnTo?: string }) => Promise<void>;
   refresh: () => Promise<void>;
 }
 
@@ -31,11 +31,11 @@ async function fetchSession() {
   }
 
   const data = await response.json();
-  return data.user as SessionUser;
+  return data.user as AccessUser;
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<SessionUser | null>(null);
+  const [user, setUser] = useState<AccessUser | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -56,45 +56,50 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [loadSession]);
 
   const login = useCallback(
-    async ({ username, password }: { username: string; password: string }) => {
+    async (input?: { redirectTo?: string }) => {
       setError(null);
+      if (typeof window === 'undefined') return;
+
       try {
-        const response = await fetch('/api/auth/login', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ username, password }),
-        });
-
-        if (!response.ok) {
-          const data = await response.json().catch(() => ({}));
-          const message =
-            (data && data.error) || 'Unable to login with provided credentials';
-          setError(message);
-          return false;
+        const target = input?.redirectTo ?? window.location.href;
+        const loginUrl = new URL('/api/auth/login', window.location.origin);
+        if (target) {
+          loginUrl.searchParams.set('next', target);
         }
-
-        const data = await response.json();
-        setUser(data.user);
-        return true;
+        window.location.href = loginUrl.toString();
       } catch (err) {
-        console.error('Login failed:', err);
-        setError('Unexpected error during login');
-        return false;
+        console.error('Cloudflare Access login redirect failed', err);
+        setError('Cloudflare Access login is not configured.');
+        throw err;
       }
     },
     []
   );
 
-  const logout = useCallback(async () => {
-    try {
-      await fetch('/api/auth/logout', {
-        method: 'POST',
-        credentials: 'include',
-      });
-    } finally {
+  const logout = useCallback(
+    async (input?: { returnTo?: string }) => {
       setUser(null);
-    }
-  }, []);
+      setError(null);
+
+      if (typeof window === 'undefined') return;
+
+      try {
+        const target =
+          input?.returnTo ??
+          (typeof window !== 'undefined' ? window.location.origin : '/');
+        const logoutUrl = new URL('/api/auth/logout', window.location.origin);
+        if (target) {
+          logoutUrl.searchParams.set('returnTo', target);
+        }
+        window.location.href = logoutUrl.toString();
+      } catch (err) {
+        console.error('Cloudflare Access logout redirect failed', err);
+        setError('Cloudflare Access logout is not configured.');
+        throw err;
+      }
+    },
+    []
+  );
 
   const refresh = useCallback(async () => {
     await loadSession();

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import ProviderCard from '@/components/ProviderCard';
 import { Plus, Search, Filter } from 'lucide-react';
@@ -22,11 +22,7 @@ export default function ProvidersPage() {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
 
-  useEffect(() => {
-    fetchProviders();
-  }, [statusFilter]);
-
-  async function fetchProviders() {
+  const fetchProviders = useCallback(async () => {
     try {
       setLoading(true);
       const query = new URLSearchParams();
@@ -43,9 +39,13 @@ export default function ProvidersPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [statusFilter]);
 
-  const filteredProviders = providers.filter(provider =>
+  useEffect(() => {
+    fetchProviders();
+  }, [fetchProviders]);
+
+  const filteredProviders = providers.filter((provider) =>
     provider.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
@@ -123,7 +123,7 @@ export default function ProvidersPage() {
           </div>
         ) : (
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {filteredProviders.map(provider => (
+            {filteredProviders.map((provider) => (
               <ProviderCard key={provider.id} provider={provider} />
             ))}
           </div>
