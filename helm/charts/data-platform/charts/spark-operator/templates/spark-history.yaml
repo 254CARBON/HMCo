@@ -43,7 +43,7 @@ spec:
         - org.apache.spark.deploy.history.HistoryServer
         env:
         - name: SPARK_HISTORY_OPTS
-          value: "-Dspark.history.fs.logDirectory={{ default \"s3a://spark-logs/\" .Values.sparkHistory.logDirectory }} -Dspark.history.fs.cleaner.enabled=true -Dspark.history.fs.cleaner.maxAge=7d -Dspark.history.ui.port=18080 -Dspark.history.admin.port=18081 -Dspark.hadoop.fs.s3a.endpoint={{ default \"http://minio-service:9000\" .Values.sparkHistory.s3Endpoint }} -Dspark.hadoop.fs.s3a.path.style.access=true -Dspark.hadoop.fs.s3a.impl=org.apache.hadoop.fs.s3a.S3AFileSystem -Dspark.hadoop.fs.s3a.connection.ssl.enabled=false"
+          value: '-Dspark.history.fs.logDirectory={{ default "s3a://spark-logs/" .Values.sparkHistory.logDirectory }} -Dspark.history.fs.cleaner.enabled=true -Dspark.history.fs.cleaner.maxAge=7d -Dspark.history.ui.port=18080 -Dspark.history.admin.port=18081 -Dspark.hadoop.fs.s3a.endpoint={{ default "http://minio-service:9000" .Values.sparkHistory.s3Endpoint }} -Dspark.hadoop.fs.s3a.path.style.access=true -Dspark.hadoop.fs.s3a.impl=org.apache.hadoop.fs.s3a.S3AFileSystem -Dspark.hadoop.fs.s3a.connection.ssl.enabled=false'
         - name: AWS_ACCESS_KEY_ID
           valueFrom:
             secretKeyRef:
