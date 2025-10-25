@@ -6,9 +6,9 @@ metadata:
     policies.kyverno.io/title: Disallow latest image tag
     policies.kyverno.io/category: Best Practices
     policies.kyverno.io/severity: medium
-    policies.kyverno.io/description: "Temporarily set to audit mode during ArgoCD migration"
+    policies.kyverno.io/description: "Baseline policy enforced cluster-wide via GitOps rollout"
 spec:
-  validationFailureAction: audit
+  validationFailureAction: enforce
   background: true
   rules:
     - name: require-nonlatest-tag
@@ -33,9 +33,9 @@ metadata:
     policies.kyverno.io/title: Require resources
     policies.kyverno.io/category: Reliability
     policies.kyverno.io/severity: high
-    policies.kyverno.io/description: "Temporarily set to audit mode during ArgoCD migration"
+    policies.kyverno.io/description: "Baseline policy enforced cluster-wide via GitOps rollout"
 spec:
-  validationFailureAction: audit
+  validationFailureAction: enforce
   background: true
   rules:
     - name: check-requests-limits
@@ -72,9 +72,9 @@ metadata:
     policies.kyverno.io/title: Require runAsNonRoot
     policies.kyverno.io/category: Security
     policies.kyverno.io/severity: high
-    policies.kyverno.io/description: "Temporarily set to audit mode during ArgoCD migration"
+    policies.kyverno.io/description: "Baseline policy enforced cluster-wide via GitOps rollout"
 spec:
-  validationFailureAction: audit
+  validationFailureAction: enforce
   background: true
   rules:
     - name: run-as-non-root
@@ -101,9 +101,9 @@ metadata:
     policies.kyverno.io/title: Require readOnlyRootFilesystem
     policies.kyverno.io/category: Security
     policies.kyverno.io/severity: medium
-    policies.kyverno.io/description: "Temporarily set to audit mode during ArgoCD migration"
+    policies.kyverno.io/description: "Baseline policy enforced cluster-wide via GitOps rollout"
 spec:
-  validationFailureAction: audit
+  validationFailureAction: enforce
   background: true
   rules:
     - name: readonly-rootfs
@@ -128,7 +128,7 @@ metadata:
     policies.kyverno.io/category: Security
     policies.kyverno.io/severity: medium
 spec:
-  validationFailureAction: audit
+  validationFailureAction: enforce
   background: true
   rules:
     - name: drop-net-raw-cap
@@ -145,4 +145,3 @@ spec:
                     capabilities:
                       drop:
                         - NET_RAW
-

@@ -23,14 +23,19 @@ spec:
     - host: {{ .host | quote }}
       http:
         paths:
-          {{- range .paths }}
-          - path: {{ .path }}
-            pathType: {{ .pathType }}
-            backend:
-              service:
-                name: {{ include "jupyterhub.fullname" . }}-proxy-public
-                port:
-                  number: 8000
-          {{- end }}
+        - path: /hub
+          pathType: Prefix
+          backend:
+            service:
+              name: {{ include "jupyterhub.fullname" . }}-hub
+              port:
+                number: 8081
+        - path: /
+          pathType: Prefix
+          backend:
+            service:
+              name: {{ include "jupyterhub.fullname" . }}-proxy-public
+              port:
+                number: 8000
     {{- end }}
 {{- end }}

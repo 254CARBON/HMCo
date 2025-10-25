@@ -30,6 +30,14 @@ data:
     c.JupyterHub.hub_port = 8081
     c.JupyterHub.hub_connect_ip = "jupyterhub-hub"
     c.JupyterHub.hub_connect_port = 8081
+
+    # Base URL configuration
+    c.JupyterHub.base_url = "/hub/"
+    c.JupyterHub.bind_url = "http://0.0.0.0:8081/hub/"
+    c.JupyterHub.hub_connect_url = "http://jupyterhub-hub:8081/hub/"
+    c.JupyterHub.public_url = "https://jupyter.254carbon.com/hub/"
+    c.JupyterHub.redirect_to_server = True
+    c.JupyterHub.default_redirect_to_server = True
     
     # Session
     c.JupyterHub.cookie_max_age_days = 1
@@ -38,6 +46,18 @@ data:
     c.ConfigurableHTTPProxy.should_start = False
     c.ConfigurableHTTPProxy.api_url = "http://jupyterhub-proxy-api:8001"
     c.ConfigurableHTTPProxy.auth_token = os.getenv("JUPYTERHUB_API_TOKEN", "")
+
+    # Hub API URL for proxy
+    c.JupyterHub.hub_api_url = "http://jupyterhub-hub:8081/hub/api/"
+
+    # Hub API token for proxy communication
+    c.JupyterHub.api_tokens = {
+        os.getenv("JUPYTERHUB_API_TOKEN", "default-token"): "jupyterhub-service"
+    }
+
+    # Hub proxy configuration
+    c.JupyterHub.proxy_api_ip = "0.0.0.0"
+    c.JupyterHub.proxy_api_port = 8001
     
     # Authentication - Allow all for now
     c.JupyterHub.authenticator_class = "dummy"
@@ -81,10 +101,6 @@ data:
         "version": "4.0.0",
     }
     
-    # API token
-    c.JupyterHub.api_tokens = {
-        os.getenv("JUPYTERHUB_API_TOKEN", "default-token"): "jupyterhub-service"
-    }
 
 ---
 # Platform Services Configuration ConfigMap

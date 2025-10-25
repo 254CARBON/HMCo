@@ -143,3 +143,23 @@ data:
           summary: "No successful backup in 24 hours"
           description: "Last successful backup was {{ $value | humanizeDuration }} ago"
 
+    - name: kyverno_policy_enforcement
+      interval: 1m
+      rules:
+      - alert: KyvernoPolicyViolation
+        expr: increase(kyverno_policy_rule_results_total{policy_kind="ClusterPolicy",rule_result="fail"}[5m]) > 0
+        for: 0m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Kyverno policy violation detected"
+          description: "{{ $labels.policy_name }}:{{ $labels.rule_name }} recorded {{ printf \"%.0f\" $value }} failure(s) in the last 5 minutes"
+
+      - alert: KyvernoPolicyViolationsBurst
+        expr: increase(kyverno_policy_rule_results_total{policy_kind="ClusterPolicy",rule_result="fail"}[15m]) > 5
+        for: 0m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Kyverno policy violations burst"
+          description: "{{ $labels.policy_name }}:{{ $labels.rule_name }} recorded {{ printf \"%.0f\" $value }} failures in the last 15 minutes"
