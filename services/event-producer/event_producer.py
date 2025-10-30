@@ -60,6 +60,7 @@ class Topic(Enum):
     AUDIT_API_CALLS = "audit-api-calls"
     AUDIT_DATA_ACCESS = "audit-data-access"
     AUDIT_ADMIN_OPS = "audit-admin-operations"
+    MARKET_DATA = "market-data"
 
 
 @dataclass
@@ -426,6 +427,14 @@ class EventProducer:
             volume: Trading volume
             timestamp: Unix timestamp
             **kwargs: Additional metadata
+        
+        Example:
+            producer.produce_market_data(
+                commodity="crude_oil",
+                price=85.50,
+                volume=10000,
+                timestamp=1729612800
+            )
         """
         event = self._create_base_event(
             EventType.DATA_INGESTION,
@@ -436,7 +445,7 @@ class EventProducer:
             **kwargs
         )
         
-        self.produce('market-data', commodity, event)
+        self.produce(Topic.MARKET_DATA.value, commodity, event)
     
     def produce_custom_event(
         self,
@@ -459,9 +468,16 @@ class EventProducer:
         Public method to produce event
         
         Args:
-            topic: Kafka topic name
-            key: Message key (for partitioning)
-            event: Event payload (dict)
+            topic: Kafka topic name (string). For predefined topics, use Topic enum values.
+            key: Message key (for partitioning). String identifier for the entity.
+            event: Event payload (dict). Should be JSON-serializable.
+        
+        Example:
+            producer.produce(
+                topic="custom-topic",
+                key="entity-123",
+                event={"type": "custom", "data": "value"}
+            )
         """
         self._produce(topic, key, event)
     
