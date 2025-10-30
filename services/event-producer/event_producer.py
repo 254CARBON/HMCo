@@ -19,6 +19,12 @@ try:
     from confluent_kafka.serialization import StringSerializer, SerializationContext, MessageField
 except ImportError:
     print("Warning: confluent_kafka not installed. Install with: pip install confluent-kafka[avro]")
+    Producer = None
+    SchemaRegistryClient = None
+    AvroSerializer = None
+    StringSerializer = None
+    SerializationContext = None
+    MessageField = None
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -158,6 +164,9 @@ class EventProducer:
             'kafka-service.data-platform.svc.cluster.local:9093'
         )
         
+        # Store bootstrap_servers for tests and inspection
+        self.bootstrap_servers = resolved_bootstrap
+        
         # Kafka producer configuration
         conf = {
             'bootstrap.servers': resolved_bootstrap,
@@ -204,11 +213,19 @@ class EventProducer:
         if additional_config:
             conf.update(additional_config)
         
-        self.producer = Producer(conf)
-        self.string_serializer = StringSerializer('utf_8')
+        # Handle case when confluent_kafka is not installed (e.g., in tests)
+        if Producer is not None:
+            self.producer = Producer(conf)
+        else:
+            self.producer = None
+            
+        if StringSerializer is not None:
+            self.string_serializer = StringSerializer('utf_8')
+        else:
+            self.string_serializer = None
         
         # Schema Registry (optional)
-        if schema_registry_url:
+        if schema_registry_url and SchemaRegistryClient is not None:
             self.schema_registry = SchemaRegistryClient({'url': schema_registry_url})
         else:
             self.schema_registry = None
@@ -392,6 +409,35 @@ class EventProducer:
         
         self._produce(Topic.DATA_QUALITY.value, dataset_name, event)
     
+    def produce_market_data(
+        self,
+        commodity: str,
+        price: float,
+        volume: int,
+        timestamp: int,
+        **kwargs
+    ):
+        """
+        Produce market data event
+        
+        Args:
+            commodity: Commodity name (e.g., "crude_oil", "gold")
+            price: Current price
+            volume: Trading volume
+            timestamp: Unix timestamp
+            **kwargs: Additional metadata
+        """
+        event = self._create_base_event(
+            EventType.DATA_INGESTION,
+            commodity=commodity,
+            price=price,
+            volume=volume,
+            eventTimestamp=timestamp,
+            **kwargs
+        )
+        
+        self.produce('market-data', commodity, event)
+    
     def produce_custom_event(
         self,
         topic: str,
@@ -408,12 +454,33 @@ class EventProducer:
         """
         self._produce(topic, key, event)
     
+    def produce(self, topic: str, key: str, event: Dict[str, Any]):
+        """
+        Public method to produce event
+        
+        Args:
+            topic: Kafka topic name
+            key: Message key (for partitioning)
+            event: Event payload (dict)
+        """
+        self._produce(topic, key, event)
+    
     def _produce(self, topic: str, key: str, event: Dict[str, Any]):
         """Internal method to produce event"""
         try:
+            if self.producer is None:
+                logger.warning("Producer not initialized (dependencies may be missing)")
+                return
+            
+            # Serialize key - handle case when StringSerializer is not available
+            if self.string_serializer is not None:
+                serialized_key = self.string_serializer(key)
+            else:
+                serialized_key = key.encode('utf-8') if isinstance(key, str) else key
+                
             self.producer.produce(
                 topic=topic,
-                key=self.string_serializer(key),
+                key=serialized_key,
                 value=json.dumps(event).encode('utf-8'),
                 on_delivery=self._delivery_callback
             )
@@ -431,6 +498,9 @@ class EventProducer:
         Args:
             timeout: Timeout in seconds
         """
+        if self.producer is None:
+            return
+            
         remaining = self.producer.flush(timeout)
         if remaining > 0:
             logger.warning(f"{remaining} messages were not delivered")
