@@ -25,7 +25,7 @@
    - Host: {{ include "clickhouse.fullname" . }}.{{ .Release.Namespace }}.svc.cluster.local
    - HTTP Port: {{ .Values.service.httpPort }}
    - TCP Port: {{ .Values.service.tcpPort }}
-   - Database: {{ .Values.clickhouse.databases[0].name }}
+   - Database: {{ index .Values.clickhouse.databases 0 | default (dict "name" "default") | dig "name" "default" }}
    - Username: default
    - Password: {{ .Values.clickhouse.security.defaultPassword }}
 

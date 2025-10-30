@@ -22,7 +22,6 @@ If release name contains chart name it will be used as a full name.
 {{- end }}
 {{- end }}
 {{- end }}
-{{- end }}
 
 {{/*
 Create chart name and version as used by the chart label.
@@ -67,5 +66,6 @@ Create the name of the service account to use
 ClickHouse database URI for external services
 */}}
 {{- define "clickhouse.databaseUri" -}}
-{{- printf "clickhouse://%s:%d/%s" (include "clickhouse.fullname" .) .Values.clickhouse.server.tcpPort .Values.clickhouse.databases[0].name }}
+{{- $dbName := index .Values.clickhouse.databases 0 | default (dict "name" "default") | dig "name" "default" }}
+{{- printf "clickhouse://%s:%d/%s" (include "clickhouse.fullname" .) .Values.clickhouse.server.tcpPort $dbName }}
 {{- end }}

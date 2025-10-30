@@ -30,7 +30,7 @@ data:
         <access_control_path>{{ .Values.clickhouse.storage.dataPath }}/access/</access_control_path>
 
         <default_profile>default</default_profile>
-        <default_database>{{ .Values.clickhouse.databases[0].name }}</default_database>
+        <default_database>{{ index .Values.clickhouse.databases 0 | default (dict "name" "default") | dig "name" "default" }}</default_database>
 
         <users_config>users.xml</users_config>
         <builtin_dictionaries_reload_interval>3600</builtin_dictionaries_reload_interval>

@@ -33,6 +33,11 @@ clickhouse:
     allowEmptyPassword: false
     defaultPassword: "ClickHouse@254Carbon2025"
 
+# Service Account
+serviceAccount:
+  create: true
+  name: ""
+
 # Kubernetes resources
 resources:
   requests:
