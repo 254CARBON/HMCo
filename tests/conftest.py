@@ -12,7 +12,10 @@ def k8s_client() -> Generator:
     try:
         config.load_incluster_config()
     except:
-        config.load_kube_config()
+        try:
+            config.load_kube_config()
+        except:
+            pytest.skip("Kubernetes not accessible in test environment")
     
     yield client.CoreV1Api()
 
