@@ -40,7 +40,7 @@ spec:
               protocol: TCP
           env:
             - name: CLICKHOUSE_DB
-              value: "{{ .Values.clickhouse.databases[0].name }}"
+              value: "{{ index .Values.clickhouse.databases 0 | default (dict "name" "default") | dig "name" "default" }}"
             - name: CLICKHOUSE_USER
               value: "default"
             - name: CLICKHOUSE_PASSWORD
