@@ -5,7 +5,7 @@ import pytest
 import os
 from typing import Generator
 from kubernetes import client, config
-from kubernetes.config.config_exception import ConfigException
+from kubernetes.config import ConfigException
 
 @pytest.fixture(scope="session")
 def k8s_client() -> Generator:
