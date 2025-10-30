@@ -75,36 +75,36 @@ class BaseEvent:
 @dataclass
 class DataIngestionEvent(BaseEvent):
     """Data ingestion event"""
-    dataset_name: str
-    record_count: int
-    size_bytes: int
-    format: str
-    location: str
-    status: str  # SUCCESS, FAILURE, PARTIAL
+    dataset_name: str = ""
+    record_count: int = 0
+    size_bytes: int = 0
+    format: str = ""
+    location: str = ""
+    status: str = ""  # SUCCESS, FAILURE, PARTIAL
     metadata: Dict[str, str] = None
 
 
 @dataclass
 class ServiceHealthEvent(BaseEvent):
     """Service health event"""
-    service_name: str
-    namespace: str
-    health_status: str  # HEALTHY, DEGRADED, UNHEALTHY, UNKNOWN
-    latency_ms: int
-    error_rate: float
+    service_name: str = ""
+    namespace: str = ""
+    health_status: str = ""  # HEALTHY, DEGRADED, UNHEALTHY, UNKNOWN
+    latency_ms: int = 0
+    error_rate: float = 0.0
     message: Optional[str] = None
 
 
 @dataclass
 class AuditAPICallEvent(BaseEvent):
     """API call audit event"""
-    service: str
-    endpoint: str
-    method: str
-    status_code: int
-    latency_ms: int
-    request_size_bytes: int
-    response_size_bytes: int
+    service: str = ""
+    endpoint: str = ""
+    method: str = ""
+    status_code: int = 0
+    latency_ms: int = 0
+    request_size_bytes: int = 0
+    response_size_bytes: int = 0
     user_id: Optional[str] = None
     api_key: Optional[str] = None
     ip_address: str = ""
