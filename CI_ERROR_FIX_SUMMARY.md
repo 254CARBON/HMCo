@@ -35,11 +35,14 @@ Using Python-style array indexing `.Values.clickhouse.databases[0].name` which i
 **Fix Applied**:
 Replaced direct array indexing with proper Helm template functions:
 ```yaml
-# Before
+# Before (invalid syntax)
 {{ .Values.clickhouse.databases[0].name }}
 
-# After
+# After (valid Helm template syntax with safe defaults)
 {{ index .Values.clickhouse.databases 0 | default (dict "name" "default") | dig "name" "default" }}
+
+# Alternative simpler syntax:
+# {{ (.Values.clickhouse.databases | first).name | default "default" }}
 ```
 
 **Additional Fix**:
@@ -72,11 +75,12 @@ The `tests/conftest.py` imports the `kubernetes` module, but the CI workflow was
 **Fix Applied**:
 Updated `.github/workflows/ci.yml` to install test dependencies:
 ```yaml
+# The following line was added to the CI workflow:
 - name: Install dependencies
   run: |
     python -m pip install --upgrade pip
     pip install pytest pytest-cov pytest-timeout pytest-asyncio
-    pip install -r tests/requirements.txt || true  # Added this line
+    pip install -r tests/requirements.txt || true  # <-- This line was added
     pip install -r services/event-producer/requirements.txt || true
     pip install -r services/mlflow-orchestration/requirements.txt || true
 ```
@@ -128,7 +132,7 @@ Updated `.github/workflows/ci.yml` to install test dependencies:
 ```
 
 **Root Cause**:
-Artifact actions v3 were deprecated in April 2024.
+Artifact actions v3 were deprecated (see GitHub Blog changelog for exact timeline).
 
 **Fix Applied**:
 Updated `.github/workflows/performance-test.yml`:
@@ -258,4 +262,10 @@ These issues should be addressed in a separate effort.
 
 ## Conclusion
 
-All identified CI errors from log analysis have been successfully addressed with minimal, targeted fixes. The changes maintain consistency with existing code patterns while resolving the root causes of failures. The next CI run should demonstrate significant improvement in workflow success rates.
+All identified CI errors from log analysis have been addressed with minimal, targeted fixes. The changes maintain consistency with existing code patterns and target the root causes of failures. 
+
+**Testing Status**:
+- ✅ Helm chart validation tested locally: `helm lint` passes for ClickHouse chart
+- ⏳ Full CI validation: Awaiting next workflow run to confirm all fixes are effective
+
+The next CI run should demonstrate significant improvement in workflow success rates. If any issues persist, they should be easier to diagnose with these foundational fixes in place.
