@@ -297,6 +297,9 @@ if [[ $CREATED -gt 0 ]] || [[ $UPDATED -gt 0 ]]; then
     echo "If still not working after 5 minutes:"
     echo "1. Clear browser cache or use Incognito mode"
     echo "2. Verify Cloudflare SSL mode is set to 'Full (strict)'"
+    echo "   WARNING: If currently using 'Flexible' mode, upgrade to 'Full (strict)' may require:"
+    echo "   - Valid SSL certificates on origin (see docs/cloudflare/origin-certificates-setup.md)"
+    echo "   - NGINX Ingress Controller configured for HTTPS"
     echo "3. Check tunnel is connected: kubectl logs -n cloudflare-tunnel -l app.kubernetes.io/name=cloudflare-tunnel"
 else
     echo "✓ All DNS records are already correctly configured"

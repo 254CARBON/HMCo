@@ -152,15 +152,37 @@ for ((i=0; i<app_count; i++)); do
     
     log_info "Processing: ${app_name} (${app_domain})"
     
-    # Fetch policies for this app
-    policies_response=$(api_request "GET" "/access/apps/${app_id}/policies?page=1&per_page=50")
-    policies=$(echo "$policies_response" | jq -r '.result')
-    policy_count=$(echo "$policies" | jq -r 'length')
+    # Fetch policies for this app (with pagination support)
+    all_policies='[]'
+    page=1
+    per_page=50
     
+    while true; do
+        policies_response=$(api_request "GET" "/access/apps/${app_id}/policies?page=${page}&per_page=${per_page}")
+        policies=$(echo "$policies_response" | jq -r '.result')
+        policy_count=$(echo "$policies" | jq -r 'length')
+        
+        # Break if no more policies
+        if [[ $policy_count -eq 0 ]]; then
+            break
+        fi
+        
+        # Append to all_policies
+        all_policies=$(echo "$all_policies" | jq --argjson new "$policies" '. + $new')
+        
+        # Break if we got fewer than per_page (last page)
+        if [[ $policy_count -lt $per_page ]]; then
+            break
+        fi
+        
+        ((page++))
+    done
+    
+    policy_count=$(echo "$all_policies" | jq -r 'length')
     log_info "  Found ${policy_count} policies"
     
     # Add policies to app object
-    app_with_policies=$(echo "$app" | jq --argjson policies "$policies" '. + {policies: $policies}')
+    app_with_policies=$(echo "$app" | jq --argjson policies "$all_policies" '. + {policies: $policies}')
     
     # Add to export
     export_data=$(echo "$export_data" | jq --argjson app "$app_with_policies" '.applications += [$app]')

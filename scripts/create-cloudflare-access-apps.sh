@@ -174,6 +174,13 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
+# Validate mutually exclusive flags
+if [[ "$FORCE_UPDATE" == "true" ]] && [[ "$SKIP_EXISTING" == "true" ]]; then
+    log_error "Cannot use both --force and --skip-existing flags together"
+    log_info "Use --force to update all existing apps, or --skip-existing to only create new apps"
+    exit 1
+fi
+
 if [[ -z "$API_TOKEN" ]]; then
     log_error "Cloudflare API token not provided."
     log_info "Export CLOUDFLARE_API_TOKEN or pass --token."

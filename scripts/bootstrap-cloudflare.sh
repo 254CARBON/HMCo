@@ -196,6 +196,12 @@ if [[ "$SKIP_TUNNEL" == "false" ]]; then
     if [[ "$DRY_RUN" == "true" ]]; then
         log_info "[DRY RUN] Would configure tunnel token in Kubernetes"
     else
+        # Verify the script exists
+        if [[ ! -f "${SCRIPT_DIR}/configure-cloudflare-tunnel-token.sh" ]]; then
+            log_error "configure-cloudflare-tunnel-token.sh not found in ${SCRIPT_DIR}"
+            exit 1
+        fi
+        
         log_info "Configuring tunnel token..."
         "${SCRIPT_DIR}/configure-cloudflare-tunnel-token.sh" \
             --account-id "$ACCOUNT_ID" \
