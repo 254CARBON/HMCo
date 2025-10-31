@@ -136,7 +136,7 @@ if [ -f "$CHART_PATH/CHANGELOG.md" ]; then
 "
     
     # Insert after line 6 (after header)
-    local temp_file=$(mktemp)
+    temp_file=$(mktemp)
     head -n 6 "$CHART_PATH/CHANGELOG.md" > "$temp_file"
     echo "$NEW_ENTRY" >> "$temp_file"
     tail -n +7 "$CHART_PATH/CHANGELOG.md" >> "$temp_file"
