@@ -148,50 +148,139 @@ jobs:
         echo "Scanning for vulnerabilities..."
         grype dir:. --fail-on critical --output table
     
-    - name: Build test image for signing (PR only)
+    - name: Build test images for signing (PR only)
       if: github.event_name == 'pull_request'
       run: |
-        echo "Building test image for verification..."
-        # Try different Dockerfile locations
+        echo "Building test images for verification..."
+        mkdir -p sbom-output
+        
+        # Build backend image
         if [ -f "backend/Dockerfile" ]; then
           echo "Building backend image..."
-          docker build -f backend/Dockerfile -t test-image:${{ github.sha }} ./backend
-        elif [ -f "portal/Dockerfile" ]; then
-          echo "Building portal image..."
-          docker build -f portal/Dockerfile -t test-image:${{ github.sha }} ./portal
-        else
-          echo "No primary Dockerfile found for testing, skipping image build"
+          docker build -f backend/Dockerfile -t test-backend:${{ github.sha }} .
+          syft test-backend:${{ github.sha }} -o spdx-json=sbom-output/sbom.backend.spdx.json
+        fi
+        
+        # Build portal-services image
+        if [ -f "services/portal-services/Dockerfile" ]; then
+          echo "Building portal-services image..."
+          docker build -f services/portal-services/Dockerfile -t test-portal-services:${{ github.sha }} services/portal-services/
+          syft test-portal-services:${{ github.sha }} -o spdx-json=sbom-output/sbom.portal-services.spdx.json
+        fi
+        
+        # Build jupyter-notebook image
+        if [ -f "docker/jupyter-notebook/Dockerfile" ]; then
+          echo "Building jupyter-notebook image..."
+          docker build -f docker/jupyter-notebook/Dockerfile -t test-jupyter-notebook:${{ github.sha }} docker/jupyter-notebook/
+          syft test-jupyter-notebook:${{ github.sha }} -o spdx-json=sbom-output/sbom.jupyter-notebook.spdx.json
         fi
     
     - name: Build and push images
       if: github.event_name != 'pull_request'
       run: |
         echo "Building and pushing images..."
-        # Build backend or portal image (primary deployable artifacts)
+        mkdir -p sbom-output
+        
+        # Initialize arrays to track images
+        declare -a IMAGE_REFS
+        declare -a SBOM_FILES
+        
+        # Build backend image
         if [ -f "backend/Dockerfile" ]; then
+          echo "Building backend image..."
           IMAGE_TAG="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-backend:${{ github.sha }}"
-          docker build -f backend/Dockerfile -t "$IMAGE_TAG" ./backend
+          docker build -f backend/Dockerfile -t "$IMAGE_TAG" .
           docker push "$IMAGE_TAG"
-          echo "IMAGE_DIGEST=$(docker inspect --format='{{index .RepoDigests 0}}' "$IMAGE_TAG")" >> "$GITHUB_ENV"
-        elif [ -f "portal/Dockerfile" ]; then
-          IMAGE_TAG="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-portal:${{ github.sha }}"
-          docker build -f portal/Dockerfile -t "$IMAGE_TAG" ./portal
-          docker push "$IMAGE_TAG"
-          echo "IMAGE_DIGEST=$(docker inspect --format='{{index .RepoDigests 0}}' "$IMAGE_TAG")" >> "$GITHUB_ENV"
-        else
-          echo "No primary Dockerfile found for deployment"
+          IMAGE_DIGEST=$(docker inspect --format='{{index .RepoDigests 0}}' "$IMAGE_TAG")
+          echo "BACKEND_IMAGE_DIGEST=$IMAGE_DIGEST" >> "$GITHUB_ENV"
+          IMAGE_REFS+=("$IMAGE_DIGEST")
+          
+          # Generate SBOM for backend image
+          syft "$IMAGE_DIGEST" -o spdx-json=sbom-output/sbom.backend.spdx.json
+          SBOM_FILES+=("sbom-output/sbom.backend.spdx.json")
         fi
+        
+        # Build portal-services image
+        if [ -f "services/portal-services/Dockerfile" ]; then
+          echo "Building portal-services image..."
+          IMAGE_TAG="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-portal-services:${{ github.sha }}"
+          docker build -f services/portal-services/Dockerfile -t "$IMAGE_TAG" services/portal-services/
+          docker push "$IMAGE_TAG"
+          IMAGE_DIGEST=$(docker inspect --format='{{index .RepoDigests 0}}' "$IMAGE_TAG")
+          echo "PORTAL_SERVICES_IMAGE_DIGEST=$IMAGE_DIGEST" >> "$GITHUB_ENV"
+          IMAGE_REFS+=("$IMAGE_DIGEST")
+          
+          # Generate SBOM for portal-services image
+          syft "$IMAGE_DIGEST" -o spdx-json=sbom-output/sbom.portal-services.spdx.json
+          SBOM_FILES+=("sbom-output/sbom.portal-services.spdx.json")
+        fi
+        
+        # Build jupyter-notebook image
+        if [ -f "docker/jupyter-notebook/Dockerfile" ]; then
+          echo "Building jupyter-notebook image..."
+          IMAGE_TAG="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-jupyter-notebook:${{ github.sha }}"
+          docker build -f docker/jupyter-notebook/Dockerfile -t "$IMAGE_TAG" docker/jupyter-notebook/
+          docker push "$IMAGE_TAG"
+          IMAGE_DIGEST=$(docker inspect --format='{{index .RepoDigests 0}}' "$IMAGE_TAG")
+          echo "JUPYTER_NOTEBOOK_IMAGE_DIGEST=$IMAGE_DIGEST" >> "$GITHUB_ENV"
+          IMAGE_REFS+=("$IMAGE_DIGEST")
+          
+          # Generate SBOM for jupyter-notebook image
+          syft "$IMAGE_DIGEST" -o spdx-json=sbom-output/sbom.jupyter-notebook.spdx.json
+          SBOM_FILES+=("sbom-output/sbom.jupyter-notebook.spdx.json")
+        fi
+        
+        # Store image refs for signing
+        echo "IMAGE_REFS=${IMAGE_REFS[*]}" >> "$GITHUB_ENV"
     
-    - name: Sign container image
+    - name: Sign container images
       if: github.event_name != 'pull_request'
       env:
         COSIGN_EXPERIMENTAL: "true"
       run: |
-        if [ -n "$IMAGE_DIGEST" ]; then
-          echo "Signing image with cosign..."
-          cosign sign --yes $IMAGE_DIGEST
-        else
-          echo "No image to sign"
+        echo "Signing container images with cosign..."
+        
+        # Sign backend image
+        if [ -n "$BACKEND_IMAGE_DIGEST" ]; then
+          echo "Signing backend image..."
+          cosign sign --yes "$BACKEND_IMAGE_DIGEST"
+        fi
+        
+        # Sign portal-services image
+        if [ -n "$PORTAL_SERVICES_IMAGE_DIGEST" ]; then
+          echo "Signing portal-services image..."
+          cosign sign --yes "$PORTAL_SERVICES_IMAGE_DIGEST"
+        fi
+        
+        # Sign jupyter-notebook image
+        if [ -n "$JUPYTER_NOTEBOOK_IMAGE_DIGEST" ]; then
+          echo "Signing jupyter-notebook image..."
+          cosign sign --yes "$JUPYTER_NOTEBOOK_IMAGE_DIGEST"
+        fi
+    
+    - name: Attest SBOM to images
+      if: github.event_name != 'pull_request'
+      env:
+        COSIGN_EXPERIMENTAL: "true"
+      run: |
+        echo "Attesting SBOMs to container images..."
+        
+        # Attest backend SBOM
+        if [ -n "$BACKEND_IMAGE_DIGEST" ] && [ -f "sbom-output/sbom.backend.spdx.json" ]; then
+          echo "Attesting backend SBOM..."
+          cosign attest --yes --predicate sbom-output/sbom.backend.spdx.json --type spdx "$BACKEND_IMAGE_DIGEST"
+        fi
+        
+        # Attest portal-services SBOM
+        if [ -n "$PORTAL_SERVICES_IMAGE_DIGEST" ] && [ -f "sbom-output/sbom.portal-services.spdx.json" ]; then
+          echo "Attesting portal-services SBOM..."
+          cosign attest --yes --predicate sbom-output/sbom.portal-services.spdx.json --type spdx "$PORTAL_SERVICES_IMAGE_DIGEST"
+        fi
+        
+        # Attest jupyter-notebook SBOM
+        if [ -n "$JUPYTER_NOTEBOOK_IMAGE_DIGEST" ] && [ -f "sbom-output/sbom.jupyter-notebook.spdx.json" ]; then
+          echo "Attesting jupyter-notebook SBOM..."
+          cosign attest --yes --predicate sbom-output/sbom.jupyter-notebook.spdx.json --type spdx "$JUPYTER_NOTEBOOK_IMAGE_DIGEST"
         fi
     
     - name: Sign SBOM artifacts
@@ -199,7 +288,7 @@ jobs:
         COSIGN_EXPERIMENTAL: "true"
       run: |
         echo "Signing SBOM files..."
-        for sbom_file in sbom-output/*.json; do
+        for sbom_file in sbom-output/*.spdx.json; do
           if [ -f "$sbom_file" ]; then
             echo "Signing $sbom_file..."
             cosign sign-blob --yes "$sbom_file" --output-signature "${sbom_file}.sig"
@@ -216,10 +305,45 @@ jobs:
     - name: Generate SBOM summary
       run: |
         {
-          echo "## SBOM Generation Summary"
+          echo "## SBOM Generation and Signing Summary"
           echo ""
-          echo "Generated SBOMs:"
+          echo "### Generated SBOMs:"
           ls -lh sbom-output/
+          echo ""
+          echo "### Image Verification Commands"
+          echo ""
+          if [ -n "$BACKEND_IMAGE_DIGEST" ]; then
+            echo "**Backend Image:**"
+            echo '```bash'
+            echo "# Verify signature"
+            echo "cosign verify $BACKEND_IMAGE_DIGEST"
+            echo ""
+            echo "# Verify SBOM attestation"
+            echo "cosign verify-attestation --type spdx $BACKEND_IMAGE_DIGEST"
+            echo '```'
+            echo ""
+          fi
+          if [ -n "$PORTAL_SERVICES_IMAGE_DIGEST" ]; then
+            echo "**Portal Services Image:**"
+            echo '```bash'
+            echo "# Verify signature"
+            echo "cosign verify $PORTAL_SERVICES_IMAGE_DIGEST"
+            echo ""
+            echo "# Verify SBOM attestation"
+            echo "cosign verify-attestation --type spdx $PORTAL_SERVICES_IMAGE_DIGEST"
+            echo '```'
+            echo ""
+          fi
+          if [ -n "$JUPYTER_NOTEBOOK_IMAGE_DIGEST" ]; then
+            echo "**Jupyter Notebook Image:**"
+            echo '```bash'
+            echo "# Verify signature"
+            echo "cosign verify $JUPYTER_NOTEBOOK_IMAGE_DIGEST"
+            echo ""
+            echo "# Verify SBOM attestation"
+            echo "cosign verify-attestation --type spdx $JUPYTER_NOTEBOOK_IMAGE_DIGEST"
+            echo '```'
+          fi
         } >> "$GITHUB_STEP_SUMMARY"
 
   e2e:

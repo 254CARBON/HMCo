@@ -1,7 +1,7 @@
 # Custom JupyterHub Notebook Image
 # Based on Jupyter Data Science Notebook with platform-specific libraries
 
-FROM jupyter/datascience-notebook:latest
+FROM jupyter/datascience-notebook:latest@sha256:476c6e673e7d5d8b5059f8680b1c6a988942a79263da651bf302dc696ab311f2
 
 LABEL maintainer="254Carbon Platform Team <platform@254carbon.com>"
 LABEL description="JupyterHub notebook image with integrated platform service libraries"

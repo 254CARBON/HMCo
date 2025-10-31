@@ -1,0 +1,157 @@
+{{- if .Values.imageSigning.enabled }}
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: verify-image-signatures
+  annotations:
+    policies.kyverno.io/title: Verify Container Image Signatures
+    policies.kyverno.io/category: Supply Chain Security
+    policies.kyverno.io/severity: high
+    policies.kyverno.io/subject: Pod
+    policies.kyverno.io/description: >-
+      Verifies that container images are signed using Cosign keyless signing
+      with Sigstore. This policy ensures that only images signed by trusted
+      entities can be deployed in production namespaces.
+spec:
+  validationFailureAction: {{ .Values.imageSigning.validationFailureAction }}
+  background: true
+  webhookTimeoutSeconds: 30
+  failurePolicy: Fail
+  rules:
+    - name: verify-ghcr-images
+      match:
+        any:
+        - resources:
+            kinds:
+              - Pod
+            namespaces:
+            {{- range .Values.imageSigning.includeNamespaces }}
+              - {{ . | quote }}
+            {{- end }}
+      exclude:
+        any:
+        - resources:
+            namespaces:
+            {{- range .Values.imageSigning.excludeNamespaces }}
+              - {{ . | quote }}
+            {{- end }}
+      verifyImages:
+      {{- range .Values.imageSigning.trustedRegistries }}
+      - imageReferences:
+        - {{ .registry | quote }}
+        {{- if .keyless }}
+        attestors:
+        - entries:
+          - keyless:
+              subject: "https://github.com/254CARBON/*"
+              issuer: "https://token.actions.githubusercontent.com"
+              rekor:
+                url: https://rekor.sigstore.dev
+        {{- else if .key }}
+        attestors:
+        - entries:
+          - keys:
+              publicKeys: |-
+{{ .key | indent 16 }}
+        {{- end }}
+      {{- end }}
+    
+    - name: allow-trusted-unsigned-images
+      match:
+        any:
+        - resources:
+            kinds:
+              - Pod
+            namespaces:
+            {{- range .Values.imageSigning.includeNamespaces }}
+              - {{ . | quote }}
+            {{- end }}
+      exclude:
+        any:
+        - resources:
+            namespaces:
+            {{- range .Values.imageSigning.excludeNamespaces }}
+              - {{ . | quote }}
+            {{- end }}
+      validate:
+        message: >-
+          Images must be from trusted registries or be properly signed.
+          Allowed unsigned registries: {{ join ", " .Values.imageSigning.allowedUnsignedRegistries }}
+        foreach:
+        - list: "request.object.spec.containers"
+          deny:
+            conditions:
+              all:
+              # Deny if image is not from allowed unsigned registry
+              {{- range .Values.imageSigning.allowedUnsignedRegistries }}
+              - key: "{{ `{{ element.image }}` }}"
+                operator: NotEquals
+                value: "{{ . }}"
+              {{- end }}
+              # And not from trusted signed registry
+              {{- range .Values.imageSigning.trustedRegistries }}
+              - key: "{{ `{{ element.image }}` }}"
+                operator: NotEquals
+                value: "{{ .registry }}"
+              {{- end }}
+{{- end }}
+---
+{{- if .Values.imageSigning.enabled }}
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: verify-sbom-attestations
+  annotations:
+    policies.kyverno.io/title: Verify SBOM Attestations
+    policies.kyverno.io/category: Supply Chain Security
+    policies.kyverno.io/severity: medium
+    policies.kyverno.io/subject: Pod
+    policies.kyverno.io/description: >-
+      Verifies that container images have SBOM attestations attached.
+      This ensures transparency in the software supply chain.
+spec:
+  validationFailureAction: {{ .Values.imageSigning.validationFailureAction }}
+  background: true
+  webhookTimeoutSeconds: 30
+  failurePolicy: Ignore
+  rules:
+    - name: verify-sbom-attestation
+      match:
+        any:
+        - resources:
+            kinds:
+              - Pod
+            namespaces:
+            {{- range .Values.imageSigning.includeNamespaces }}
+              - {{ . | quote }}
+            {{- end }}
+      exclude:
+        any:
+        - resources:
+            namespaces:
+            {{- range .Values.imageSigning.excludeNamespaces }}
+              - {{ . | quote }}
+            {{- end }}
+      verifyImages:
+      {{- range .Values.imageSigning.trustedRegistries }}
+      - imageReferences:
+        - {{ .registry | quote }}
+        attestations:
+        - predicateType: https://spdx.dev/Document
+          {{- if .keyless }}
+          attestors:
+          - entries:
+            - keyless:
+                subject: "https://github.com/254CARBON/*"
+                issuer: "https://token.actions.githubusercontent.com"
+                rekor:
+                  url: https://rekor.sigstore.dev
+          {{- else if .key }}
+          attestors:
+          - entries:
+            - keys:
+                publicKeys: |-
+{{ .key | indent 18 }}
+          {{- end }}
+      {{- end }}
+{{- end }}
