@@ -143,7 +143,7 @@ data:
           component: data-platform
         annotations:
           summary: "Data quality check failed"
-          description: "Data quality check for {{ $labels.table }} failed"
+          description: "Data quality check for {{` {{ $labels.table }} `}} failed"
       
     - name: feed_slos
       interval: 1m
@@ -159,7 +159,7 @@ data:
           slo: freshness
         annotations:
           summary: "ISO RT LMP freshness SLA violated"
-          description: "Feed {{ $labels.feed }} has not updated in 60 seconds (SLA: 60s)"
+          description: "Feed {{` {{ $labels.feed }} `}} has not updated in 60 seconds (SLA: 60s)"
       
       # ISO DA Awards Freshness
       - alert: ISODAAwardsFreshnessSLAViolation
@@ -172,7 +172,7 @@ data:
           slo: freshness
         annotations:
           summary: "ISO DA awards freshness SLA violated"
-          description: "Feed {{ $labels.feed }} has not updated in 60 minutes (SLA: 60min)"
+          description: "Feed {{` {{ $labels.feed }} `}} has not updated in 60 minutes (SLA: 60min)"
       
       # Outage Events Freshness
       - alert: OutageEventsFreshnessSLAViolation
@@ -185,7 +185,7 @@ data:
           slo: freshness
         annotations:
           summary: "Outage events freshness SLA violated"
-          description: "Feed {{ $labels.feed }} has not updated in 5 minutes"
+          description: "Feed {{` {{ $labels.feed }} `}} has not updated in 5 minutes"
       
       # Weather H3 Freshness
       - alert: WeatherH3FreshnessSLAViolation
@@ -224,7 +224,7 @@ data:
           slo: freshness
         annotations:
           summary: "ISO telemetry freshness SLA violated"
-          description: "Feed {{ $labels.feed }} has not updated in 5 minutes"
+          description: "Feed {{` {{ $labels.feed }} `}} has not updated in 5 minutes"
       
       # Feed Completeness
       - alert: FeedCompletenessSLAViolation
@@ -237,7 +237,7 @@ data:
           slo: completeness
         annotations:
           summary: "Feed completeness below threshold"
-          description: "Feed {{ $labels.feed }} completeness is {{ $value | humanizePercentage }} (SLA: 95%)"
+          description: "Feed {{` {{ $labels.feed }} `}} completeness is {{` {{ $value | humanizePercentage }} `}} (SLA: 95%)"
       
       # Feed Duplicate Rate
       - alert: FeedDuplicateRateHigh
@@ -250,7 +250,7 @@ data:
           slo: dup_rate
         annotations:
           summary: "Feed duplicate rate too high"
-          description: "Feed {{ $labels.feed }} duplicate rate is {{ $value | humanizePercentage }} (SLA: <1%)"
+          description: "Feed {{` {{ $labels.feed }} `}} duplicate rate is {{` {{ $value | humanizePercentage }} `}} (SLA: <1%)"
       
       # Feed Late Data Rate
       - alert: FeedLateDataRateHigh
@@ -263,7 +263,7 @@ data:
           slo: late_data
         annotations:
           summary: "Feed late data rate elevated"
-          description: "Feed {{ $labels.feed }} late data rate is {{ $value | humanizePercentage }} (threshold: 5%)"
+          description: "Feed {{` {{ $labels.feed }} `}} late data rate is {{` {{ $value | humanizePercentage }} `}} (threshold: 5%)"
       
       # Macro Data Freshness (EIA/FRED/Census)
       - alert: MacroDataFreshnessSLAViolation
@@ -276,7 +276,7 @@ data:
           slo: freshness
         annotations:
           summary: "Macro data freshness SLA violated"
-          description: "Feed {{ $labels.feed }} has not updated in 30 minutes (SLA: 30min post-publish)"
+          description: "Feed {{` {{ $labels.feed }} `}} has not updated in 30 minutes (SLA: 30min post-publish)"
       
       # Curve Snapshots Freshness
       - alert: CurveSnapshotFreshnessSLAViolation
@@ -289,7 +289,7 @@ data:
           slo: freshness
         annotations:
           summary: "Curve snapshot freshness SLA violated"
-          description: "Feed {{ $labels.feed }} has not updated in 15 minutes"
+          description: "Feed {{` {{ $labels.feed }} `}} has not updated in 15 minutes"
       
     - name: feed_ledger_health
       interval: 1m
@@ -316,7 +316,7 @@ data:
           component: feed-ledger
         annotations:
           summary: "Feed stuck in running state"
-          description: "Feed {{ $labels.feed }} has been running for over 1 hour"
+          description: "Feed {{` {{ $labels.feed }} `}} has been running for over 1 hour"
       
       # High Feed Failure Rate
       - alert: HighFeedFailureRate
@@ -328,4 +328,4 @@ data:
           component: feed-ledger
         annotations:
           summary: "High feed failure rate"
-          description: "Feed failure rate is {{ $value | humanize }} failures/sec"
+          description: "Feed failure rate is {{` {{ $value | humanize }} `}} failures/sec"

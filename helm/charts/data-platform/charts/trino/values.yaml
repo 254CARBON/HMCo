@@ -70,6 +70,18 @@ config:
     max-worker-threads: 32
     min-drivers: 2
 
+# Resource groups configuration for query management
+resourceGroups:
+  enabled: false
+
+# KEDA-based autoscaling configuration
+keda:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 10
+  cooldownPeriod: 300
+  pollingInterval: 30
+
 serviceAccount:
   create: true
   annotations: {}
