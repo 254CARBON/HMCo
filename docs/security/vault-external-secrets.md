@@ -39,6 +39,7 @@ All application credentials are stored under the KV v2 mount path `secret/`. The
 | `secret/api-gateway/postgres` | `postgres-password`, `kong-password` | `kong-postgres` | kong |
 | `secret/api-gateway/jwt` | `kongCredType`, `key`, `algorithm`, `rsa_public_key` | `portal-jwt-credential` | kong |
 | `secret/monitoring/alertmanager` | `config` (YAML content) | `alertmanager-config` | monitoring |
+| `secret/monitoring/grafana` | `admin-password` | `grafana-secret` | monitoring |
 | `secret/cloudflare/tunnel` | `token` | `cloudflare-tunnel-token` | default/cloudflare |
 
 > **Note:** Least-privilege policies ensure each application can only read its own secrets. Cross-namespace and cross-application access is denied by Vault policies.
@@ -228,6 +229,10 @@ After running the initialization script:
      - to: 'ops@254carbon.com'
    EOF
    )"
+
+   # Grafana admin password
+   kubectl exec -n vault-prod vault-0 -- vault kv put secret/monitoring/grafana \
+       admin-password="REPLACE_WITH_STRONG_PASSWORD"
    ```
 
    ### Cloudflare Tunnel Secret
