@@ -285,6 +285,572 @@ All Kubernetes manifests are located in:
 - [x] Security hardening guidance
 - [x] Comprehensive documentation
 
+## Authentication and Access Control
+
+### REST Catalog Authentication
+
+The Iceberg REST Catalog supports multiple authentication mechanisms to ensure secure access:
+
+#### 1. OAuth 2.0 Authentication
+
+```yaml
+# Configure OAuth 2.0 for Iceberg REST Catalog
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: iceberg-rest-auth-config
+  namespace: data-platform
+data:
+  catalog-impl: org.apache.iceberg.rest.RESTCatalog
+  uri: http://iceberg-rest-catalog:8181
+  credential: oauth2
+  oauth2-server-uri: https://auth.254carbon.com/oauth/token
+  scope: iceberg:read iceberg:write
+```
+
+**Implementation:**
+
+```python
+# Python client with OAuth2
+from pyiceberg.catalog import load_catalog
+
+catalog = load_catalog(
+    "rest",
+    **{
+        "uri": "http://iceberg-rest-catalog:8181",
+        "credential": "oauth2",
+        "oauth2-server-uri": "https://auth.254carbon.com/oauth/token",
+        "token": "<your-oauth-token>",
+        "scope": "iceberg:read iceberg:write"
+    }
+)
+```
+
+#### 2. Token-Based Authentication
+
+```bash
+# Generate API token for service account
+export ICEBERG_TOKEN=$(kubectl get secret iceberg-api-token -n data-platform -o jsonpath='{.data.token}' | base64 -d)
+
+# Use token in REST API calls
+curl -H "Authorization: Bearer $ICEBERG_TOKEN" \
+  http://iceberg-rest-catalog:8181/v1/namespaces
+```
+
+#### 3. Service Account Authentication (Recommended)
+
+```yaml
+# ServiceAccount with RBAC for Iceberg access
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: iceberg-client-sa
+  namespace: data-platform
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: iceberg-client-token
+  namespace: data-platform
+  annotations:
+    kubernetes.io/service-account.name: iceberg-client-sa
+type: kubernetes.io/service-account-token
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: iceberg-client-role
+  namespace: data-platform
+rules:
+- apiGroups: [""]
+  resources: ["configmaps"]
+  resourceNames: ["iceberg-rest-config"]
+  verbs: ["get", "list"]
+- apiGroups: [""]
+  resources: ["secrets"]
+  resourceNames: ["minio-secret", "iceberg-db-secret"]
+  verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: iceberg-client-binding
+  namespace: data-platform
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: iceberg-client-role
+subjects:
+- kind: ServiceAccount
+  name: iceberg-client-sa
+  namespace: data-platform
+```
+
+### Access Control Lists (ACLs)
+
+#### Table-Level Access Control
+
+```yaml
+# Configure ACLs for Iceberg tables
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: iceberg-acls
+  namespace: data-platform
+data:
+  acl-config.yaml: |
+    # Default deny-all policy
+    default-policy: deny
+    
+    # ACL rules by namespace and table
+    acls:
+      # Raw data namespace - restricted access
+      - namespace: "raw"
+        table: "*"
+        permissions:
+          - principal: "role:data-engineer"
+            actions: ["read", "write", "create", "delete"]
+          - principal: "role:data-scientist"
+            actions: ["read"]
+          - principal: "role:analyst"
+            actions: []  # No access
+      
+      # Analytics namespace - broader read access
+      - namespace: "analytics"
+        table: "*"
+        permissions:
+          - principal: "role:data-engineer"
+            actions: ["read", "write", "create", "delete"]
+          - principal: "role:data-scientist"
+            actions: ["read", "write"]
+          - principal: "role:analyst"
+            actions: ["read"]
+      
+      # Sensitive tables - restricted access
+      - namespace: "analytics"
+        table: "customers_pii"
+        permissions:
+          - principal: "role:data-engineer"
+            actions: ["read", "write"]
+          - principal: "role:compliance-officer"
+            actions: ["read"]
+          - principal: "role:data-scientist"
+            actions: []  # No access to PII
+```
+
+#### Enforcing ACLs with Trino
+
+```sql
+-- Configure Trino security with role-based access
+-- File: /etc/trino/catalog/iceberg.properties
+
+connector.name=iceberg
+iceberg.catalog.type=rest
+iceberg.rest.uri=http://iceberg-rest-catalog:8181
+
+# Enable access control
+access-control.name=file
+security.config-file=/etc/trino/rules.json
+```
+
+**rules.json:**
+```json
+{
+  "catalogs": [
+    {
+      "catalog": "iceberg",
+      "allow": "all",
+      "schemas": [
+        {
+          "schema": "raw",
+          "owner": false,
+          "tables": [
+            {
+              "privileges": ["SELECT", "INSERT", "UPDATE", "DELETE"],
+              "user": "data-engineer"
+            },
+            {
+              "privileges": ["SELECT"],
+              "user": "data-scientist"
+            }
+          ]
+        },
+        {
+          "schema": "analytics",
+          "owner": false,
+          "tables": [
+            {
+              "privileges": ["SELECT", "INSERT", "UPDATE", "DELETE"],
+              "user": "data-engineer"
+            },
+            {
+              "privileges": ["SELECT", "INSERT"],
+              "user": "data-scientist"
+            },
+            {
+              "privileges": ["SELECT"],
+              "user": "analyst"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
+```
+
+### Audit Logging
+
+#### 1. REST Catalog Audit Logs
+
+All read/write operations to the Iceberg REST Catalog are logged:
+
+```yaml
+# Enable audit logging in Iceberg REST Catalog
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: iceberg-rest-logging
+  namespace: data-platform
+data:
+  log4j2.xml: |
+    <?xml version="1.0" encoding="UTF-8"?>
+    <Configuration status="INFO">
+      <Appenders>
+        <!-- Console appender -->
+        <Console name="Console" target="SYSTEM_OUT">
+          <PatternLayout pattern="%d{yyyy-MM-dd HH:mm:ss} %-5p %c{1} - %m%n"/>
+        </Console>
+        
+        <!-- Audit log appender -->
+        <RollingFile name="AuditLog" 
+                     fileName="/var/log/iceberg/audit.log"
+                     filePattern="/var/log/iceberg/audit-%d{yyyy-MM-dd}-%i.log.gz">
+          <JsonLayout compact="true" eventEol="true">
+            <KeyValuePair key="timestamp" value="$${date:yyyy-MM-dd'T'HH:mm:ss.SSSZ}"/>
+            <KeyValuePair key="level" value="$${level}"/>
+            <KeyValuePair key="logger" value="$${logger}"/>
+            <KeyValuePair key="message" value="$${message}"/>
+            <KeyValuePair key="thread" value="$${thread}"/>
+          </JsonLayout>
+          <Policies>
+            <TimeBasedTriggeringPolicy interval="1" modulate="true"/>
+            <SizeBasedTriggeringPolicy size="100 MB"/>
+          </Policies>
+          <DefaultRolloverStrategy max="30"/>
+        </RollingFile>
+      </Appenders>
+      
+      <Loggers>
+        <!-- Audit logger for all catalog operations -->
+        <Logger name="org.apache.iceberg.rest.audit" level="INFO" additivity="false">
+          <AppenderRef ref="AuditLog"/>
+        </Logger>
+        
+        <!-- Root logger -->
+        <Root level="INFO">
+          <AppenderRef ref="Console"/>
+        </Root>
+      </Loggers>
+    </Configuration>
+```
+
+#### 2. Query Audit Logs in Elasticsearch/Loki
+
+```bash
+# Ship audit logs to centralized logging
+kubectl apply -f - <<EOF
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: fluent-bit-iceberg-config
+  namespace: data-platform
+data:
+  fluent-bit.conf: |
+    [INPUT]
+        Name              tail
+        Path              /var/log/iceberg/audit.log
+        Parser            json
+        Tag               iceberg.audit
+        Refresh_Interval  5
+    
+    [OUTPUT]
+        Name              es
+        Match             iceberg.audit
+        Host              elasticsearch.monitoring
+        Port              9200
+        Index             iceberg-audit
+        Type              _doc
+EOF
+```
+
+#### 3. Sample Audit Log Entry
+
+```json
+{
+  "timestamp": "2025-10-31T04:12:00.123Z",
+  "level": "INFO",
+  "logger": "org.apache.iceberg.rest.audit",
+  "message": "Table accessed",
+  "thread": "http-nio-8181-exec-1",
+  "user": "service-account:data-engineer",
+  "action": "READ",
+  "resource": "iceberg.analytics.customers",
+  "namespace": "analytics",
+  "table": "customers",
+  "client_ip": "10.42.1.15",
+  "user_agent": "PyIceberg/0.6.0",
+  "request_id": "req-abc123",
+  "duration_ms": 45,
+  "status": "success"
+}
+```
+
+#### 4. Querying Audit Logs
+
+```bash
+# Query audit logs for specific user
+curl -X GET "http://elasticsearch.monitoring:9200/iceberg-audit/_search?pretty" \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "query": {
+      "bool": {
+        "must": [
+          {"term": {"user.keyword": "service-account:data-engineer"}},
+          {"range": {"timestamp": {"gte": "now-7d"}}}
+        ]
+      }
+    },
+    "sort": [{"timestamp": {"order": "desc"}}]
+  }'
+
+# Query failed access attempts
+curl -X GET "http://elasticsearch.monitoring:9200/iceberg-audit/_search?pretty" \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "query": {
+      "bool": {
+        "must": [
+          {"term": {"status.keyword": "unauthorized"}},
+          {"range": {"timestamp": {"gte": "now-24h"}}}
+        ]
+      }
+    }
+  }'
+```
+
+### Governed Tables Example
+
+#### Creating a Governed Table with Full Access Controls
+
+```sql
+-- Create namespace with governance policies
+CREATE SCHEMA IF NOT EXISTS iceberg.governed;
+
+-- Create governed table with encryption and access controls
+CREATE TABLE iceberg.governed.customer_transactions (
+    transaction_id UUID,
+    customer_id BIGINT,
+    transaction_date TIMESTAMP(6) WITH TIME ZONE,
+    amount DECIMAL(15, 2),
+    currency VARCHAR(3),
+    merchant_name VARCHAR(255),
+    category VARCHAR(100),
+    -- PII fields (encrypted at rest)
+    customer_email VARCHAR(255),
+    customer_phone VARCHAR(20),
+    -- Metadata
+    created_at TIMESTAMP(6) WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    created_by VARCHAR(100),
+    modified_at TIMESTAMP(6) WITH TIME ZONE,
+    modified_by VARCHAR(100)
+)
+WITH (
+    format = 'PARQUET',
+    location = 's3://iceberg-warehouse/governed/customer_transactions',
+    partitioning = ARRAY['bucket(customer_id, 16)', 'day(transaction_date)'],
+    -- Enable encryption
+    write_compression_codec = 'SNAPPY',
+    -- Metadata for governance
+    table_properties = MAP(
+        ARRAY['classification', 'owner', 'retention_days', 'pii_fields'],
+        ARRAY['confidential', 'data-platform-team', '2555', 'customer_email,customer_phone']
+    )
+);
+
+-- Grant read access to analysts (via Trino roles)
+GRANT SELECT ON iceberg.governed.customer_transactions TO ROLE analyst;
+
+-- Grant write access to data engineers
+GRANT SELECT, INSERT, UPDATE, DELETE ON iceberg.governed.customer_transactions TO ROLE data_engineer;
+
+-- Revoke direct access to PII fields for most users
+-- This requires column-level security in Trino
+CREATE VIEW iceberg.governed.customer_transactions_safe AS
+SELECT
+    transaction_id,
+    customer_id,
+    transaction_date,
+    amount,
+    currency,
+    merchant_name,
+    category,
+    -- Mask PII fields
+    'REDACTED' AS customer_email,
+    'REDACTED' AS customer_phone,
+    created_at,
+    created_by
+FROM iceberg.governed.customer_transactions;
+
+-- Grant access to safe view
+GRANT SELECT ON iceberg.governed.customer_transactions_safe TO ROLE analyst;
+GRANT SELECT ON iceberg.governed.customer_transactions_safe TO ROLE data_scientist;
+```
+
+#### Registering Governed Tables in DataHub
+
+```yaml
+# DataHub governance metadata ingestion
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: datahub-governance-ingestion
+  namespace: data-platform
+spec:
+  template:
+    spec:
+      serviceAccountName: datahub-ingestion-sa
+      containers:
+      - name: datahub-ingestion
+        image: acryldata/datahub-ingestion:latest
+        command: ["/bin/bash", "-c"]
+        args:
+          - |
+            cat > /tmp/governance-recipe.yml <<EOF
+            source:
+              type: iceberg
+              config:
+                catalog:
+                  rest:
+                    uri: http://iceberg-rest-catalog:8181
+                # Add governance metadata
+                domain:
+                  "governed": "urn:li:domain:customer-data"
+                tag_prefix: "governance"
+                
+                # Extract governance metadata from table properties
+                extract_table_properties: true
+                
+                # Add ownership
+                ownership:
+                  - owner: "urn:li:corpuser:data-platform-team"
+                    type: "TECHNICAL_OWNER"
+                
+                # Add classifications
+                classification:
+                  confidential: "urn:li:tag:Confidential"
+                  pii: "urn:li:tag:PII"
+                
+                # Define data contracts
+                schema_metadata:
+                  classification: "Confidential"
+                  retention: "7 years"
+                  encryption: "AES-256"
+            
+            sink:
+              type: datahub-rest
+              config:
+                server: http://datahub-gms:8080
+            EOF
+            
+            datahub ingest -c /tmp/governance-recipe.yml
+      restartPolicy: OnFailure
+```
+
+### Verification: Authentication Required
+
+#### Test 1: Unauthenticated Access (Should Fail)
+
+```bash
+# Attempt to access without credentials
+curl -X GET http://iceberg-rest-catalog:8181/v1/namespaces
+
+# Expected response: 401 Unauthorized
+{
+  "error": "Unauthorized",
+  "message": "Authentication required. Please provide a valid token."
+}
+```
+
+#### Test 2: Authenticated Access (Should Succeed)
+
+```bash
+# Access with valid token
+TOKEN=$(kubectl get secret iceberg-api-token -n data-platform -o jsonpath='{.data.token}' | base64 -d)
+
+curl -X GET http://iceberg-rest-catalog:8181/v1/namespaces \
+  -H "Authorization: Bearer $TOKEN"
+
+# Expected response: 200 OK with namespace list
+{
+  "namespaces": [
+    ["raw"],
+    ["analytics"],
+    ["governed"]
+  ]
+}
+```
+
+#### Test 3: Read/Write Path Authentication
+
+```python
+# Python test script
+from pyiceberg.catalog import load_catalog
+from pyiceberg.exceptions import Unauthorized
+
+# Load catalog with authentication
+catalog = load_catalog(
+    "rest",
+    **{
+        "uri": "http://iceberg-rest-catalog:8181",
+        "token": "YOUR_API_TOKEN_HERE"  # Replace with actual token from kubectl
+    }
+)
+
+# Test read access (requires authentication)
+try:
+    namespaces = catalog.list_namespaces()
+    print(f"✓ Authenticated read successful: {namespaces}")
+except Unauthorized as e:
+    print(f"✗ Authentication failed: {e}")
+
+# Test write access (requires authentication)
+try:
+    catalog.create_namespace("test_namespace")
+    print("✓ Authenticated write successful")
+except Unauthorized as e:
+    print(f"✗ Authentication failed: {e}")
+```
+
+### Audit Log Verification
+
+```bash
+# Check audit logs are being generated
+kubectl exec -it deployment/iceberg-rest-catalog -n data-platform -- \
+  tail -f /var/log/iceberg/audit.log
+
+# Query recent audit events
+kubectl exec -it deployment/iceberg-rest-catalog -n data-platform -- \
+  grep -E '"action":"(READ|WRITE|CREATE|DELETE)"' /var/log/iceberg/audit.log | \
+  jq -r '[.timestamp, .user, .action, .resource, .status] | @tsv' | \
+  tail -20
+
+# Expected output:
+# 2025-10-31T04:12:00.123Z    service-account:data-engineer    READ      iceberg.analytics.customers    success
+# 2025-10-31T04:13:15.456Z    service-account:data-scientist   WRITE     iceberg.raw.events             success
+# 2025-10-31T04:14:30.789Z    anonymous                        READ      iceberg.analytics.customers    unauthorized
+```
+
 ### 🔄 Recommended Next Steps
 
 1. **Security Hardening**
