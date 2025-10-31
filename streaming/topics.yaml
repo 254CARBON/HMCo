@@ -1,0 +1,138 @@
+# Redpanda/Kafka Topics Specification
+# Real-time ISO and vendor feed topics for sub-minute ingestion
+---
+topics:
+  # ISO Real-Time LMP feeds (5-minute granularity)
+  - name: ISO_RT_LMP
+    partitions: 12
+    replication_factor: 3
+    config:
+      retention.ms: 604800000  # 7 days
+      segment.ms: 3600000  # 1 hour
+      compression.type: zstd
+      cleanup.policy: delete
+      min.insync.replicas: 2
+    description: "Real-time Locational Marginal Pricing data from ISO markets (CAISO, MISO, SPP)"
+    schema:
+      key: "iso:node:timestamp"
+      value:
+        - iso: string
+        - node: string
+        - timestamp: timestamp
+        - lmp: double
+        - congestion: double
+        - loss: double
+        - market_run: string
+
+  # Outage notifications and alerts
+  - name: OUTAGES
+    partitions: 6
+    replication_factor: 3
+    config:
+      retention.ms: 2592000000  # 30 days
+      segment.ms: 86400000  # 1 day
+      compression.type: zstd
+      cleanup.policy: delete
+      min.insync.replicas: 2
+    description: "Power plant, transmission line, and infrastructure outage events"
+    schema:
+      key: "outage_id"
+      value:
+        - outage_id: string
+        - facility_name: string
+        - facility_type: string
+        - capacity_mw: double
+        - start_time: timestamp
+        - end_time: timestamp
+        - status: string
+        - region: string
+
+  # Real-time weather feeds
+  - name: WEATHER_RT
+    partitions: 8
+    replication_factor: 3
+    config:
+      retention.ms: 259200000  # 3 days
+      segment.ms: 3600000  # 1 hour
+      compression.type: zstd
+      cleanup.policy: delete
+      min.insync.replicas: 2
+    description: "Real-time weather observations and short-term forecasts (HRRR, NOAA)"
+    schema:
+      key: "station:timestamp"
+      value:
+        - station_id: string
+        - timestamp: timestamp
+        - temperature_f: double
+        - humidity_pct: double
+        - wind_speed_mph: double
+        - pressure_mb: double
+        - cloud_cover_pct: int
+        - precipitation_in: double
+        - forecast_hour: int
+
+  # Vendor tick-level data (for proprietary feeds)
+  - name: VENDOR_TICKS
+    partitions: 16
+    replication_factor: 3
+    config:
+      retention.ms: 172800000  # 2 days
+      segment.ms: 1800000  # 30 minutes
+      compression.type: zstd
+      cleanup.policy: delete
+      min.insync.replicas: 2
+    description: "High-frequency tick data from vendor platforms (ICE, CME, proprietary feeds)"
+    schema:
+      key: "vendor:symbol:timestamp"
+      value:
+        - vendor: string
+        - symbol: string
+        - timestamp: timestamp
+        - price: double
+        - volume: long
+        - bid: double
+        - ask: double
+        - trade_type: string
+
+  # DA (Day-Ahead) Market Results
+  - name: ISO_DA_AWARDS
+    partitions: 8
+    replication_factor: 3
+    config:
+      retention.ms: 7776000000  # 90 days
+      segment.ms: 86400000  # 1 day
+      compression.type: zstd
+      cleanup.policy: delete
+      min.insync.replicas: 2
+    description: "Day-ahead market awards and clearing prices"
+    schema:
+      key: "iso:node:trade_date"
+      value:
+        - iso: string
+        - node: string
+        - trade_date: date
+        - hour_ending: int
+        - price: double
+        - awarded_mw: double
+        - self_schedule_mw: double
+
+  # Dead letter queue for failed messages
+  - name: DLQ_STREAMING
+    partitions: 4
+    replication_factor: 3
+    config:
+      retention.ms: 2592000000  # 30 days
+      segment.ms: 86400000  # 1 day
+      compression.type: zstd
+      cleanup.policy: delete
+      min.insync.replicas: 2
+    description: "Dead letter queue for messages that failed processing"
+    schema:
+      key: "original_topic:partition:offset"
+      value:
+        - original_topic: string
+        - original_key: bytes
+        - original_value: bytes
+        - error_message: string
+        - error_timestamp: timestamp
+        - retry_count: int

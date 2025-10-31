@@ -1,0 +1,66 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "redpanda.fullname" . }}
+  labels:
+    {{- include "redpanda.labels" . | nindent 4 }}
+spec:
+  serviceName: {{ include "redpanda.fullname" . }}-headless
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "redpanda.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "redpanda.selectorLabels" . | nindent 8 }}
+    spec:
+      containers:
+      - name: redpanda
+        image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        command:
+          - /usr/bin/rpk
+          - redpanda
+          - start
+          - --smp=2
+          - --memory=2G
+          - --reserve-memory=200M
+          - --overprovisioned
+          - --kafka-addr=PLAINTEXT://0.0.0.0:9092
+          - --advertise-kafka-addr=PLAINTEXT://$(POD_NAME).{{ include "redpanda.fullname" . }}-headless.{{ .Release.Namespace }}.svc.cluster.local:9092
+          - --pandaproxy-addr=0.0.0.0:8082
+          - --advertise-pandaproxy-addr=$(POD_NAME).{{ include "redpanda.fullname" . }}-headless.{{ .Release.Namespace }}.svc.cluster.local:8082
+          - --schema-registry-addr=0.0.0.0:8081
+          - --rpc-addr=0.0.0.0:33145
+          - --advertise-rpc-addr=$(POD_NAME).{{ include "redpanda.fullname" . }}-headless.{{ .Release.Namespace }}.svc.cluster.local:33145
+        env:
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        ports:
+        - containerPort: 9092
+          name: kafka
+        - containerPort: 8081
+          name: schema-registry
+        - containerPort: 8082
+          name: http-proxy
+        - containerPort: 33145
+          name: rpc
+        - containerPort: 9644
+          name: admin
+        volumeMounts:
+        - name: datadir
+          mountPath: /var/lib/redpanda/data
+        resources:
+          {{- toYaml .Values.resources | nindent 10 }}
+  volumeClaimTemplates:
+  - metadata:
+      name: datadir
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      storageClassName: {{ .Values.storage.persistentVolume.storageClass }}
+      resources:
+        requests:
+          storage: {{ .Values.storage.persistentVolume.size }}

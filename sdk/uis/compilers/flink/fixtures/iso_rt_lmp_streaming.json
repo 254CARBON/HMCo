@@ -1,0 +1,68 @@
+{
+  "job_type": "streaming",
+  "name": "iso_rt_lmp_streaming",
+  "description": "Real-time LMP 5-minute aggregation from ISO markets (CAISO/MISO/SPP) to ClickHouse",
+  "flink_config": {
+    "taskmanager.memory.process.size": "4g",
+    "taskmanager.numberOfTaskSlots": "4",
+    "parallelism.default": "4",
+    "state.backend": "rocksdb",
+    "state.checkpoints.dir": "s3://flink-checkpoints/iso-rt-lmp",
+    "execution.checkpointing.interval": "60000",
+    "kafka.bootstrap.servers": "redpanda:9092"
+  },
+  "sources": [
+    {
+      "type": "kafka",
+      "name": "iso_rt_lmp_source",
+      "bootstrap_servers": "redpanda:9092",
+      "topics": ["ISO_RT_LMP"],
+      "group_id": "flink-iso-rt-consumer",
+      "starting_offsets": "latest",
+      "format": "json",
+      "properties": {
+        "auto.offset.reset": "latest",
+        "enable.auto.commit": "false",
+        "isolation.level": "read_committed"
+      }
+    }
+  ],
+  "transforms": [
+    {
+      "type": "watermark",
+      "name": "add_event_time_watermark",
+      "timestamp_column": "timestamp",
+      "max_out_of_orderness_ms": 30000
+    },
+    {
+      "type": "tumbling_window",
+      "name": "aggregate_5min",
+      "window_size_ms": 300000,
+      "aggregations": [
+        {"field": "lmp", "function": "avg", "alias": "avg_lmp"},
+        {"field": "congestion", "function": "avg", "alias": "avg_congestion"},
+        {"field": "loss", "function": "avg", "alias": "avg_loss"}
+      ],
+      "group_by": ["iso", "node"]
+    }
+  ],
+  "sinks": [
+    {
+      "type": "clickhouse",
+      "name": "rt_lmp_clickhouse_sink",
+      "host": "clickhouse",
+      "port": 8123,
+      "database": "default",
+      "table": "rt_lmp_5m",
+      "username": "{{clickhouse_username}}",
+      "password": "{{clickhouse_password}}",
+      "batch_size": 5000,
+      "flush_interval_ms": 10000
+    }
+  ],
+  "monitoring": {
+    "metrics_enabled": true,
+    "latency_tracking": true,
+    "target_latency_ms": 60000
+  }
+}
