@@ -1,6 +1,12 @@
 ---
 # Service Level Objectives (SLOs) and Recording Rules for Portal, MLflow, and ClickHouse
 # This file defines specific SLOs for the three public endpoints mentioned in T4.1
+#
+# Error Budget Burn Rate Multipliers:
+# Based on Google SRE Workbook multi-window, multi-burn-rate alerts
+# - Fast burn (critical): 14.4x budget consumption over short window (2h) + 6x over medium window (6h)
+# - Slow burn (warning): 3x budget consumption over long window (24h) + 1x over very long window (3d)
+# These multipliers ensure alerts fire early enough to intervene before complete budget exhaustion
 
 apiVersion: monitoring.coreos.com/v1
 kind: PrometheusRule

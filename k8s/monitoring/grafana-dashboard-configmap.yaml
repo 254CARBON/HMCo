@@ -362,11 +362,11 @@ data:
                   },
                   {
                     "color": "yellow",
-                    "value": 0.003
+                    "value": 0.0005
                   },
                   {
                     "color": "red",
-                    "value": 0.005
+                    "value": 0.001
                   }
                 ]
               },

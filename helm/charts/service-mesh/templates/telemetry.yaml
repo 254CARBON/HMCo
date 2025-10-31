@@ -95,14 +95,10 @@ spec:
   accessLogging:
   - providers:
     - name: envoy
-    # Log errors and a sample of successful requests
+    # Log all errors (4xx, 5xx) and a 10% sample of successful requests
+    # Structured logs are exported to stdout and scraped by Loki via Promtail/Fluentd
     filter:
       expression: "response.code >= 400 || (response.code < 400 && random(100) < 10)"
-  # Additional provider for structured logging to stdout (Loki scrapes these)
-  - providers:
-    - name: envoy
-    filter:
-      expression: "response.code >= 500"
 
 ---
 # Istio-system namespace telemetry
