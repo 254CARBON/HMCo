@@ -95,68 +95,16 @@ spec:
     pods: "10"
 
 ---
-# LimitRange removed to allow GPU-intensive workloads (RAPIDS, Trino, etc.)
+# LimitRanges are now defined in limitranges.yaml
 # ResourceQuota still enforces namespace-level limits
-
----
-# Monitoring namespace LimitRange
-apiVersion: v1
-kind: LimitRange
-metadata:
-  name: monitoring-limits
-  namespace: monitoring
-spec:
-  limits:
-  - type: Pod
-    min:
-      cpu: "10m"
-      memory: "32Mi"
-    max:
-      cpu: "2"
-      memory: "4Gi"
-  - type: Container
-    default:
-      cpu: "200m"
-      memory: "256Mi"
-    defaultRequest:
-      cpu: "50m"
-      memory: "128Mi"
-    min:
-      cpu: "10m"
-      memory: "32Mi"
-    max:
-      cpu: "2"
-      memory: "4Gi"
-
----
-# Vault production LimitRange
-apiVersion: v1
-kind: LimitRange
-metadata:
-  name: vault-prod-limits
-  namespace: vault-prod
-spec:
-  limits:
-  - type: Pod
-    min:
-      cpu: "50m"
-      memory: "64Mi"
-    max:
-      cpu: "2"
-      memory: "4Gi"
-  - type: Container
-    default:
-      cpu: "500m"
-      memory: "512Mi"
-    defaultRequest:
-      cpu: "250m"
-      memory: "256Mi"
-    min:
-      cpu: "50m"
-      memory: "64Mi"
-    max:
-      cpu: "2"
-      memory: "4Gi"
+# 
+# Escape Hatch: To override LimitRange restrictions for specific workloads:
+# 1. Set explicit resources.requests and resources.limits in your deployment
+# 2. For GPU workloads, ensure requests/limits exceed LimitRange container max
+# 3. Contact platform team for namespace-specific LimitRange adjustments
+# 
+# Note: LimitRanges are guardrails, not hard blocks. Explicit resource specs
+# in deployments will be respected as long as they fit within ResourceQuota.
 
 ---
 # Priority classes for workload prioritization
