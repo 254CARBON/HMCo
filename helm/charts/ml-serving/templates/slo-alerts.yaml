@@ -1,0 +1,115 @@
+{{- if and .Values.slo.enabled .Values.features.sloMonitoring }}
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: ml-serving-slo-alerts
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "ml-serving.labels" . | nindent 4 }}
+    role: slo-alert
+    alertmanager: main
+spec:
+  groups:
+    - name: ml-serving.slo.latency
+      interval: 1m
+      rules:
+        {{- if .Values.slo.latency.enabled }}
+        # P95 Latency SLO: < 500ms
+        - alert: InferenceLatencyP95High
+          expr: sli:inference_latency_p95:5m > {{ .Values.slo.latency.p95Threshold }}
+          for: 5m
+          labels:
+            severity: warning
+            slo: inference-latency
+            target: "p95 < {{ .Values.slo.latency.p95Threshold }}s"
+          annotations:
+            summary: "High p95 inference latency for {{`{{ $labels.service }}`}}/{{`{{ $labels.model }}`}}"
+            description: |
+              The 95th percentile inference latency is {{`{{ $value }}`}}s, exceeding the SLO threshold of {{ .Values.slo.latency.p95Threshold }}s.
+              This may impact user experience.
+        
+        # P99 Latency SLO: < 1s
+        - alert: InferenceLatencyP99High
+          expr: sli:inference_latency_p99:5m > {{ .Values.slo.latency.p99Threshold }}
+          for: 5m
+          labels:
+            severity: critical
+            slo: inference-latency
+            target: "p99 < {{ .Values.slo.latency.p99Threshold }}s"
+          annotations:
+            summary: "Critical p99 inference latency for {{`{{ $labels.service }}`}}/{{`{{ $labels.model }}`}}"
+            description: |
+              The 99th percentile inference latency is {{`{{ $value }}`}}s, exceeding the SLO threshold of {{ .Values.slo.latency.p99Threshold }}s.
+              Immediate attention required.
+        {{- end }}
+    
+    - name: ml-serving.slo.availability
+      interval: 1m
+      rules:
+        {{- if .Values.slo.availability.enabled }}
+        # Availability SLO: 99.9% (error budget 0.1%)
+        # Fast burn: 2h and 6h windows
+        - alert: InferenceHighErrorBudgetBurn
+          expr: |
+            (sli:inference_error_ratio:2h > ({{ .Values.slo.availability.errorBudget }} * 14.4))
+            and on (service, model)
+            (sli:inference_error_ratio:6h > ({{ .Values.slo.availability.errorBudget }} * 6))
+          for: 10m
+          labels:
+            severity: critical
+            slo: inference-availability
+            target: "{{ .Values.slo.availability.target | mul 100 }}%"
+          annotations:
+            summary: "Critical error-budget burn for inference service {{`{{ $labels.service }}`}}/{{`{{ $labels.model }}`}}"
+            description: |
+              Fast burn detected: error ratio exceeds 14.4x over 2h and 6x over 6h.
+              Current 2h ratio: {{`{{ $value }}`}}.
+              SLO target: {{ .Values.slo.availability.target | mul 100 }}% availability.
+        
+        # Slow burn: 24h and 3d windows
+        - alert: InferenceErrorBudgetBurnWarning
+          expr: |
+            (sli:inference_error_ratio:24h > ({{ .Values.slo.availability.errorBudget }} * 3))
+            and on (service, model)
+            (sli:inference_error_ratio:3d > ({{ .Values.slo.availability.errorBudget }} * 1))
+          for: 30m
+          labels:
+            severity: warning
+            slo: inference-availability
+            target: "{{ .Values.slo.availability.target | mul 100 }}%"
+          annotations:
+            summary: "Error-budget burn warning for inference service {{`{{ $labels.service }}`}}/{{`{{ $labels.model }}`}}"
+            description: |
+              Slow burn detected: error ratio exceeds 3x over 24h and 1x over 3d.
+              Current 24h ratio: {{`{{ $value }}`}}.
+              SLO target: {{ .Values.slo.availability.target | mul 100 }}% availability.
+        
+        # Availability drop below target
+        - alert: InferenceAvailabilityLow
+          expr: sli:inference_availability:5m < {{ .Values.slo.availability.target }}
+          for: 10m
+          labels:
+            severity: warning
+            slo: inference-availability
+            target: "> {{ .Values.slo.availability.target | mul 100 }}%"
+          annotations:
+            summary: "Low inference availability for {{`{{ $labels.service }}`}}"
+            description: |
+              Service availability over last 5m is {{`{{ $value | humanizePercentage }}`}}, below target of {{ .Values.slo.availability.target | mul 100 }}%.
+        {{- end }}
+    
+    - name: ml-serving.slo.errors
+      interval: 1m
+      rules:
+        # High error rate
+        - alert: InferenceHighErrorRate
+          expr: sli:inference_error_rate:5m > 0.05
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "High inference error rate for {{`{{ $labels.service }}`}}/{{`{{ $labels.model }}`}}"
+            description: |
+              Error rate is {{`{{ $value | humanizePercentage }}`}}, exceeding 5%.
+              This may indicate model issues or infrastructure problems.
+{{- end }}

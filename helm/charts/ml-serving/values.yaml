@@ -1,0 +1,110 @@
+# ML Serving - Values Configuration
+# Prerequisites: KServe and Argo Rollouts must be installed in the cluster
+# - KServe: kubectl apply -f https://github.com/kserve/kserve/releases/download/v0.11.0/kserve.yaml
+# - Argo Rollouts: helm install argo-rollouts argo/argo-rollouts -n argo-rollouts --create-namespace
+
+global:
+  namespace: ml-serving
+  domain: 254carbon.com
+  storageClass: local-path
+
+# Feature Flags
+features:
+  # Enable KServe InferenceService deployment
+  kserve: true
+  # Enable Argo Rollouts for canary deployments
+  canaryDeployment: true
+  # Enable SLO monitoring
+  sloMonitoring: true
+  # Enable autoscaling
+  autoscaling: true
+
+# Example Model Configuration
+exampleModel:
+  enabled: true
+  name: sklearn-iris
+  runtime: kserve-sklearn
+  storageUri: "gs://kfserving-examples/models/sklearn/1.0/model"
+  # Canary deployment settings
+  canary:
+    enabled: true
+    steps:
+      - setWeight: 20
+      - pause: {duration: 2m}
+      - setWeight: 40
+      - pause: {duration: 2m}
+      - setWeight: 60
+      - pause: {duration: 2m}
+      - setWeight: 80
+      - pause: {duration: 2m}
+    # Analysis template for canary validation
+    analysis:
+      enabled: true
+      successRate:
+        threshold: 99
+      latencyP95:
+        threshold: 500  # milliseconds
+
+# Autoscaling Configuration
+autoscaling:
+  enabled: true
+  minReplicas: 1
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: 80
+  # Custom metrics for autoscaling based on request rate
+  customMetrics:
+    enabled: true
+    requestsPerSecond:
+      targetValue: 100
+
+# Service Level Objectives (SLOs)
+slo:
+  enabled: true
+  # Latency SLO: 95th percentile < 500ms
+  latency:
+    enabled: true
+    p95Threshold: 0.5  # seconds
+    p99Threshold: 1.0  # seconds
+  # Availability SLO: 99.9% uptime
+  availability:
+    enabled: true
+    target: 0.999
+    errorBudget: 0.001
+
+# Monitoring and Metrics
+monitoring:
+  enabled: true
+  serviceMonitor:
+    enabled: true
+    interval: 15s
+    scrapeTimeout: 10s
+  # Prometheus metrics endpoint
+  metrics:
+    enabled: true
+    port: 8080
+    path: /metrics
+
+# Resources for predictor pods
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:
+    cpu: 1000m
+    memory: 2Gi
+
+# Security Context
+securityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  fsGroup: 1000
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL
+
+podAnnotations:
+  prometheus.io/scrape: "true"
+  prometheus.io/port: "8080"
+  prometheus.io/path: "/metrics"

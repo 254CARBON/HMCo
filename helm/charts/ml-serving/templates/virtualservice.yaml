@@ -1,0 +1,37 @@
+{{- if and .Values.exampleModel.enabled .Values.features.canaryDeployment .Values.exampleModel.canary.enabled }}
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: {{ .Values.exampleModel.name }}-vs
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "ml-serving.labels" . | nindent 4 }}
+spec:
+  hosts:
+    - {{ .Values.exampleModel.name }}.{{ .Values.global.namespace }}.svc.cluster.local
+    - {{ .Values.exampleModel.name }}.{{ .Values.global.domain }}
+  gateways:
+    - mesh
+    - istio-system/main-gateway
+  http:
+    - name: primary
+      match:
+        - uri:
+            prefix: "/v1/models/{{ .Values.exampleModel.name }}"
+      route:
+        - destination:
+            host: {{ .Values.exampleModel.name }}-predictor-stable.{{ .Values.global.namespace }}.svc.cluster.local
+            port:
+              number: 80
+          weight: 100
+        - destination:
+            host: {{ .Values.exampleModel.name }}-predictor-canary.{{ .Values.global.namespace }}.svc.cluster.local
+            port:
+              number: 80
+          weight: 0
+      timeout: 30s
+      retries:
+        attempts: 3
+        perTryTimeout: 10s
+        retryOn: 5xx,reset,connect-failure,refused-stream
+{{- end }}

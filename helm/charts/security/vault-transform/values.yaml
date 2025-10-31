@@ -1,0 +1,164 @@
+# Vault Transform configuration for column-level security
+
+vault:
+  address: "http://vault:8200"
+  token: ""  # Set via secret
+
+transform:
+  # Enable Transform secrets engine
+  enabled: true
+  path: "transform"
+  
+  # Transformation roles
+  roles:
+    - name: pii-masking
+      transformations:
+        - email-mask
+        - ssn-mask
+        - credit-card-mask
+    
+    - name: vendor-data-token
+      transformations:
+        - vendor-id-token
+        - price-token
+
+  # Transform templates
+  transformations:
+    # Email masking
+    - name: email-mask
+      type: masking
+      template: "user-****@****.com"
+      masking_character: "*"
+      allowed_roles:
+        - pii-masking
+    
+    # SSN masking
+    - name: ssn-mask
+      type: masking
+      template: "***-**-####"
+      masking_character: "*"
+      allowed_roles:
+        - pii-masking
+    
+    # Credit card masking
+    - name: credit-card-mask
+      type: masking
+      template: "****-****-****-####"
+      masking_character: "*"
+      allowed_roles:
+        - pii-masking
+    
+    # Vendor ID tokenization (reversible)
+    - name: vendor-id-token
+      type: tokenization
+      mapping_mode: default
+      max_ttl: "24h"
+      allowed_roles:
+        - vendor-data-token
+    
+    # Price tokenization
+    - name: price-token
+      type: tokenization
+      mapping_mode: default
+      max_ttl: "24h"
+      allowed_roles:
+        - vendor-data-token
+
+# Integration with ClickHouse
+clickhouse:
+  policies:
+    # Row-level security policies
+    row_policies:
+      - name: trading_desk_filter
+        database: trading
+        table: trades
+        filter: "desk = currentUser()"
+        apply_to_roles:
+          - trader
+      
+      - name: regional_filter
+        database: analytics
+        table: lmp_prices
+        filter: "region IN (SELECT region FROM user_regions WHERE user = currentUser())"
+        apply_to_roles:
+          - analyst
+    
+    # Column masking for sensitive data
+    column_masks:
+      - database: trading
+        table: traders
+        column: email
+        mask_type: email-mask
+        apply_to_roles:
+          - viewer
+      
+      - database: trading
+        table: counterparties
+        column: contact_info
+        mask_type: pii-masking
+        apply_to_roles:
+          - viewer
+          - analyst
+
+# Integration with Trino
+trino:
+  policies:
+    # Row filters
+    row_filters:
+      - catalog: iceberg
+        schema: trading
+        table: trades
+        expression: "trader_id = '${USER}' OR '${USER}' IN (SELECT user FROM admin_users)"
+        roles:
+          - trader
+      
+      - catalog: iceberg
+        schema: analytics
+        table: customer_data
+        expression: "region = (SELECT region FROM user_info WHERE username = '${USER}')"
+        roles:
+          - analyst
+    
+    # Column masks
+    column_masks:
+      - catalog: iceberg
+        schema: trading
+        table: trades
+        column: counterparty_id
+        expression: "'MASKED-' || substring(counterparty_id, 1, 4)"
+        roles:
+          - viewer
+      
+      - catalog: iceberg
+        schema: analytics
+        table: customer_data
+        column: email
+        expression: "regexp_replace(email, '(.{3}).*@', '$1***@')"
+        roles:
+          - analyst
+
+# Audit logging
+audit:
+  enabled: true
+  backend: file
+  path: /vault/logs/audit.log
+  
+  # Log all transform operations
+  log_raw: false  # Don't log plaintext
+  log_format: json
+  
+  # Forward to centralized logging
+  forward_to:
+    - type: syslog
+      address: "syslog-server:514"
+    - type: kafka
+      topic: "vault-audit"
+      brokers: "kafka:9092"
+
+resources:
+  limits:
+    cpu: 1000m
+    memory: 1Gi
+  requests:
+    cpu: 250m
+    memory: 256Mi

@@ -1,0 +1,124 @@
+{
+  "dashboard": {
+    "title": "Data Platform Cost Attribution",
+    "tags": ["cost", "usage", "chargeback"],
+    "timezone": "utc",
+    "panels": [
+      {
+        "id": 1,
+        "title": "Total Platform Cost (USD)",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "sum(data_platform_cost_by_user)"
+          }
+        ],
+        "gridPos": {"h": 4, "w": 6, "x": 0, "y": 0}
+      },
+      {
+        "id": 2,
+        "title": "Cost by Service",
+        "type": "piechart",
+        "targets": [
+          {
+            "expr": "sum(data_platform_cost_by_user) by (service)"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 6, "x": 6, "y": 0}
+      },
+      {
+        "id": 3,
+        "title": "Top 10 Users by Cost",
+        "type": "table",
+        "targets": [
+          {
+            "expr": "topk(10, sum(data_platform_cost_by_user) by (user))"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0}
+      },
+      {
+        "id": 4,
+        "title": "Cost Trend Over Time",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "sum(rate(data_platform_cost_by_user[1h])) by (service)"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 24, "x": 0, "y": 8}
+      },
+      {
+        "id": 5,
+        "title": "Cost by Team",
+        "type": "bargauge",
+        "targets": [
+          {
+            "expr": "sum(data_platform_cost_by_team) by (team)"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 16}
+      },
+      {
+        "id": 6,
+        "title": "Top 10 Expensive Datasets",
+        "type": "table",
+        "targets": [
+          {
+            "expr": "topk(10, sum(data_platform_cost_by_dataset) by (dataset))"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 16}
+      },
+      {
+        "id": 7,
+        "title": "Queries Executed by Service",
+        "type": "timeseries",
+        "targets": [
+          {
+            "expr": "rate(data_platform_queries_total[5m]) by (service)"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 24}
+      },
+      {
+        "id": 8,
+        "title": "Bytes Scanned (GB)",
+        "type": "timeseries",
+        "targets": [
+          {
+            "expr": "rate(data_platform_bytes_scanned_total[5m]) / 1024 / 1024 / 1024"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 24}
+      },
+      {
+        "id": 9,
+        "title": "Cost per TB Scanned",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "sum(data_platform_cost_by_user) / (sum(data_platform_bytes_scanned_total) / 1024 / 1024 / 1024 / 1024)"
+          }
+        ],
+        "gridPos": {"h": 4, "w": 6, "x": 0, "y": 32}
+      },
+      {
+        "id": 10,
+        "title": "Cost per Query",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "sum(data_platform_cost_by_user) / sum(data_platform_queries_total)"
+          }
+        ],
+        "gridPos": {"h": 4, "w": 6, "x": 6, "y": 32}
+      }
+    ],
+    "refresh": "1m",
+    "time": {
+      "from": "now-7d",
+      "to": "now"
+    }
+  }
+}
