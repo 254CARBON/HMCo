@@ -1,0 +1,128 @@
+{{- if .Values.clickhouse.rbac.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: clickhouse-rbac-config
+  namespace: data-platform
+  labels:
+    app: clickhouse
+    component: rbac
+data:
+  users.xml: |
+    <clickhouse>
+      <users>
+        <!-- ETL User -->
+        <etl_user>
+          <password_sha256_hex>${ENV:CLICKHOUSE_ETL_PASSWORD_HASH}</password_sha256_hex>
+          <networks>
+            <ip>::/0</ip>
+          </networks>
+          <profile>default</profile>
+          <quota>default</quota>
+          <grants>
+            <query>INSERT, SELECT ON *.*</query>
+          </grants>
+        </etl_user>
+        
+        <!-- Trino Read-only User -->
+        <trino>
+          <password_sha256_hex>${ENV:CLICKHOUSE_TRINO_PASSWORD_HASH}</password_sha256_hex>
+          <networks>
+            <ip>::/0</ip>
+          </networks>
+          <profile>readonly</profile>
+          <quota>bi_quota</quota>
+          <grants>
+            <query>SELECT ON *.*</query>
+          </grants>
+        </trino>
+        
+        <!-- BI Reader (Generic) -->
+        <bi_reader>
+          <password_sha256_hex>${ENV:CLICKHOUSE_BI_PASSWORD_HASH}</password_sha256_hex>
+          <networks>
+            <ip>::/0</ip>
+          </networks>
+          <profile>readonly</profile>
+          <quota>bi_quota</quota>
+          <grants>
+            <query>SELECT ON *.*</query>
+          </grants>
+        </bi_reader>
+      </users>
+    </clickhouse>
+  
+  quotas.xml: |
+    <clickhouse>
+      <quotas>
+        <!-- BI quota: limit query resources -->
+        <bi_quota>
+          <interval>
+            <duration>3600</duration>
+            <queries>1000</queries>
+            <errors>100</errors>
+            <result_rows>10000000</result_rows>
+            <read_rows>100000000</read_rows>
+            <execution_time>7200</execution_time>
+          </interval>
+        </bi_quota>
+        
+        <!-- ETL quota: higher limits for data loading -->
+        <etl_quota>
+          <interval>
+            <duration>3600</duration>
+            <queries>10000</queries>
+            <errors>1000</errors>
+            <result_rows>100000000</result_rows>
+            <read_rows>1000000000</read_rows>
+            <execution_time>36000</execution_time>
+          </interval>
+        </etl_quota>
+      </quotas>
+    </clickhouse>
+  
+  row_policies.xml: |
+    <clickhouse>
+      <policies>
+        <!-- Per-desk row-level security on rt_lmp table -->
+        <desk_caiso>
+          <database>default</database>
+          <table>rt_lmp</table>
+          <filter>iso = 'CAISO'</filter>
+          <apply_to>
+            <user>desk_caiso_user</user>
+          </apply_to>
+        </desk_caiso>
+        
+        <desk_miso>
+          <database>default</database>
+          <table>rt_lmp</table>
+          <filter>iso = 'MISO'</filter>
+          <apply_to>
+            <user>desk_miso_user</user>
+          </apply_to>
+        </desk_miso>
+        
+        <desk_spp>
+          <database>default</database>
+          <table>rt_lmp</table>
+          <filter>iso = 'SPP'</filter>
+          <apply_to>
+            <user>desk_spp_user</user>
+          </apply_to>
+        </desk_spp>
+        
+        <!-- Admin users see all data -->
+        <admin_all>
+          <database>default</database>
+          <table>rt_lmp</table>
+          <filter>1=1</filter>
+          <apply_to>
+            <user>default</user>
+            <user>etl_user</user>
+            <user>trino</user>
+          </apply_to>
+        </admin_all>
+      </policies>
+    </clickhouse>
+{{- end }}
