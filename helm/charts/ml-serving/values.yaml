@@ -1,23 +1,23 @@
 # ML Serving - Values Configuration
-# Enables KServe for model serving with Argo Rollouts for canary deployments
+# Prerequisites: KServe and Argo Rollouts must be installed in the cluster
+# - KServe: kubectl apply -f https://github.com/kserve/kserve/releases/download/v0.11.0/kserve.yaml
+# - Argo Rollouts: helm install argo-rollouts argo/argo-rollouts -n argo-rollouts --create-namespace
 
 global:
   namespace: ml-serving
   domain: 254carbon.com
   storageClass: local-path
 
-# KServe - Model Serving Platform
-kserve:
-  enabled: true
-  
-# Argo Rollouts - Progressive Delivery for Models
-argoRollouts:
-  enabled: true
-  controller:
-    metrics:
-      enabled: true
-      serviceMonitor:
-        enabled: true
+# Feature Flags
+features:
+  # Enable KServe InferenceService deployment
+  kserve: true
+  # Enable Argo Rollouts for canary deployments
+  canaryDeployment: true
+  # Enable SLO monitoring
+  sloMonitoring: true
+  # Enable autoscaling
+  autoscaling: true
 
 # Example Model Configuration
 exampleModel:

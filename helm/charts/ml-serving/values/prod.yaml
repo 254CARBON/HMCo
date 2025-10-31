@@ -6,19 +6,12 @@ global:
   domain: 254carbon.com
   storageClass: local-path
 
-# KServe Configuration
-kserve:
-  enabled: true
-
-# Argo Rollouts Configuration
-argoRollouts:
-  enabled: true
-  controller:
-    replicas: 2
-    metrics:
-      enabled: true
-      serviceMonitor:
-        enabled: true
+# Feature Flags - All enabled for production
+features:
+  kserve: true
+  canaryDeployment: true
+  sloMonitoring: true
+  autoscaling: true
 
 # Example Model - Disabled in production
 # Users should define their own models

@@ -1,4 +1,4 @@
-{{- if and .Values.exampleModel.enabled .Values.exampleModel.canary.enabled .Values.exampleModel.canary.analysis.enabled }}
+{{- if and .Values.exampleModel.enabled .Values.features.canaryDeployment .Values.exampleModel.canary.enabled .Values.exampleModel.canary.analysis.enabled }}
 apiVersion: argoproj.io/v1alpha1
 kind: AnalysisTemplate
 metadata:

@@ -1,4 +1,4 @@
-{{- if .Values.exampleModel.enabled }}
+{{- if and .Values.exampleModel.enabled .Values.features.kserve }}
 apiVersion: serving.kserve.io/v1beta1
 kind: InferenceService
 metadata:

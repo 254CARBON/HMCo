@@ -1,4 +1,4 @@
-{{- if .Values.slo.enabled }}
+{{- if and .Values.slo.enabled .Values.features.sloMonitoring }}
 apiVersion: monitoring.coreos.com/v1
 kind: PrometheusRule
 metadata:

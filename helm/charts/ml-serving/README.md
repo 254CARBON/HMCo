@@ -38,22 +38,30 @@ This Helm chart deploys a complete ML model serving infrastructure with:
 
 ### Prerequisites
 
-1. Install KServe:
+This chart requires the following components to be installed in your cluster:
+
+1. **KServe** (for model serving):
 ```bash
-helm repo add kserve https://kserve.github.io/charts
-helm repo update
+kubectl apply -f https://github.com/kserve/kserve/releases/download/v0.11.0/kserve.yaml
+kubectl apply -f https://github.com/kserve/kserve/releases/download/v0.11.0/kserve-runtimes.yaml
 ```
 
-2. Install Argo Rollouts:
+2. **Argo Rollouts** (for canary deployments):
 ```bash
-helm repo add argo https://argoproj.github.io/argo-helm
-helm install argo-rollouts argo/argo-rollouts -n argo-rollouts --create-namespace
+kubectl create namespace argo-rollouts
+kubectl apply -n argo-rollouts -f https://github.com/argoproj/argo-rollouts/releases/latest/download/install.yaml
 ```
 
-3. Install Prometheus Operator (for metrics):
+3. **Prometheus Operator** (for metrics and SLOs):
 ```bash
 helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+helm repo update
 helm install prometheus prometheus-community/kube-prometheus-stack -n monitoring --create-namespace
+```
+
+4. **Istio** (for traffic management - if not already installed):
+```bash
+# This platform already has Istio installed via the service-mesh chart
 ```
 
 ### Deploy the Chart

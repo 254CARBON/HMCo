@@ -1,15 +1,14 @@
 apiVersion: v2
 name: ml-serving
-description: A Helm chart for ML Model Serving with KServe
+description: A Helm chart for ML Model Serving with KServe and Argo Rollouts
 type: application
 version: 0.1.0
 appVersion: "1.0"
-dependencies:
-  - name: kserve
-    version: "0.13.0"
-    repository: "https://kserve.github.io/charts"
-    condition: kserve.enabled
-  - name: argo-rollouts
-    version: "2.35.0"
-    repository: "https://argoproj.github.io/argo-helm"
-    condition: argoRollouts.enabled
+keywords:
+  - ml
+  - serving
+  - kserve
+  - argo-rollouts
+  - canary
+maintainers:
+  - name: 254Carbon Platform Team

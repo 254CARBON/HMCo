@@ -695,9 +695,13 @@ spec:
         - values.yaml
         - values/prod.yaml
       parameters:
-      - name: "kserve.enabled"
+      - name: "features.kserve"
         value: "true"
-      - name: "argoRollouts.enabled"
+      - name: "features.canaryDeployment"
+        value: "true"
+      - name: "features.sloMonitoring"
+        value: "true"
+      - name: "features.autoscaling"
         value: "true"
       - name: "exampleModel.enabled"
         value: "true"
