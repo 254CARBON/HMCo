@@ -1,0 +1,25 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: trino-catalogs
+  namespace: data-platform
+  labels:
+    app: trino
+    component: catalogs
+data:
+  iceberg.properties: |
+    connector.name=iceberg
+    iceberg.catalog.type=rest
+    iceberg.rest-catalog.uri=http://iceberg-rest-catalog:8181
+    iceberg.file-format=PARQUET
+    s3.endpoint=http://minio.minio.svc.cluster.local:9000
+    s3.path-style-access=true
+    s3.aws-access-key=${ENV:MINIO_ACCESS_KEY}
+    s3.aws-secret-key=${ENV:MINIO_SECRET_KEY}
+    s3.ssl.enabled=false
+
+  clickhouse.properties: |
+    connector.name=clickhouse
+    connection-url=jdbc:clickhouse://clickhouse:8123
+    connection-user=trino
+    connection-password=${ENV:CLICKHOUSE_TRINO_PASSWORD}

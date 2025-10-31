@@ -1,0 +1,36 @@
+{{- if .Values.analysisTemplates.successRate.enabled }}
+apiVersion: argoproj.io/v1alpha1
+kind: AnalysisTemplate
+metadata:
+  name: success-rate
+  namespace: {{ .Values.targetNamespace }}
+  labels:
+    {{- include "progressive-delivery.labels" . | nindent 4 }}
+spec:
+  args:
+  - name: service-name
+  - name: namespace
+    value: {{ .Values.targetNamespace }}
+  metrics:
+  - name: success-rate
+    interval: {{ .Values.analysisTemplates.successRate.intervalSeconds }}s
+    successCondition: result[0] >= {{ .Values.analysisTemplates.successRate.threshold }}
+    failureLimit: 3
+    provider:
+      prometheus:
+        address: {{ .Values.prometheus.address }}
+        query: |
+          sum(rate(
+            http_requests_total{
+              job="{{`{{args.service-name}}`}}",
+              namespace="{{`{{args.namespace}}`}}",
+              status=~"2.."
+            }[5m]
+          )) /
+          sum(rate(
+            http_requests_total{
+              job="{{`{{args.service-name}}`}}",
+              namespace="{{`{{args.namespace}}`}}"
+            }[5m]
+          )) * 100
+{{- end }}

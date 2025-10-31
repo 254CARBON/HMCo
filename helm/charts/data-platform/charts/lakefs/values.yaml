@@ -1,0 +1,92 @@
+replicaCount: 2
+
+image:
+  repository: treeverse/lakefs
+  pullPolicy: IfNotPresent
+  tag: "1.5.0"
+
+service:
+  type: ClusterIP
+  port: 8000
+
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+  hosts:
+    - host: lakefs.254carbon.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: lakefs-tls
+      hosts:
+        - lakefs.254carbon.com
+
+database:
+  type: postgres
+  connectionString: ""  # Set via secret
+  
+blockstore:
+  type: s3
+  s3:
+    region: us-east-1
+    endpoint: ""  # MinIO endpoint
+    bucket: lakefs-data
+
+auth:
+  encrypt:
+    secretKey: ""  # Set via secret
+
+branches:
+  default:
+    - dev
+    - stage
+    - prod
+  
+policies:
+  # Auto-merge policy when data quality checks pass
+  autoMerge:
+    enabled: true
+    sourceBranch: dev
+    targetBranch: stage
+    requireChecks:
+      - great-expectations-validation
+  
+  # Block merge to production without approval
+  productionProtection:
+    enabled: true
+    branch: prod
+    requireApprovals: 2
+
+resources:
+  limits:
+    cpu: 2000m
+    memory: 4Gi
+  requests:
+    cpu: 500m
+    memory: 1Gi
+
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 5
+  targetCPUUtilizationPercentage: 70
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity:
+  podAntiAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 100
+        podAffinityTerm:
+          labelSelector:
+            matchExpressions:
+              - key: app
+                operator: In
+                values:
+                  - lakefs
+          topologyKey: kubernetes.io/hostname

@@ -1,0 +1,119 @@
+{{- if .Values.rollout.enabled }}
+apiVersion: argoproj.io/v1alpha1
+kind: Rollout
+metadata:
+  name: portal-services
+  namespace: data-platform
+  labels:
+    {{- include "portal-services.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  revisionHistoryLimit: 5
+  selector:
+    matchLabels:
+      {{- include "portal-services.selectorLabels" . | nindent 6 }}
+  strategy:
+    canary:
+      maxSurge: {{ .Values.rollout.strategy.canary.maxSurge }}
+      maxUnavailable: {{ .Values.rollout.strategy.canary.maxUnavailable }}
+      steps:
+      {{- range .Values.rollout.strategy.canary.steps }}
+      {{- if .setWeight }}
+      - setWeight: {{ .setWeight }}
+      {{- end }}
+      {{- if .pause }}
+      - pause:
+          duration: {{ .pause.duration }}
+      {{- end }}
+      {{- end }}
+      {{- if .Values.rollout.strategy.canary.analysis }}
+      analysis:
+        templates:
+        {{- range .Values.rollout.strategy.canary.analysis.templates }}
+        - templateName: {{ .templateName }}
+        {{- end }}
+        args:
+        {{- range .Values.rollout.strategy.canary.analysis.args }}
+        - name: {{ .name }}
+          value: {{ .value }}
+        {{- end }}
+      {{- end }}
+  template:
+    metadata:
+      labels:
+        {{- include "portal-services.labels" . | nindent 8 }}
+    spec:
+      serviceAccountName: {{ include "portal-services.serviceAccountName" . }}
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+      - name: portal-services
+        image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        securityContext:
+          runAsUser: 1000
+          runAsNonRoot: true
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+              - ALL
+        ports:
+        - name: http
+          containerPort: 8080
+          protocol: TCP
+        env:
+        - name: NODE_ENV
+          value: "production"
+        - name: PORT
+          value: "8080"
+        - name: CONFIG_PATH
+          value: "/config/services.json"
+        {{- if .Values.cloudflareAccess.enabled }}
+        - name: CF_ACCESS_CLIENT_ID
+          valueFrom:
+            secretKeyRef:
+              name: cloudflare-access-service-token
+              key: client_id
+        - name: CF_ACCESS_CLIENT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: cloudflare-access-service-token
+              key: client_secret
+        {{- end }}
+        volumeMounts:
+        - name: config
+          mountPath: /config
+          readOnly: true
+        - name: tmp
+          mountPath: /tmp
+        - name: npm-cache
+          mountPath: /.npm
+        resources:
+          {{- toYaml .Values.resources | nindent 10 }}
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: http
+          initialDelaySeconds: 15
+          periodSeconds: 20
+        readinessProbe:
+          httpGet:
+            path: /healthz
+            port: http
+          initialDelaySeconds: 10
+          periodSeconds: 10
+      volumes:
+      - name: config
+        configMap:
+          name: portal-services-registry
+      - name: tmp
+        emptyDir: {}
+      - name: npm-cache
+        emptyDir: {}
+{{- end }}

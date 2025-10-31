@@ -116,6 +116,40 @@ done
 
 echo ""
 
+# Check Authenticated Origin Pulls configuration
+echo -e "${YELLOW}Checking Authenticated Origin Pulls setup:${NC}"
+echo ""
+
+# Check if cloudflare-origin-pull-ca secret exists
+printf "%-40s" "Origin Pull CA Secret"
+if kubectl get secret cloudflare-origin-pull-ca -n ingress-nginx &>/dev/null 2>&1; then
+    echo -e "${GREEN}✓ Exists${NC}"
+else
+    echo -e "${RED}✗ Not Found${NC}"
+    echo -e "${YELLOW}  Note: Authenticated Origin Pulls requires the cloudflare-origin-pull-ca secret${NC}"
+    echo -e "${YELLOW}  See docs/cloudflare/origin-certificates-setup.md Step 6 for setup instructions${NC}"
+fi
+
+# Check NGINX configuration for SSL client verification
+printf "%-40s" "NGINX SSL Client Verification"
+SSL_CLIENT_CERT=$(kubectl get configmap ingress-nginx-controller -n ingress-nginx -o jsonpath='{.data.ssl-client-cert}' 2>/dev/null || echo "")
+if [ -n "$SSL_CLIENT_CERT" ]; then
+    echo -e "${GREEN}✓ Configured${NC} ($SSL_CLIENT_CERT)"
+else
+    echo -e "${YELLOW}⊙ Not Configured${NC}"
+    echo -e "${YELLOW}  Note: For full origin pull authentication, configure ssl-client-cert in ingress-nginx${NC}"
+fi
+
+echo ""
+
+# Check Cloudflare SSL/TLS mode (requires CF API - informational)
+echo -e "${BLUE}Cloudflare SSL/TLS Settings (verify manually):${NC}"
+echo -e "  1. Dashboard → 254carbon.com → SSL/TLS → Overview"
+echo -e "  2. Encryption mode should be: ${GREEN}Full (strict)${NC}"
+echo -e "  3. Dashboard → SSL/TLS → Origin Server"
+echo -e "  4. Authenticated Origin Pulls should be: ${GREEN}ON${NC}"
+echo ""
+
 # SSL Labs grade check (optional - commented out as it takes time)
 # echo -e "${YELLOW}Want to check SSL Labs grade? This takes 2-3 minutes.${NC}"
 # read -p "Run SSL Labs test? (y/N): " SSL_LABS

@@ -1,7 +1,96 @@
 ---
-# Data Lifecycle Policies for Iceberg Tables
-# Automates data retention, archival, and cleanup for 10x scale
+# Data Lifecycle Policies for MinIO Buckets
+# Automates data retention, archival, and cleanup
 
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: minio-lifecycle-policies
+  namespace: data-platform
+  labels:
+    app: minio
+    component: lifecycle
+data:
+  raw-lifecycle.json: |
+    {
+      "Rules": [
+        {
+          "ID": "raw-expiration",
+          "Status": "Enabled",
+          "Expiration": {
+            "Days": 30
+          },
+          "Filter": {
+            "Prefix": ""
+          }
+        }
+      ]
+    }
+  
+  staged-lifecycle.json: |
+    {
+      "Rules": [
+        {
+          "ID": "staged-expiration",
+          "Status": "Enabled",
+          "Expiration": {
+            "Days": 365
+          },
+          "Filter": {
+            "Prefix": ""
+          }
+        }
+      ]
+    }
+  
+  curated-lifecycle.json: |
+    {
+      "Rules": [
+        {
+          "ID": "curated-expiration",
+          "Status": "Enabled",
+          "Expiration": {
+            "Days": 1825
+          },
+          "Filter": {
+            "Prefix": ""
+          }
+        },
+        {
+          "ID": "noaa-indefinite",
+          "Status": "Enabled",
+          "Filter": {
+            "Prefix": "noaa/"
+          }
+        },
+        {
+          "ID": "census-indefinite",
+          "Status": "Enabled",
+          "Filter": {
+            "Prefix": "census/"
+          }
+        }
+      ]
+    }
+  
+  ml-lifecycle.json: |
+    {
+      "Rules": [
+        {
+          "ID": "ml-artifacts-expiration",
+          "Status": "Enabled",
+          "Expiration": {
+            "Days": 365
+          },
+          "Filter": {
+            "Prefix": ""
+          }
+        }
+      ]
+    }
+
+---
+# Iceberg Table Lifecycle Policies ConfigMap
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -11,36 +100,40 @@ metadata:
     app: iceberg
 data:
   lifecycle-policy.sql: |
-    -- Data retention policies for commodity data
+    -- Data retention policies for energy market data
     
-    -- Hot data: Last 90 days (frequent access)
-    -- Warm data: 91-365 days (occasional access)
-    -- Cold data: 365+ days (archival, compressed)
+    -- Raw/landing: 30 days
+    -- Staged/bronze: 12 months  
+    -- Curated/silver+gold: 5 years
+    -- NOAA hindcast & census static: indefinite
     
-    -- Energy prices: Keep 2 years, archive after
-    ALTER TABLE commodity_data.energy_prices
+    -- Energy prices: Keep 5 years
+    ALTER TABLE hub_curated.energy_prices
     SET TBLPROPERTIES (
       'write.metadata.delete-after-commit.enabled' = 'true',
       'write.metadata.previous-versions-max' = '10',
-      'write.data.path' = 's3://minio-service:9000/iceberg/energy_prices/data',
-      'write.metadata.path' = 's3://minio-service:9000/iceberg/energy_prices/metadata',
+      'write.data.path' = 's3a://hmco-curated/energy_prices/data',
+      'write.metadata.path' = 's3a://hmco-curated/energy_prices/metadata',
       'write.parquet.compression-codec' = 'zstd',
       'write.target-file-size-bytes' = '536870912'  -- 512MB files
     );
     
-    -- Partition by date for efficient querying
-    ALTER TABLE commodity_data.energy_prices
-    ADD IF NOT EXISTS PARTITION FIELD years(price_date);
-    
-    -- Market data: Keep 5 years
-    ALTER TABLE commodity_data.market_data
+    -- ISO RT LMP: 5-year retention
+    ALTER TABLE hub_curated.iso_rt_lmp
     SET TBLPROPERTIES (
       'write.metadata.previous-versions-max' = '20',
       'write.target-file-size-bytes' = '268435456'  -- 256MB
     );
     
-    -- Metadata: Retain indefinitely
-    ALTER TABLE metadata.datahub_metadata
+    -- NOAA data: Retain indefinitely
+    ALTER TABLE hub_curated.noaa_hindcast
+    SET TBLPROPERTIES (
+      'write.metadata.previous-versions-max' = '100',
+      'write.object-storage.enabled' = 'true'
+    );
+    
+    -- Census data: Retain indefinitely
+    ALTER TABLE hub_curated.census_static
     SET TBLPROPERTIES (
       'write.metadata.previous-versions-max' = '100',
       'write.object-storage.enabled' = 'true'

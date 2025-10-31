@@ -1,0 +1,59 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: weather-feature-processor
+  labels:
+    app: weather-feature-processor
+    component: feature-factory
+spec:
+  schedule: "15 * * * *"  # Every hour at :15
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      template:
+        metadata:
+          labels:
+            app: weather-feature-processor
+        spec:
+          restartPolicy: OnFailure
+          containers:
+          - name: feature-processor
+            image: apache/spark:3.5.0
+            command:
+            - /opt/spark/bin/spark-submit
+            - --master
+            - k8s://https://kubernetes.default.svc.cluster.local:443
+            - --deploy-mode
+            - cluster
+            - --conf
+            - spark.kubernetes.namespace=data-platform
+            - --conf
+            - spark.kubernetes.container.image=254carbon/spark-weather-features:latest
+            - --conf
+            - spark.driver.memory=4g
+            - --conf
+            - spark.executor.memory=8g
+            - --conf
+            - spark.executor.instances=2
+            - --class
+            - com.carbon254.features.WeatherFeatureJob
+            - /opt/spark-apps/weather-features.jar
+            env:
+            - name: ICEBERG_CATALOG_URI
+              value: "http://iceberg-rest:8181"
+            - name: POSTGIS_HOST
+              value: "geospatial-postgresql"
+            - name: CLICKHOUSE_HOST
+              value: "clickhouse"
+            - name: H3_RESOLUTION
+              value: "7"
+            resources:
+              limits:
+                cpu: 2
+                memory: 4Gi
+              requests:
+                cpu: 1
+                memory: 2Gi

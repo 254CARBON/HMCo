@@ -1,0 +1,26 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "iceberg-rest-catalog.fullname" . }}-config
+  labels:
+    {{- include "iceberg-rest-catalog.labels" . | nindent 4 }}
+data:
+  application.yml: |
+    server:
+      port: {{ .Values.service.port }}
+    catalog:
+      name: hmco
+      warehouse: {{ .Values.catalog.warehouse }}
+      implementation: jdbc
+      jdbc:
+        driver: org.postgresql.Driver
+        url: ${CATALOG_JDBC_URL}
+        user: ${CATALOG_JDBC_USER}
+        password: ${CATALOG_JDBC_PASSWORD}
+      io-impl: org.apache.hadoop.fs.s3a.S3AFileSystem
+    s3:
+      endpoint: {{ .Values.minio.endpoint }}
+      path-style-access: {{ .Values.minio.pathStyleAccess }}
+      access-key: ${MINIO_ACCESS_KEY}
+      secret-key: ${MINIO_SECRET_KEY}
+      ssl: false

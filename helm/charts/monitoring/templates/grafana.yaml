@@ -185,6 +185,7 @@ spec:
     requests:
       storage: 10Gi
   storageClassName: local-path
+{{- if not (and .Values.vault .Values.vault.enabled) }}
 ---
 # Secret for Grafana admin password
 apiVersion: v1
@@ -198,6 +199,7 @@ type: Opaque
 data:
   # Base64 encoded "datahub_admin_password"
   admin-password: ZGF0YWh1Yl9hZG1pbl9wYXNzd29yZA==
+{{- end }}
 ---
 # ConfigMap for Grafana configuration
 apiVersion: v1

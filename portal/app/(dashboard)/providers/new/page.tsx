@@ -7,9 +7,9 @@ import {
   ArrowLeft,
   Check,
   CheckCircle2,
-  CircleAlert,
+  AlertCircle,
   Loader2,
-  PanelsTopLeft,
+  LayoutPanelTop,
   PlugZap,
   PlusCircle,
 } from 'lucide-react';
@@ -265,7 +265,7 @@ export default function NewProviderPage() {
           </Link>
           <div className="flex items-center gap-3">
             <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-carbon/10 text-carbon">
-              <PanelsTopLeft className="h-6 w-6" />
+              <LayoutPanelTop className="h-6 w-6" />
             </div>
             <div>
               <h1 className="text-3xl font-bold text-white">
@@ -406,7 +406,7 @@ export default function NewProviderPage() {
                     {validation.valid ? (
                       <CheckCircle2 className="h-3.5 w-3.5" />
                     ) : (
-                      <CircleAlert className="h-3.5 w-3.5" />
+                      <AlertCircle className="h-3.5 w-3.5" />
                     )}
                     {validation.valid
                       ? `UIS valid${validation.runtime ? ` • ${validation.runtime.toUpperCase()}` : ''}`
@@ -428,7 +428,7 @@ export default function NewProviderPage() {
                 <ul className="space-y-2 rounded-xl border border-amber-500/30 bg-amber-500/5 p-4 text-xs text-amber-100">
                   {validation.errors.map((item, index) => (
                     <li key={`${item}-${index}`} className="flex items-start gap-2">
-                      <CircleAlert className="mt-0.5 h-4 w-4 flex-shrink-0" />
+                      <AlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0" />
                       <span>{item}</span>
                     </li>
                   ))}

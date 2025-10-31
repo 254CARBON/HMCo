@@ -1,3 +1,4 @@
+{{- if not .Values.rollout.enabled }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -88,4 +89,5 @@ spec:
         emptyDir: {}
       - name: npm-cache
         emptyDir: {}
+{{- end }}
 

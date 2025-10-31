@@ -1,0 +1,6 @@
+apiVersion: v2
+name: lakefs
+description: A Helm chart for lakeFS - data versioning for data lakes
+type: application
+version: 1.0.0
+appVersion: "1.5.0"

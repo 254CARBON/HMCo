@@ -1,0 +1,36 @@
+{
+  "name": "spp_rt_lmp_5min",
+  "source": {
+    "type": "http",
+    "auth": {
+      "type": "none"
+    },
+    "url": "https://marketplace.spp.org/web/guest/rt-lmp",
+    "paging": "none"
+  },
+  "schema": {
+    "fields": [
+      {"name": "ts", "type": "timestamp"},
+      {"name": "iso", "type": "string"},
+      {"name": "node", "type": "string"},
+      {"name": "lmp", "type": "double"},
+      {"name": "congestion", "type": "double"},
+      {"name": "loss", "type": "double"}
+    ],
+    "primaryKey": ["ts", "iso", "node"]
+  },
+  "target": {
+    "type": "clickhouse",
+    "database": "default",
+    "table": "rt_lmp",
+    "partition": ["toDate(ts)"],
+    "sort": ["iso", "node", "ts"]
+  },
+  "dq": {
+    "suite": "spp_rt_lmp"
+  },
+  "sla": {
+    "freshness_minutes": 10,
+    "alert_channel": "slack-data-platform"
+  }
+}

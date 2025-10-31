@@ -223,7 +223,10 @@ kubectl annotate ingress --all cert-manager.io/issuer- -n data-platform
    - **Automatic HTTPS Rewrites**: ON
 
 2. **SSL/TLS** → **Origin Server**:
-   - **Authenticated Origin Pulls**: OFF (not needed with Cloudflare Tunnel)
+   - **Authenticated Origin Pulls**: ON (REQUIRED for production hardening)
+     - This ensures only Cloudflare can reach your origin server
+     - Even with Cloudflare Tunnel, this provides an additional security layer
+     - See detailed setup in Section 6 below
 
 ---
 
@@ -263,9 +266,151 @@ Expected output: `200 - SSL: 0` (or 302 for redirects)
 
 ---
 
-## Step 6: Clean Up Old Certificates
+## Step 6: Enable Authenticated Origin Pulls (Security Hardening)
 
-### 6.1 Remove cert-manager Generated Certificates (Optional)
+Authenticated Origin Pulls ensures that **only Cloudflare** can connect to your origin server by validating client certificates. This prevents direct attacks on your origin infrastructure.
+
+### 6.1 Download Cloudflare Origin CA Certificate
+
+The Cloudflare authenticated origin pull certificate is publicly available and must be installed on your origin server:
+
+```bash
+# Download the Cloudflare Origin CA certificate
+curl -o ~/cloudflare-certs/origin-pull-ca.pem \
+  https://developers.cloudflare.com/ssl/static/authenticated_origin_pull_ca.pem
+
+# Verify the certificate fingerprint
+openssl x509 -in ~/cloudflare-certs/origin-pull-ca.pem -noout -fingerprint -sha256
+
+# Verify the certificate details
+openssl x509 -in ~/cloudflare-certs/origin-pull-ca.pem -text -noout | head -20
+```
+
+Expected issuer: `CN=Cloudflare Inc ECC CA-3, O=Cloudflare, Inc., C=US`
+
+**IMPORTANT Security Note**: 
+- **ALWAYS** verify the certificate fingerprint against the **current** official [Cloudflare documentation](https://developers.cloudflare.com/ssl/origin-configuration/authenticated-origin-pull/set-up/) before using it in production
+- Do NOT rely solely on example fingerprints in this document as they may become outdated
+- Certificate fingerprints are published by Cloudflare and should be verified from their official sources
+- Check the certificate's validity period and ensure it has not expired
+
+### 6.2 Create Kubernetes Secret for Origin Pull CA
+
+```bash
+# Create secret in ingress-nginx namespace (where NGINX Ingress Controller runs)
+kubectl create secret generic cloudflare-origin-pull-ca \
+  --from-file=ca.crt=~/cloudflare-certs/origin-pull-ca.pem \
+  -n ingress-nginx \
+  --dry-run=client -o yaml | kubectl apply -f -
+
+# Verify secret creation
+kubectl get secret cloudflare-origin-pull-ca -n ingress-nginx
+```
+
+### 6.3 Update NGINX Ingress Controller Configuration
+
+Add the Cloudflare origin pull CA to NGINX Ingress Controller to verify client certificates:
+
+```bash
+# Update the ingress-nginx ConfigMap
+kubectl patch configmap ingress-nginx-controller \
+  -n ingress-nginx \
+  --type merge \
+  -p '{"data":{"ssl-client-cert":"/etc/ingress-controller/ssl/cloudflare-origin-pull-ca/ca.crt","enable-ssl-chain-completion":"false"}}'
+
+# Mount the secret in the ingress controller deployment
+# This is typically done via the helm values or by patching the deployment
+# Check if already mounted:
+kubectl get deployment ingress-nginx-controller -n ingress-nginx -o yaml | grep cloudflare-origin-pull-ca
+
+# If not present, you'll need to update the deployment to mount this secret
+# This is usually handled by updating the ingress-nginx helm values
+```
+
+Alternative approach using Helm values (recommended):
+
+```yaml
+# ingress-nginx-values.yaml
+controller:
+  extraVolumes:
+    - name: cloudflare-origin-pull-ca
+      secret:
+        secretName: cloudflare-origin-pull-ca
+  extraVolumeMounts:
+    - name: cloudflare-origin-pull-ca
+      mountPath: /etc/ingress-controller/ssl/cloudflare-origin-pull-ca
+      readOnly: true
+  config:
+    ssl-client-cert: /etc/ingress-controller/ssl/cloudflare-origin-pull-ca/ca.crt
+    enable-ssl-chain-completion: "false"
+```
+
+Then apply:
+
+```bash
+helm upgrade ingress-nginx ingress-nginx/ingress-nginx \
+  -n ingress-nginx \
+  -f ingress-nginx-values.yaml
+```
+
+### 6.4 Enable Authenticated Origin Pulls in Cloudflare Dashboard
+
+1. Log into Cloudflare Dashboard: https://dash.cloudflare.com/
+2. Select your domain: **254carbon.com**
+3. Go to **SSL/TLS** → **Origin Server**
+4. Scroll to **Authenticated Origin Pulls**
+5. Toggle **ON** (this enables it for all origins)
+
+For per-hostname control (advanced):
+- Use Cloudflare API to enable per-zone or per-hostname authenticated origin pulls
+- See: https://developers.cloudflare.com/ssl/origin-configuration/authenticated-origin-pull/
+
+### 6.5 Verify Authenticated Origin Pulls
+
+After enabling, test that direct connections (bypassing Cloudflare) are rejected:
+
+```bash
+# This should FAIL (direct connection without Cloudflare client cert)
+curl -v https://portal.254carbon.com --resolve portal.254carbon.com:443:YOUR_ORIGIN_IP 2>&1 | grep -i "ssl"
+
+# This should SUCCEED (via Cloudflare)
+curl -v https://portal.254carbon.com 2>&1 | grep -i "200 OK"
+```
+
+Check NGINX logs for client certificate validation:
+
+```bash
+kubectl logs -n ingress-nginx -l app.kubernetes.io/name=ingress-nginx | grep -i "certificate"
+```
+
+### 6.6 Troubleshooting Authenticated Origin Pulls
+
+**Issue**: Services return 400/495/496 errors after enabling
+
+**Solution**: Ensure the Cloudflare Origin Pull CA certificate is correctly mounted in NGINX
+
+```bash
+# Check if certificate is accessible in NGINX pod
+kubectl exec -n ingress-nginx deployment/ingress-nginx-controller -- \
+  ls -l /etc/ingress-controller/ssl/cloudflare-origin-pull-ca/
+
+# Verify certificate content
+kubectl exec -n ingress-nginx deployment/ingress-nginx-controller -- \
+  cat /etc/ingress-controller/ssl/cloudflare-origin-pull-ca/ca.crt | openssl x509 -text -noout | grep Issuer
+```
+
+**Issue**: Some requests fail intermittently
+
+**Solution**: This might indicate some requests are bypassing Cloudflare. Verify:
+1. All DNS records are proxied (orange cloud) in Cloudflare
+2. No direct IP access to origin
+3. Firewall rules block non-Cloudflare IPs
+
+---
+
+## Step 7: Clean Up Old Certificates
+
+### 7.1 Remove cert-manager Generated Certificates (Optional)
 
 If you're fully migrating to Cloudflare Origin Certificates:
 
@@ -281,7 +426,7 @@ kubectl delete certificate --all -n monitoring
 # kubectl delete namespace cert-manager
 ```
 
-### 6.2 Delete Old TLS Secrets
+### 7.2 Delete Old TLS Secrets
 
 ```bash
 # List all TLS secrets

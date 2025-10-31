@@ -34,6 +34,7 @@ metadata:
 username: portal-service
 custom_id: "portal-001"
 
+{{- if not (and .Values.vault .Values.vault.enabled) }}
 ---
 # JWT Credential Secret for Portal
 apiVersion: v1
@@ -56,6 +57,7 @@ stringData:
     2MZHqPfFmBqOvWjT0j3pGmOE9hf0P2LqLQYqLfyf0hJZPpJqvKjL5LqPvQxm4GPl
     4EzJ2MZHqPfFmBqOvWjT0j3pGmOE9hf0P2LqLQYqLfyf0hJZPpJqvKjL5LqP
     -----END PUBLIC KEY-----
+{{- end }}
 
 ---
 # Apply JWT auth to DataHub routes

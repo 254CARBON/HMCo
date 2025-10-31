@@ -36,6 +36,7 @@ BYPASS_POLICY_NAME="Bypass ACME Challenge"
 
 FORCE_UPDATE=false
 DRY_RUN=false
+SKIP_EXISTING=false
 
 API_BASE="https://api.cloudflare.com/client/v4"
 
@@ -79,7 +80,8 @@ Options:
       --excluded-emails CSV Blocked individual emails (optional)
       --countries CSV       Allowed ISO country codes (optional)
       --idp-id UUID         Restrict login method to this IdP UUID (optional)
-      --force               Update apps/policies if they already exist
+      --force               Update apps/policies if they already exist (reconcile to desired state)
+      --skip-existing       Skip updating existing apps/policies (create new ones only)
       --dry-run             Print payloads without calling Cloudflare API
       --skip-acme-bypass    Skip creating ACME HTTP-01 bypass exemptions
   -h, --help                Show this help message
@@ -148,6 +150,10 @@ while [[ $# -gt 0 ]]; do
             FORCE_UPDATE=true
             shift
             ;;
+        --skip-existing)
+            SKIP_EXISTING=true
+            shift
+            ;;
         --dry-run)
             DRY_RUN=true
             shift
@@ -167,6 +173,13 @@ while [[ $# -gt 0 ]]; do
             ;;
     esac
 done
+
+# Validate mutually exclusive flags
+if [[ "$FORCE_UPDATE" == "true" ]] && [[ "$SKIP_EXISTING" == "true" ]]; then
+    log_error "Cannot use both --force and --skip-existing flags together"
+    log_info "Use --force to update all existing apps, or --skip-existing to only create new apps"
+    exit 1
+fi
 
 if [[ -z "$API_TOKEN" ]]; then
     log_error "Cloudflare API token not provided."
@@ -572,10 +585,14 @@ for entry in "${APPLICATIONS[@]}"; do
     if [[ -n "$existing_app" ]]; then
         app_id=$(echo "$existing_app" | jq -r '.id')
         log_warning "Application already exists."
-        if [[ "$FORCE_UPDATE" == "true" ]]; then
+        if [[ "$SKIP_EXISTING" == "true" ]]; then
+            log_info "Skipping (--skip-existing flag set)."
+        elif [[ "$FORCE_UPDATE" == "true" ]]; then
             log_info "Updating existing application settings..."
             update_app "$app_id" "$name" "$domain" "$session"
-            log_success "Application updated."
+            log_success "Application updated (reconciled to desired state)."
+        else
+            log_info "Use --force to update existing app or --skip-existing to skip."
         fi
     else
         log_info "Creating new application..."
@@ -591,11 +608,13 @@ for entry in "${APPLICATIONS[@]}"; do
     existing_policy=$(get_existing_policy "$app_id" "$policy" || echo "")
 
     if [[ -n "$existing_policy" ]]; then
-        if [[ "$FORCE_UPDATE" == "true" ]]; then
+        if [[ "$SKIP_EXISTING" == "true" ]]; then
+            log_success "Policy ${policy} already present (skipped)."
+        elif [[ "$FORCE_UPDATE" == "true" ]]; then
             policy_id=$(echo "$existing_policy" | jq -r '.id')
             log_info "Refreshing policy ${policy}..."
             update_policy "$app_id" "$policy_id" "$policy"
-            log_success "Policy updated."
+            log_success "Policy updated (reconciled to desired state)."
         else
             log_success "Policy ${policy} already present."
         fi

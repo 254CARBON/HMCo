@@ -1,0 +1,214 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "progressive-delivery.fullname" . }}
+  labels:
+    {{- include "progressive-delivery.labels" . | nindent 4 }}
+rules:
+- apiGroups:
+  - argoproj.io
+  resources:
+  - rollouts
+  - rollouts/status
+  - rollouts/finalizers
+  verbs:
+  - get
+  - list
+  - watch
+  - update
+  - patch
+- apiGroups:
+  - argoproj.io
+  resources:
+  - analysisruns
+  - analysisruns/finalizers
+  - experiments
+  - experiments/finalizers
+  verbs:
+  - create
+  - get
+  - list
+  - watch
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - argoproj.io
+  resources:
+  - analysistemplates
+  - clusteranalysistemplates
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - apps
+  resources:
+  - replicasets
+  verbs:
+  - create
+  - get
+  - list
+  - watch
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - apps
+  - extensions
+  resources:
+  - deployments
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - pods
+  verbs:
+  - list
+  - update
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - pods/eviction
+  verbs:
+  - create
+- apiGroups:
+  - ""
+  resources:
+  - podtemplates
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - services
+  verbs:
+  - get
+  - list
+  - watch
+  - patch
+  - create
+  - delete
+- apiGroups:
+  - coordination.k8s.io
+  resources:
+  - leases
+  verbs:
+  - create
+  - get
+  - update
+- apiGroups:
+  - ""
+  resources:
+  - secrets
+  - configmaps
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - events
+  verbs:
+  - create
+  - update
+  - patch
+- apiGroups:
+  - networking.k8s.io
+  - extensions
+  resources:
+  - ingresses
+  verbs:
+  - create
+  - get
+  - list
+  - watch
+  - patch
+- apiGroups:
+  - batch
+  resources:
+  - jobs
+  verbs:
+  - create
+  - get
+  - list
+  - watch
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - networking.istio.io
+  resources:
+  - virtualservices
+  - destinationrules
+  verbs:
+  - watch
+  - get
+  - update
+  - patch
+  - list
+- apiGroups:
+  - split.smi-spec.io
+  resources:
+  - trafficsplits
+  verbs:
+  - create
+  - watch
+  - get
+  - update
+  - patch
+- apiGroups:
+  - elbv2.k8s.aws
+  resources:
+  - targetgroupbindings
+  verbs:
+  - list
+  - get
+- apiGroups:
+  - appmesh.k8s.aws
+  resources:
+  - virtualrouters
+  - virtualrouters/status
+  verbs:
+  - watch
+  - get
+  - list
+- apiGroups:
+  - appmesh.k8s.aws
+  resources:
+  - virtualnodes
+  - virtualnodes/status
+  verbs:
+  - watch
+  - get
+  - list
+  - update
+  - patch
+- apiGroups:
+  - gateway.networking.k8s.io
+  resources:
+  - httproutes
+  verbs:
+  - create
+  - watch
+  - get
+  - update
+  - patch
+  - list
+- apiGroups:
+  - traefik.containo.us
+  - traefik.io
+  resources:
+  - traefikservices
+  verbs:
+  - watch
+  - get
+  - update
+  - list

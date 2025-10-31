@@ -23,6 +23,7 @@ data:
     CREATE DATABASE kong OWNER kong;
     GRANT ALL PRIVILEGES ON DATABASE kong TO kong;
 
+{{- if not (and .Values.vault .Values.vault.enabled) }}
 ---
 apiVersion: v1
 kind: Secret
@@ -33,6 +34,7 @@ type: Opaque
 stringData:
   postgres-password: "postgres123"
   kong-password: "kong123"
+{{- end }}
 
 ---
 apiVersion: v1

@@ -1,0 +1,40 @@
+{
+  "name": "04-caiso-rt",
+  "description": "CAISO real-time 5-minute LMP data pipeline",
+  "schedule": "*/5 * * * *",
+  "timezone": "America/Los_Angeles",
+  "tasks": [
+    {
+      "name": "compile_uis",
+      "type": "SHELL",
+      "command": "python /app/sdk/uis/compilers/seatunnel/compiler.py --spec /app/sdk/uis/compilers/seatunnel/fixtures/caiso_rt_lmp.json --output /tmp/caiso_rt_job.conf"
+    },
+    {
+      "name": "run_ingestion",
+      "type": "SEATUNNEL",
+      "config": "/tmp/caiso_rt_job.conf",
+      "dependsOn": ["compile_uis"]
+    },
+    {
+      "name": "data_quality",
+      "type": "PYTHON",
+      "script": "/app/data-quality/runner.py",
+      "args": ["--suite", "caiso_rt_lmp", "--table", "default.rt_lmp", "--clickhouse"],
+      "dependsOn": ["run_ingestion"]
+    },
+    {
+      "name": "publish",
+      "type": "SHELL",
+      "command": "echo 'CAISO RT LMP pipeline completed successfully'",
+      "dependsOn": ["data_quality"]
+    }
+  ],
+  "sla": {
+    "freshness_minutes": 10,
+    "alert": {
+      "enabled": true,
+      "channel": "slack-data-platform-critical",
+      "recipients": ["data-eng@254carbon.com", "trading-ops@254carbon.com"]
+    }
+  }
+}

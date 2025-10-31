@@ -282,7 +282,7 @@ data:
           "targets": [
             {
               "expr": "rate(http_requests_total{job=\"iceberg-rest-catalog\"}[5m])",
-              "legendFormat": "{{ method }}`}} {{ handler }}`}}",
+              "legendFormat": "{{`{{ method }}`}} {{`{{ handler }}`}}",
               "refId": "A"
             }
           ],
@@ -325,7 +325,7 @@ data:
           "targets": [
             {
               "expr": "sum(rate(http_requests_total{job=\"iceberg-rest-catalog\"}[5m])) by (status)",
-              "legendFormat": "{{ status }}`}}",
+              "legendFormat": "{{`{{ status }}`}}",
               "refId": "A"
             }
           ],

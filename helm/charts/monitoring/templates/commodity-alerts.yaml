@@ -212,4 +212,55 @@ spec:
       annotations:
         summary: "Slow Trino query performance"
         description: "95th percentile query latency is {{`{{ $value }}`}}s (expected < 30s)"
+    
+    # Anomaly Detection Alerts (Step 7)
+    - name: data_quality_anomalies
+      interval: 60s
+      rules:
+        # High anomaly rate
+        - alert: HighAnomalyRate
+          expr: |
+            (sum(rate(dq_anomaly_detected_total[5m])) / sum(rate(dq_rows_processed_total[5m]))) > 0.05
+          for: 10m
+          labels:
+            severity: warning
+            team: data-platform
+          annotations:
+            summary: "High anomaly detection rate (>5%)"
+            description: "{{`{{ $value | humanizePercentage }}`}} of rows flagged as anomalous in last 5 minutes"
+        
+        # Critical anomaly rate (quarantine triggered)
+        - alert: CriticalAnomalyRate
+          expr: |
+            (sum(rate(dq_anomaly_detected_total[5m])) / sum(rate(dq_rows_processed_total[5m]))) > 0.20
+          for: 5m
+          labels:
+            severity: critical
+            team: data-platform
+          annotations:
+            summary: "Critical anomaly rate (>20%) - Quarantine triggered"
+            description: "{{`{{ $value | humanizePercentage }}`}} of rows flagged as anomalous, partition quarantined"
+        
+        # Distribution drift detected
+        - alert: DistributionDrift
+          expr: dq_ks_test_p_value < 0.01
+          for: 15m
+          labels:
+            severity: warning
+            team: data-platform
+          annotations:
+            summary: "Distribution drift detected (KS test)"
+            description: "Data distribution has drifted significantly (p-value: {{`{{ $value }}`}})"
+        
+        # Price spike anomaly
+        - alert: PriceSpikeAnomaly
+          expr: |
+            abs(lmp_price - lmp_seasonal_mean) / lmp_seasonal_std > 5
+          for: 5m
+          labels:
+            severity: critical
+            team: trading
+          annotations:
+            summary: "Extreme price spike detected (>5 sigma)"
+            description: "LMP price {{`{{ $value | humanize }}`}} standard deviations from seasonal mean"
 

@@ -1,0 +1,72 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "iceberg-rest-catalog.fullname" . }}
+  labels:
+    {{- include "iceberg-rest-catalog.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "iceberg-rest-catalog.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "iceberg-rest-catalog.selectorLabels" . | nindent 8 }}
+    spec:
+      serviceAccountName: {{ include "iceberg-rest-catalog.serviceAccountName" . }}
+      containers:
+      - name: iceberg-rest
+        image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        ports:
+        - name: http
+          containerPort: {{ .Values.service.port }}
+          protocol: TCP
+        env:
+        - name: CATALOG_JDBC_URL
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.postgres.secretName }}
+              key: jdbc-url
+        - name: CATALOG_JDBC_USER
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.postgres.secretName }}
+              key: username
+        - name: CATALOG_JDBC_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.postgres.secretName }}
+              key: password
+        - name: MINIO_ACCESS_KEY
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.minio.secretName }}
+              key: accesskey
+        - name: MINIO_SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.minio.secretName }}
+              key: secretkey
+        volumeMounts:
+        - name: config
+          mountPath: /app/config
+        livenessProbe:
+          httpGet:
+            path: /v1/config
+            port: http
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /v1/config
+            port: http
+          initialDelaySeconds: 10
+          periodSeconds: 5
+        resources:
+          {{- toYaml .Values.resources | nindent 10 }}
+      volumes:
+      - name: config
+        configMap:
+          name: {{ include "iceberg-rest-catalog.fullname" . }}-config

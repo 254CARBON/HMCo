@@ -45,11 +45,14 @@ spec:
     ttl: 720h0m0s # 30 days retention
     storageLocation: minio
     includedNamespaces:
-    - data-platform
+    - data-platform      # Includes ClickHouse PVs, portal services
     - monitoring
     - registry
     - cert-manager
     - cloudflare-tunnel
+    - vault-prod         # Vault storage and secrets
+    - ml-platform        # MLflow and ML services
+    - kubeflow           # Kubeflow pipelines
     excludedResources:
     - events
     - events.events.k8s.io
@@ -71,8 +74,10 @@ spec:
     ttl: 168h0m0s # 7 days retention
     storageLocation: minio
     includedNamespaces:
-    - data-platform
+    - data-platform      # Includes ClickHouse PVs, portal services
     - monitoring
+    - vault-prod         # Vault storage and secrets
+    - ml-platform        # MLflow and ML services
     excludedResources:
     - events
     - events.events.k8s.io

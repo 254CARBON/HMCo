@@ -1,0 +1,40 @@
+{
+  "name": "03-noaa-hourly",
+  "description": "NOAA hourly weather data pipeline",
+  "schedule": "20 * * * *",
+  "timezone": "UTC",
+  "tasks": [
+    {
+      "name": "compile_uis",
+      "type": "SHELL",
+      "command": "python /app/sdk/uis/compilers/seatunnel/compiler.py --spec /app/sdk/uis/compilers/seatunnel/fixtures/noaa_hourly.json --output /tmp/noaa_hourly_job.conf"
+    },
+    {
+      "name": "run_ingestion",
+      "type": "SEATUNNEL",
+      "config": "/tmp/noaa_hourly_job.conf",
+      "dependsOn": ["compile_uis"]
+    },
+    {
+      "name": "data_quality",
+      "type": "PYTHON",
+      "script": "/app/data-quality/runner.py",
+      "args": ["--suite", "noaa_hourly", "--table", "hub_curated.noaa_hourly"],
+      "dependsOn": ["run_ingestion"]
+    },
+    {
+      "name": "publish",
+      "type": "SHELL",
+      "command": "echo 'NOAA hourly pipeline completed successfully'",
+      "dependsOn": ["data_quality"]
+    }
+  ],
+  "sla": {
+    "freshness_minutes": 20,
+    "alert": {
+      "enabled": true,
+      "channel": "slack-data-platform",
+      "recipients": ["data-eng@254carbon.com"]
+    }
+  }
+}

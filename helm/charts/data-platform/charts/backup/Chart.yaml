@@ -1,0 +1,6 @@
+apiVersion: v2
+name: backup
+description: Backup and DR for MinIO, ClickHouse, and Postgres catalog
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
