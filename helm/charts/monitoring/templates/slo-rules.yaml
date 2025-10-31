@@ -1,0 +1,419 @@
+---
+# Service Level Objectives (SLOs) and Recording Rules for Portal, MLflow, and ClickHouse
+# This file defines specific SLOs for the three public endpoints mentioned in T4.1
+
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: slo-rules
+  namespace: monitoring
+  labels:
+    role: slo
+    component: service-endpoints
+    alertmanager: main
+spec:
+  groups:
+    # ========================================
+    # SLO Recording Rules - Portal Service
+    # ========================================
+    - name: portal.slo.recording
+      interval: 30s
+      rules:
+        # Portal availability (based on ingress metrics)
+        - record: slo:portal:availability:5m
+          expr: |
+            avg_over_time(
+              probe_success{job="blackbox-exporter",target=~".*254carbon.com.*"}[5m]
+            )
+
+        # Portal request rate
+        - record: slo:portal:requests:rate5m
+          expr: |
+            sum(rate(nginx_ingress_controller_requests{
+              service="portal-services",
+              namespace="default"
+            }[5m]))
+
+        # Portal error rate (5xx responses)
+        - record: slo:portal:errors:rate5m
+          expr: |
+            sum(rate(nginx_ingress_controller_requests{
+              service="portal-services",
+              namespace="default",
+              status=~"5.."
+            }[5m]))
+
+        # Portal error ratio
+        - record: slo:portal:error_ratio:5m
+          expr: |
+            slo:portal:errors:rate5m / slo:portal:requests:rate5m
+
+        # Portal latency p95
+        - record: slo:portal:latency_p95:5m
+          expr: |
+            histogram_quantile(
+              0.95,
+              sum by (le) (
+                rate(nginx_ingress_controller_request_duration_seconds_bucket{
+                  service="portal-services",
+                  namespace="default"
+                }[5m])
+              )
+            )
+
+        # Portal latency p99
+        - record: slo:portal:latency_p99:5m
+          expr: |
+            histogram_quantile(
+              0.99,
+              sum by (le) (
+                rate(nginx_ingress_controller_request_duration_seconds_bucket{
+                  service="portal-services",
+                  namespace="default"
+                }[5m])
+              )
+            )
+
+    # ========================================
+    # SLO Recording Rules - MLflow Service
+    # ========================================
+    - name: mlflow.slo.recording
+      interval: 30s
+      rules:
+        # MLflow availability
+        - record: slo:mlflow:availability:5m
+          expr: |
+            avg_over_time(up{
+              job="mlflow",
+              namespace="ml-platform"
+            }[5m])
+
+        # MLflow request rate
+        - record: slo:mlflow:requests:rate5m
+          expr: |
+            sum(rate(nginx_ingress_controller_requests{
+              service="mlflow",
+              namespace="ml-platform"
+            }[5m]))
+
+        # MLflow error rate (5xx responses)
+        - record: slo:mlflow:errors:rate5m
+          expr: |
+            sum(rate(nginx_ingress_controller_requests{
+              service="mlflow",
+              namespace="ml-platform",
+              status=~"5.."
+            }[5m]))
+
+        # MLflow error ratio
+        - record: slo:mlflow:error_ratio:5m
+          expr: |
+            slo:mlflow:errors:rate5m / slo:mlflow:requests:rate5m
+
+        # MLflow latency p95
+        - record: slo:mlflow:latency_p95:5m
+          expr: |
+            histogram_quantile(
+              0.95,
+              sum by (le) (
+                rate(nginx_ingress_controller_request_duration_seconds_bucket{
+                  service="mlflow",
+                  namespace="ml-platform"
+                }[5m])
+              )
+            )
+
+        # MLflow latency p99
+        - record: slo:mlflow:latency_p99:5m
+          expr: |
+            histogram_quantile(
+              0.99,
+              sum by (le) (
+                rate(nginx_ingress_controller_request_duration_seconds_bucket{
+                  service="mlflow",
+                  namespace="ml-platform"
+                }[5m])
+              )
+            )
+
+    # ========================================
+    # SLO Recording Rules - ClickHouse Service
+    # ========================================
+    - name: clickhouse.slo.recording
+      interval: 30s
+      rules:
+        # ClickHouse availability
+        - record: slo:clickhouse:availability:5m
+          expr: |
+            avg_over_time(up{
+              job="clickhouse",
+              namespace="data-platform"
+            }[5m])
+
+        # ClickHouse request rate
+        - record: slo:clickhouse:requests:rate5m
+          expr: |
+            sum(rate(nginx_ingress_controller_requests{
+              service="clickhouse",
+              namespace="data-platform"
+            }[5m]))
+
+        # ClickHouse error rate (5xx responses)
+        - record: slo:clickhouse:errors:rate5m
+          expr: |
+            sum(rate(nginx_ingress_controller_requests{
+              service="clickhouse",
+              namespace="data-platform",
+              status=~"5.."
+            }[5m]))
+
+        # ClickHouse error ratio
+        - record: slo:clickhouse:error_ratio:5m
+          expr: |
+            slo:clickhouse:errors:rate5m / slo:clickhouse:requests:rate5m
+
+        # ClickHouse latency p95
+        - record: slo:clickhouse:latency_p95:5m
+          expr: |
+            histogram_quantile(
+              0.95,
+              sum by (le) (
+                rate(nginx_ingress_controller_request_duration_seconds_bucket{
+                  service="clickhouse",
+                  namespace="data-platform"
+                }[5m])
+              )
+            )
+
+        # ClickHouse latency p99
+        - record: slo:clickhouse:latency_p99:5m
+          expr: |
+            histogram_quantile(
+              0.99,
+              sum by (le) (
+                rate(nginx_ingress_controller_request_duration_seconds_bucket{
+                  service="clickhouse",
+                  namespace="data-platform"
+                }[5m])
+              )
+            )
+
+    # ========================================
+    # SLO Alert Rules - Portal Service
+    # Target: 99.9% availability, p95 < 500ms
+    # ========================================
+    - name: portal.slo.alerts
+      interval: 1m
+      rules:
+        # Portal availability SLO violation
+        - alert: PortalAvailabilitySLOViolation
+          expr: slo:portal:availability:5m < 0.999
+          for: 5m
+          labels:
+            severity: critical
+            service: portal
+            slo: availability
+            target: "99.9%"
+          annotations:
+            summary: "Portal availability below 99.9% SLO"
+            description: |
+              Portal service availability is {{`{{ $value | humanizePercentage }}`}}.
+              Target: 99.9% over 5m rolling window.
+
+        # Portal error budget burn - Critical (fast burn)
+        - alert: PortalErrorBudgetBurnCritical
+          expr: |
+            (
+              slo:portal:error_ratio:5m > (0.001 * 14.4)
+            )
+          for: 10m
+          labels:
+            severity: critical
+            service: portal
+            slo: error-budget
+            target: "99.9%"
+          annotations:
+            summary: "Portal experiencing critical error budget burn"
+            description: |
+              Portal error ratio {{`{{ $value | humanizePercentage }}`}} exceeds 
+              fast-burn threshold (14.4x of 0.1% budget).
+              At this rate, monthly error budget will be exhausted quickly.
+
+        # Portal error budget burn - Warning (slow burn)
+        - alert: PortalErrorBudgetBurnWarning
+          expr: |
+            (
+              slo:portal:error_ratio:5m > (0.001 * 3)
+            )
+          for: 30m
+          labels:
+            severity: warning
+            service: portal
+            slo: error-budget
+            target: "99.9%"
+          annotations:
+            summary: "Portal experiencing elevated error budget burn"
+            description: |
+              Portal error ratio {{`{{ $value | humanizePercentage }}`}} exceeds 
+              slow-burn threshold (3x of 0.1% budget).
+
+        # Portal latency SLO violation
+        - alert: PortalLatencySLOViolation
+          expr: slo:portal:latency_p95:5m > 0.5
+          for: 10m
+          labels:
+            severity: warning
+            service: portal
+            slo: latency-p95
+            target: "p95 < 500ms"
+          annotations:
+            summary: "Portal p95 latency above 500ms SLO"
+            description: |
+              Portal p95 response time is {{`{{ $value }}s`}}.
+              Target: p95 < 500ms over 5m rolling window.
+
+    # ========================================
+    # SLO Alert Rules - MLflow Service
+    # Target: 99.5% availability, p95 < 1s
+    # ========================================
+    - name: mlflow.slo.alerts
+      interval: 1m
+      rules:
+        # MLflow availability SLO violation
+        - alert: MLflowAvailabilitySLOViolation
+          expr: slo:mlflow:availability:5m < 0.995
+          for: 5m
+          labels:
+            severity: warning
+            service: mlflow
+            slo: availability
+            target: "99.5%"
+          annotations:
+            summary: "MLflow availability below 99.5% SLO"
+            description: |
+              MLflow service availability is {{`{{ $value | humanizePercentage }}`}}.
+              Target: 99.5% over 5m rolling window.
+
+        # MLflow error budget burn - Critical
+        - alert: MLflowErrorBudgetBurnCritical
+          expr: |
+            (
+              slo:mlflow:error_ratio:5m > (0.005 * 14.4)
+            )
+          for: 10m
+          labels:
+            severity: critical
+            service: mlflow
+            slo: error-budget
+            target: "99.5%"
+          annotations:
+            summary: "MLflow experiencing critical error budget burn"
+            description: |
+              MLflow error ratio {{`{{ $value | humanizePercentage }}`}} exceeds 
+              fast-burn threshold (14.4x of 0.5% budget).
+
+        # MLflow error budget burn - Warning
+        - alert: MLflowErrorBudgetBurnWarning
+          expr: |
+            (
+              slo:mlflow:error_ratio:5m > (0.005 * 3)
+            )
+          for: 30m
+          labels:
+            severity: warning
+            service: mlflow
+            slo: error-budget
+            target: "99.5%"
+          annotations:
+            summary: "MLflow experiencing elevated error budget burn"
+            description: |
+              MLflow error ratio {{`{{ $value | humanizePercentage }}`}} exceeds 
+              slow-burn threshold (3x of 0.5% budget).
+
+        # MLflow latency SLO violation
+        - alert: MLflowLatencySLOViolation
+          expr: slo:mlflow:latency_p95:5m > 1.0
+          for: 10m
+          labels:
+            severity: warning
+            service: mlflow
+            slo: latency-p95
+            target: "p95 < 1s"
+          annotations:
+            summary: "MLflow p95 latency above 1s SLO"
+            description: |
+              MLflow p95 response time is {{`{{ $value }}s`}}.
+              Target: p95 < 1s over 5m rolling window.
+
+    # ========================================
+    # SLO Alert Rules - ClickHouse Service
+    # Target: 99.5% availability, p95 < 2s
+    # ========================================
+    - name: clickhouse.slo.alerts
+      interval: 1m
+      rules:
+        # ClickHouse availability SLO violation
+        - alert: ClickHouseAvailabilitySLOViolation
+          expr: slo:clickhouse:availability:5m < 0.995
+          for: 5m
+          labels:
+            severity: warning
+            service: clickhouse
+            slo: availability
+            target: "99.5%"
+          annotations:
+            summary: "ClickHouse availability below 99.5% SLO"
+            description: |
+              ClickHouse service availability is {{`{{ $value | humanizePercentage }}`}}.
+              Target: 99.5% over 5m rolling window.
+
+        # ClickHouse error budget burn - Critical
+        - alert: ClickHouseErrorBudgetBurnCritical
+          expr: |
+            (
+              slo:clickhouse:error_ratio:5m > (0.005 * 14.4)
+            )
+          for: 10m
+          labels:
+            severity: critical
+            service: clickhouse
+            slo: error-budget
+            target: "99.5%"
+          annotations:
+            summary: "ClickHouse experiencing critical error budget burn"
+            description: |
+              ClickHouse error ratio {{`{{ $value | humanizePercentage }}`}} exceeds 
+              fast-burn threshold (14.4x of 0.5% budget).
+
+        # ClickHouse error budget burn - Warning
+        - alert: ClickHouseErrorBudgetBurnWarning
+          expr: |
+            (
+              slo:clickhouse:error_ratio:5m > (0.005 * 3)
+            )
+          for: 30m
+          labels:
+            severity: warning
+            service: clickhouse
+            slo: error-budget
+            target: "99.5%"
+          annotations:
+            summary: "ClickHouse experiencing elevated error budget burn"
+            description: |
+              ClickHouse error ratio {{`{{ $value | humanizePercentage }}`}} exceeds 
+              slow-burn threshold (3x of 0.5% budget).
+
+        # ClickHouse latency SLO violation
+        - alert: ClickHouseLatencySLOViolation
+          expr: slo:clickhouse:latency_p95:5m > 2.0
+          for: 15m
+          labels:
+            severity: warning
+            service: clickhouse
+            slo: latency-p95
+            target: "p95 < 2s"
+          annotations:
+            summary: "ClickHouse p95 latency above 2s SLO"
+            description: |
+              ClickHouse p95 response time is {{`{{ $value }}s`}}.
+              Target: p95 < 2s over 5m rolling window.
