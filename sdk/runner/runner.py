@@ -36,6 +36,21 @@ from metrics import MetricsCollector, MetricsConfig
 from tracing import Tracer
 from job_executor import JobExecutor, JobExecutionError
 
+# Feed ledger imports
+# Note: Using sys.path manipulation for imports follows the existing pattern in this repository.
+# Future refactoring should consider using proper Python packaging with setup.py/pyproject.toml.
+try:
+    services_path = Path(__file__).parent.parent.parent / "services" / "feed-ledger"
+    sys.path.insert(0, str(services_path))
+    from feed_ledger import FeedLedger, FeedLedgerEntry, FeedState
+    FEED_LEDGER_AVAILABLE = True
+except ImportError as e:
+    logger.warning(f"Feed ledger not available: {e}")
+    FEED_LEDGER_AVAILABLE = False
+    FeedLedger = None
+    FeedLedgerEntry = None
+    FeedState = None
+
 # Compiler imports
 try:
     # Add UIS SDK path
@@ -67,10 +82,12 @@ class IngestionRunner:
         self.tracer = None
         self.job_executor = None
         self.compilers = {}
+        self.feed_ledger = None
 
         self._setup_components()
         self._setup_compilers()
         self._setup_job_executor()
+        self._setup_feed_ledger()
 
         logger.info(f"Ingestion runner initialized: {self.config.runner_id}")
 
@@ -118,6 +135,20 @@ class IngestionRunner:
         except Exception as e:
             logger.error(f"Failed to initialize job executor: {e}")
             self.job_executor = None
+
+    def _setup_feed_ledger(self):
+        """Setup feed ledger."""
+        if not FEED_LEDGER_AVAILABLE:
+            logger.warning("Feed ledger not available")
+            return
+        
+        try:
+            backend = self.config.feed_ledger_backend if hasattr(self.config, 'feed_ledger_backend') else "postgres"
+            self.feed_ledger = FeedLedger(backend=backend)
+            logger.info(f"Feed ledger initialized with backend: {backend}")
+        except Exception as e:
+            logger.error(f"Failed to initialize feed ledger: {e}")
+            self.feed_ledger = None
 
     def _setup_compilers(self):
         """Setup available compilers."""

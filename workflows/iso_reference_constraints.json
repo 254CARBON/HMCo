@@ -1,0 +1,50 @@
+{
+  "name": "iso_reference_constraints",
+  "description": "ISO constraint and flowgate reference data pipeline (SCD2)",
+  "schedule": "0 4 * * 0",
+  "timezone": "UTC",
+  "tasks": [
+    {
+      "name": "fetch_caiso_constraints",
+      "type": "SHELL",
+      "command": "python /app/sdk/uis/tools/iso_adapters/caiso_reference.py --type constraints --output /tmp/caiso_constraints.json"
+    },
+    {
+      "name": "fetch_miso_constraints",
+      "type": "SHELL",
+      "command": "python /app/sdk/uis/tools/iso_adapters/miso_reference.py --type constraints --output /tmp/miso_constraints.json"
+    },
+    {
+      "name": "fetch_spp_constraints",
+      "type": "SHELL",
+      "command": "python /app/sdk/uis/tools/iso_adapters/spp_reference.py --type constraints --output /tmp/spp_constraints.json"
+    },
+    {
+      "name": "compile_spark_job",
+      "type": "SHELL",
+      "command": "python /app/sdk/uis/compilers/spark/compiler.py --spec /app/sdk/uis/compilers/spark/fixtures/iso_reference_constraints.json --output /tmp/ref_constraints_job.conf",
+      "dependsOn": ["fetch_caiso_constraints", "fetch_miso_constraints", "fetch_spp_constraints"]
+    },
+    {
+      "name": "run_scd2_merge",
+      "type": "SPARK",
+      "config": "/tmp/ref_constraints_job.conf",
+      "dependsOn": ["compile_spark_job"]
+    },
+    {
+      "name": "data_quality",
+      "type": "PYTHON",
+      "script": "/app/data-quality/runner.py",
+      "args": ["--suite", "iso_reference", "--table", "ref.constraints"],
+      "dependsOn": ["run_scd2_merge"]
+    }
+  ],
+  "sla": {
+    "freshness_hours": 24,
+    "alert": {
+      "enabled": true,
+      "channel": "slack-data-platform",
+      "recipients": ["data-eng@254carbon.com"]
+    }
+  }
+}

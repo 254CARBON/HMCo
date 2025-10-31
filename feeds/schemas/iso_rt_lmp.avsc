@@ -1,0 +1,46 @@
+{
+  "type": "record",
+  "name": "ISORealtimeLMP",
+  "namespace": "com.carbon254.feeds.iso",
+  "doc": "ISO Real-Time Locational Marginal Price",
+  "fields": [
+    {
+      "name": "node",
+      "type": "string",
+      "doc": "Node identifier"
+    },
+    {
+      "name": "timestamp",
+      "type": {
+        "type": "long",
+        "logicalType": "timestamp-millis"
+      },
+      "doc": "Event timestamp in milliseconds"
+    },
+    {
+      "name": "lmp",
+      "type": "double",
+      "doc": "Locational Marginal Price in $/MWh"
+    },
+    {
+      "name": "congestion",
+      "type": "double",
+      "doc": "Congestion component in $/MWh"
+    },
+    {
+      "name": "loss",
+      "type": "double",
+      "doc": "Loss component in $/MWh"
+    },
+    {
+      "name": "energy",
+      "type": "double",
+      "doc": "Energy component in $/MWh"
+    },
+    {
+      "name": "market_run",
+      "type": "string",
+      "doc": "Market run identifier (e.g., RTM, RTD)"
+    }
+  ]
+}

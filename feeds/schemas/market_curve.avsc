@@ -1,0 +1,68 @@
+{
+  "type": "record",
+  "name": "MarketCurveSnapshot",
+  "namespace": "com.carbon254.feeds.market",
+  "doc": "Market curve snapshot (power/gas futures)",
+  "fields": [
+    {
+      "name": "snapshot_id",
+      "type": "string",
+      "doc": "Unique snapshot identifier"
+    },
+    {
+      "name": "hub",
+      "type": "string",
+      "doc": "Hub or delivery point"
+    },
+    {
+      "name": "snapshot_ts",
+      "type": {
+        "type": "long",
+        "logicalType": "timestamp-millis"
+      },
+      "doc": "Snapshot timestamp"
+    },
+    {
+      "name": "vendor",
+      "type": "string",
+      "doc": "Data vendor"
+    },
+    {
+      "name": "commodity",
+      "type": {
+        "type": "enum",
+        "name": "CommodityType",
+        "symbols": ["POWER", "GAS", "COAL", "EMISSIONS"]
+      },
+      "doc": "Commodity type"
+    },
+    {
+      "name": "curve_points",
+      "type": {
+        "type": "array",
+        "items": {
+          "type": "record",
+          "name": "CurvePoint",
+          "fields": [
+            {
+              "name": "tenor",
+              "type": "string",
+              "doc": "Tenor (e.g., '2025-01', 'CAL25')"
+            },
+            {
+              "name": "price",
+              "type": "double",
+              "doc": "Price"
+            },
+            {
+              "name": "volume",
+              "type": ["null", "double"],
+              "doc": "Volume (if available)"
+            }
+          ]
+        }
+      },
+      "doc": "Curve points"
+    }
+  ]
+}

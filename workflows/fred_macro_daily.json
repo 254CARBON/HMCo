@@ -1,0 +1,40 @@
+{
+  "name": "fred_macro_daily",
+  "description": "FRED economic indicators pipeline",
+  "schedule": "30 9 * * *",
+  "timezone": "America/New_York",
+  "tasks": [
+    {
+      "name": "fetch_fred_indicators",
+      "type": "SHELL",
+      "command": "python /app/sdk/uis/tools/adapters/fred_adapter.py --series GDP,UNRATE,CPIAUCSL,DCOILWTICO --output /tmp/fred_{{ ds }}.json"
+    },
+    {
+      "name": "compile_spark_job",
+      "type": "SHELL",
+      "command": "python /app/sdk/uis/compilers/spark/compiler.py --spec /app/sdk/uis/compilers/spark/fixtures/fred_macro.json --output /tmp/fred_job.conf",
+      "dependsOn": ["fetch_fred_indicators"]
+    },
+    {
+      "name": "run_transform",
+      "type": "SPARK",
+      "config": "/tmp/fred_job.conf",
+      "dependsOn": ["compile_spark_job"]
+    },
+    {
+      "name": "data_quality",
+      "type": "PYTHON",
+      "script": "/app/data-quality/runner.py",
+      "args": ["--suite", "fred_macro", "--table", "macro.fred_indicators"],
+      "dependsOn": ["run_transform"]
+    }
+  ],
+  "sla": {
+    "freshness_minutes": 30,
+    "alert": {
+      "enabled": true,
+      "channel": "slack-data-platform",
+      "recipients": ["data-eng@254carbon.com"]
+    }
+  }
+}

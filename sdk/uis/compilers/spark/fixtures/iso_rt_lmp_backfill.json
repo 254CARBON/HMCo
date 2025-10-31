@@ -1,0 +1,88 @@
+{
+  "job_type": "micro_batch",
+  "name": "iso_rt_lmp_backfill",
+  "description": "Backfill ISO RT LMP data to Iceberg curated tables",
+  "spark_config": {
+    "spark.sql.adaptive.enabled": "true",
+    "spark.sql.adaptive.coalescePartitions.enabled": "true",
+    "spark.sql.adaptive.skewJoin.enabled": "true",
+    "spark.sql.streaming.trigger.processingTime": "5 minutes",
+    "spark.sql.streaming.checkpointLocation": "s3://spark-checkpoints/iso-rt-lmp-backfill/",
+    "spark.sql.streaming.minBatchesToRetain": "10",
+    "spark.executor.memory": "8g",
+    "spark.executor.cores": "4",
+    "spark.driver.memory": "4g",
+    "spark.sql.extensions": "org.apache.iceberg.spark.extensions.IcebergSparkSessionExtensions",
+    "spark.sql.catalog.spark_catalog": "org.apache.iceberg.spark.SparkSessionCatalog",
+    "spark.sql.catalog.spark_catalog.type": "hive",
+    "spark.hadoop.fs.s3a.endpoint": "http://minio:9000",
+    "spark.hadoop.fs.s3a.path.style.access": "true"
+  },
+  "sources": [
+    {
+      "type": "kafka",
+      "name": "iso_rt_lmp_kafka",
+      "bootstrap_servers": "redpanda:9092",
+      "topics": ["iso.rt.lmp.caiso", "iso.rt.lmp.miso", "iso.rt.lmp.spp"],
+      "starting_offsets": "earliest",
+      "format": "json",
+      "options": {
+        "failOnDataLoss": "false",
+        "maxOffsetsPerTrigger": "100000"
+      }
+    }
+  ],
+  "transforms": [
+    {
+      "type": "field_mapping",
+      "name": "normalize_iso_fields",
+      "mapping": {
+        "node": "node_id",
+        "timestamp": "event_time",
+        "lmp": "lmp_price",
+        "congestion": "congestion_component",
+        "loss": "loss_component",
+        "energy": "energy_component",
+        "market_run": "market_run_type"
+      },
+      "drop_unmapped": false
+    },
+    {
+      "type": "add_columns",
+      "name": "add_metadata",
+      "columns": {
+        "ingestion_time": "current_timestamp()",
+        "iso": "split(topic, '.')[3]",
+        "partition_date": "to_date(event_time)"
+      }
+    }
+  ],
+  "sinks": [
+    {
+      "type": "iceberg",
+      "name": "curated_iso_rt_lmp",
+      "table": "curated.iso_rt_lmp_caiso",
+      "namespace": "curated",
+      "catalog": "spark_catalog",
+      "mode": "append",
+      "options": {
+        "format": "parquet",
+        "partitionBy": "partition_date",
+        "write.wap.enabled": "true",
+        "write.upsert.enabled": "true",
+        "write.merge.mode": "merge-on-read"
+      },
+      "merge_keys": ["node_id", "event_time"]
+    }
+  ],
+  "schedule": {
+    "trigger_type": "processing_time",
+    "trigger_interval": "5 minutes",
+    "max_offsets_per_trigger": 100000
+  },
+  "monitoring": {
+    "metrics_enabled": true,
+    "latency_tracking": true,
+    "target_latency_ms": 60000
+  }
+}

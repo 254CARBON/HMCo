@@ -1,0 +1,49 @@
+{
+  "type": "record",
+  "name": "ISODayAheadSchedule",
+  "namespace": "com.carbon254.feeds.iso",
+  "doc": "ISO Day-Ahead market schedule and awards",
+  "fields": [
+    {
+      "name": "unit_id",
+      "type": "string",
+      "doc": "Unit identifier"
+    },
+    {
+      "name": "trade_date",
+      "type": {
+        "type": "int",
+        "logicalType": "date"
+      },
+      "doc": "Trade date"
+    },
+    {
+      "name": "hour_ending",
+      "type": "int",
+      "doc": "Hour ending (1-24)"
+    },
+    {
+      "name": "product",
+      "type": "string",
+      "doc": "Product type (energy, ancillary)"
+    },
+    {
+      "name": "award_mw",
+      "type": "double",
+      "doc": "Awarded MW"
+    },
+    {
+      "name": "price",
+      "type": "double",
+      "doc": "Clearing price in $/MWh"
+    },
+    {
+      "name": "constraints",
+      "type": {
+        "type": "array",
+        "items": "string"
+      },
+      "doc": "Active constraints"
+    }
+  ]
+}

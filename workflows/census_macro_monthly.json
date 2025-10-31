@@ -1,0 +1,45 @@
+{
+  "name": "census_macro_monthly",
+  "description": "Census demographic and economic data pipeline",
+  "schedule": "0 10 1 * *",
+  "timezone": "America/New_York",
+  "tasks": [
+    {
+      "name": "fetch_census_demographics",
+      "type": "SHELL",
+      "command": "python /app/sdk/uis/tools/adapters/census_adapter.py --dataset demographics --output /tmp/census_demo_{{ ds }}.json"
+    },
+    {
+      "name": "fetch_census_economic",
+      "type": "SHELL",
+      "command": "python /app/sdk/uis/tools/adapters/census_adapter.py --dataset economic --output /tmp/census_econ_{{ ds }}.json"
+    },
+    {
+      "name": "compile_spark_job",
+      "type": "SHELL",
+      "command": "python /app/sdk/uis/compilers/spark/compiler.py --spec /app/sdk/uis/compilers/spark/fixtures/census_macro.json --output /tmp/census_job.conf",
+      "dependsOn": ["fetch_census_demographics", "fetch_census_economic"]
+    },
+    {
+      "name": "run_transform",
+      "type": "SPARK",
+      "config": "/tmp/census_job.conf",
+      "dependsOn": ["compile_spark_job"]
+    },
+    {
+      "name": "data_quality",
+      "type": "PYTHON",
+      "script": "/app/data-quality/runner.py",
+      "args": ["--suite", "census_macro", "--table", "macro.census_demographics,macro.census_economic"],
+      "dependsOn": ["run_transform"]
+    }
+  ],
+  "sla": {
+    "freshness_hours": 48,
+    "alert": {
+      "enabled": true,
+      "channel": "slack-data-platform",
+      "recipients": ["data-eng@254carbon.com"]
+    }
+  }
+}
