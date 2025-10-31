@@ -17,103 +17,177 @@ data:
     ingress:
       # JupyterHub
       - hostname: jupyter.254carbon.com
-        service: http://ingress-nginx-controller.ingress-nginx:80
+        service: https://ingress-nginx-controller.ingress-nginx:443
         originRequest:
           connectTimeout: 30s
+          noTLSVerify: false
+          originServerName: "jupyter.254carbon.com"
       
       # Portal
       - hostname: portal.254carbon.com
-        service: http://ingress-nginx-controller.ingress-nginx:80
+        service: https://ingress-nginx-controller.ingress-nginx:443
+        originRequest:
+          noTLSVerify: false
+          originServerName: "portal.254carbon.com"
       
       - hostname: www.254carbon.com
-        service: http://ingress-nginx-controller.ingress-nginx:80
+        service: https://ingress-nginx-controller.ingress-nginx:443
+        originRequest:
+          noTLSVerify: false
+          originServerName: "www.254carbon.com"
       
       # DataHub
       - hostname: datahub.254carbon.com
-        service: http://ingress-nginx-controller.ingress-nginx:80
+        service: https://ingress-nginx-controller.ingress-nginx:443
+        originRequest:
+          noTLSVerify: false
+          originServerName: "datahub.254carbon.com"
       
       # Grafana
       - hostname: grafana.254carbon.com
-        service: http://ingress-nginx-controller.ingress-nginx:80
+        service: https://ingress-nginx-controller.ingress-nginx:443
+        originRequest:
+          noTLSVerify: false
+          originServerName: "grafana.254carbon.com"
       
       # Superset
       - hostname: superset.254carbon.com
-        service: http://ingress-nginx-controller.ingress-nginx:80
+        service: https://ingress-nginx-controller.ingress-nginx:443
+        originRequest:
+          noTLSVerify: false
+          originServerName: "superset.254carbon.com"
       
       # Trino
       - hostname: trino.254carbon.com
-        service: http://ingress-nginx-controller.ingress-nginx:80
+        service: https://ingress-nginx-controller.ingress-nginx:443
+        originRequest:
+          noTLSVerify: false
+          originServerName: "trino.254carbon.com"
       
       # Vault
       - hostname: vault.254carbon.com
-        service: http://ingress-nginx-controller.ingress-nginx:80
+        service: https://ingress-nginx-controller.ingress-nginx:443
+        originRequest:
+          noTLSVerify: false
+          originServerName: "vault.254carbon.com"
       
       # MinIO
       - hostname: minio.254carbon.com
-        service: http://ingress-nginx-controller.ingress-nginx:80
+        service: https://ingress-nginx-controller.ingress-nginx:443
+        originRequest:
+          noTLSVerify: false
+          originServerName: "minio.254carbon.com"
       
       # DolphinScheduler
       - hostname: dolphin.254carbon.com
-        service: http://ingress-nginx-controller.ingress-nginx:80
+        service: https://ingress-nginx-controller.ingress-nginx:443
+        originRequest:
+          noTLSVerify: false
+          originServerName: "dolphin.254carbon.com"
       
       - hostname: dolphinscheduler.254carbon.com
-        service: http://ingress-nginx-controller.ingress-nginx:80
+        service: https://ingress-nginx-controller.ingress-nginx:443
+        originRequest:
+          noTLSVerify: false
+          originServerName: "dolphinscheduler.254carbon.com"
       
       # Harbor
       - hostname: harbor.254carbon.com
-        service: http://ingress-nginx-controller.ingress-nginx:80
+        service: https://ingress-nginx-controller.ingress-nginx:443
+        originRequest:
+          noTLSVerify: false
+          originServerName: "harbor.254carbon.com"
       
       # LakeFS
       - hostname: lakefs.254carbon.com
-        service: http://ingress-nginx-controller.ingress-nginx:80
+        service: https://ingress-nginx-controller.ingress-nginx:443
+        originRequest:
+          noTLSVerify: false
+          originServerName: "lakefs.254carbon.com"
       
       # Rapids
       - hostname: rapids.254carbon.com
-        service: http://ingress-nginx-controller.ingress-nginx:80
+        service: https://ingress-nginx-controller.ingress-nginx:443
+        originRequest:
+          noTLSVerify: false
+          originServerName: "rapids.254carbon.com"
       
       # ClickHouse
       - hostname: clickhouse.254carbon.com
-        service: http://ingress-nginx-controller.ingress-nginx:80
+        service: https://ingress-nginx-controller.ingress-nginx:443
+        originRequest:
+          noTLSVerify: false
+          originServerName: "clickhouse.254carbon.com"
       
       # MLFlow
       - hostname: mlflow.254carbon.com
-        service: http://ingress-nginx-controller.ingress-nginx:80
+        service: https://ingress-nginx-controller.ingress-nginx:443
+        originRequest:
+          noTLSVerify: false
+          originServerName: "mlflow.254carbon.com"
       
       # Spark History Server
       - hostname: spark-history.254carbon.com
-        service: http://ingress-nginx-controller.ingress-nginx:80
+        service: https://ingress-nginx-controller.ingress-nginx:443
+        originRequest:
+          noTLSVerify: false
+          originServerName: "spark-history.254carbon.com"
       
       # Kiali (Service Mesh)
       - hostname: kiali.254carbon.com
-        service: http://ingress-nginx-controller.ingress-nginx:80
+        service: https://ingress-nginx-controller.ingress-nginx:443
+        originRequest:
+          noTLSVerify: false
+          originServerName: "kiali.254carbon.com"
       
       # Jaeger (Distributed Tracing)
       - hostname: jaeger.254carbon.com
-        service: http://ingress-nginx-controller.ingress-nginx:80
+        service: https://ingress-nginx-controller.ingress-nginx:443
+        originRequest:
+          noTLSVerify: false
+          originServerName: "jaeger.254carbon.com"
       
       # Kong Admin
       - hostname: kong.254carbon.com
-        service: http://ingress-nginx-controller.ingress-nginx:80
+        service: https://ingress-nginx-controller.ingress-nginx:443
+        originRequest:
+          noTLSVerify: false
+          originServerName: "kong.254carbon.com"
       
       # Prometheus
       - hostname: prometheus.254carbon.com
-        service: http://ingress-nginx-controller.ingress-nginx:80
+        service: https://ingress-nginx-controller.ingress-nginx:443
+        originRequest:
+          noTLSVerify: false
+          originServerName: "prometheus.254carbon.com"
       
       # AlertManager
       - hostname: alertmanager.254carbon.com
-        service: http://ingress-nginx-controller.ingress-nginx:80
+        service: https://ingress-nginx-controller.ingress-nginx:443
+        originRequest:
+          noTLSVerify: false
+          originServerName: "alertmanager.254carbon.com"
       
       # Victoria Metrics
       - hostname: victoria.254carbon.com
-        service: http://ingress-nginx-controller.ingress-nginx:80
+        service: https://ingress-nginx-controller.ingress-nginx:443
+        originRequest:
+          noTLSVerify: false
+          originServerName: "victoria.254carbon.com"
       
       # Loki
       - hostname: loki.254carbon.com
-        service: http://ingress-nginx-controller.ingress-nginx:80
+        service: https://ingress-nginx-controller.ingress-nginx:443
+        originRequest:
+          noTLSVerify: false
+          originServerName: "loki.254carbon.com"
       
       # Katib UI
       - hostname: katib.254carbon.com
-        service: http://ingress-nginx-controller.ingress-nginx:80
+        service: https://ingress-nginx-controller.ingress-nginx:443
+        originRequest:
+          noTLSVerify: false
+          originServerName: "katib.254carbon.com"
       
       # Catch-all
       - service: http_status:404
