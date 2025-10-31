@@ -1,0 +1,43 @@
+{{- if and .Values.exampleModel.enabled .Values.features.canaryDeployment .Values.exampleModel.canary.enabled }}
+---
+# Stable Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.exampleModel.name }}-predictor-stable
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "ml-serving.labels" . | nindent 4 }}
+    serving.kserve.io/inferenceservice: {{ .Values.exampleModel.name }}
+spec:
+  type: ClusterIP
+  ports:
+    - port: 80
+      targetPort: 8080
+      protocol: TCP
+      name: http
+  selector:
+    serving.kserve.io/inferenceservice: {{ .Values.exampleModel.name }}
+    component: predictor
+
+---
+# Canary Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.exampleModel.name }}-predictor-canary
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "ml-serving.labels" . | nindent 4 }}
+    serving.kserve.io/inferenceservice: {{ .Values.exampleModel.name }}
+spec:
+  type: ClusterIP
+  ports:
+    - port: 80
+      targetPort: 8080
+      protocol: TCP
+      name: http
+  selector:
+    serving.kserve.io/inferenceservice: {{ .Values.exampleModel.name }}
+    component: predictor
+{{- end }}

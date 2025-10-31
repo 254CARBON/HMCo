@@ -683,6 +683,14 @@ spec:
       - CreateNamespace=true
 
 ---
+# ArgoCD Application: ML Serving
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: ml-serving
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "-3"
 # ArgoCD Application: Progressive Delivery
 apiVersion: argoproj.io/v1alpha1
 kind: Application
@@ -698,6 +706,46 @@ spec:
   source:
     repoURL: https://github.com/254CARBON/HMCo.git
     targetRevision: main
+    path: helm/charts/ml-serving
+    helm:
+      valueFiles:
+        - values.yaml
+        - values/prod.yaml
+      parameters:
+      - name: "features.kserve"
+        value: "true"
+      - name: "features.canaryDeployment"
+        value: "true"
+      - name: "features.sloMonitoring"
+        value: "true"
+      - name: "features.autoscaling"
+        value: "true"
+      - name: "exampleModel.enabled"
+        value: "true"
+      - name: "slo.enabled"
+        value: "true"
+      - name: "monitoring.enabled"
+        value: "true"
+      - name: "autoscaling.enabled"
+        value: "true"
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: ml-serving
+  ignoreDifferences:
+    - group: monitoring.coreos.com
+      kind: PrometheusRule
+      managedFieldsManagers:
+        - prometheus-operator
+      jsonPointers:
+        - /metadata/labels
+        - /metadata/annotations
+    - group: monitoring.coreos.com
+      kind: ServiceMonitor
+      managedFieldsManagers:
+        - prometheus-operator
+      jsonPointers:
+        - /metadata/labels
+        - /metadata/annotations
     path: helm/charts/progressive-delivery
     helm:
       valueFiles:
@@ -712,3 +760,8 @@ spec:
       allowEmpty: false
     syncOptions:
       - CreateNamespace=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
