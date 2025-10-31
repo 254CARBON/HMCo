@@ -3,9 +3,16 @@ Pytest configuration and shared fixtures
 """
 import pytest
 import os
+import sys
+from pathlib import Path
 from typing import Generator
 from kubernetes import client, config
 from kubernetes.config import ConfigException
+
+# Add repository root to Python path for imports
+repo_root = Path(__file__).parent.parent
+if str(repo_root) not in sys.path:
+    sys.path.insert(0, str(repo_root))
 
 @pytest.fixture(scope="session")
 def k8s_client() -> Generator:
