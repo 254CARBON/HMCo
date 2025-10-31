@@ -105,7 +105,8 @@ jobs:
           DATE=$(date +%Y-%m-%d)
           
           # Create temporary file with new entry
-          cat > /tmp/new_entry.md << EOF
+          NEW_ENTRY_FILE="${{ runner.temp }}/new_entry.md"
+          cat > "$NEW_ENTRY_FILE" << EOF
           
           ## [${{ inputs.new_version }}] - $DATE
           
@@ -116,10 +117,11 @@ jobs:
           
           # Insert new entry after the header (after line 6)
           if [ -f "$CHANGELOG_FILE" ]; then
-            head -n 6 "$CHANGELOG_FILE" > /tmp/changelog_new.md
-            cat /tmp/new_entry.md >> /tmp/changelog_new.md
-            tail -n +7 "$CHANGELOG_FILE" >> /tmp/changelog_new.md
-            mv /tmp/changelog_new.md "$CHANGELOG_FILE"
+            TEMP_CHANGELOG="${{ runner.temp }}/changelog_new.md"
+            head -n 6 "$CHANGELOG_FILE" > "$TEMP_CHANGELOG"
+            cat "$NEW_ENTRY_FILE" >> "$TEMP_CHANGELOG"
+            tail -n +7 "$CHANGELOG_FILE" >> "$TEMP_CHANGELOG"
+            mv "$TEMP_CHANGELOG" "$CHANGELOG_FILE"
           fi
           
           echo "Updated $CHANGELOG_FILE"

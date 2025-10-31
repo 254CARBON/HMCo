@@ -136,10 +136,11 @@ if [ -f "$CHART_PATH/CHANGELOG.md" ]; then
 "
     
     # Insert after line 6 (after header)
-    head -n 6 "$CHART_PATH/CHANGELOG.md" > /tmp/changelog_new.md
-    echo "$NEW_ENTRY" >> /tmp/changelog_new.md
-    tail -n +7 "$CHART_PATH/CHANGELOG.md" >> /tmp/changelog_new.md
-    mv /tmp/changelog_new.md "$CHART_PATH/CHANGELOG.md"
+    local temp_file=$(mktemp)
+    head -n 6 "$CHART_PATH/CHANGELOG.md" > "$temp_file"
+    echo "$NEW_ENTRY" >> "$temp_file"
+    tail -n +7 "$CHART_PATH/CHANGELOG.md" >> "$temp_file"
+    mv "$temp_file" "$CHART_PATH/CHANGELOG.md"
     
     echo -e "  ${GREEN}✓${NC} Added entry to CHANGELOG.md"
 else

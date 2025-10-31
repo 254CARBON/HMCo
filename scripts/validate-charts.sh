@@ -53,10 +53,12 @@ validate_chart() {
     # Run helm lint
     echo ""
     echo "Running helm lint..."
-    if helm lint "$chart_path" 2>&1 | tee /tmp/lint-output.txt; then
-        if grep -q "ERROR" /tmp/lint-output.txt; then
+    local lint_output=$(mktemp)
+    if helm lint "$chart_path" 2>&1 | tee "$lint_output"; then
+        if grep -q "ERROR" "$lint_output"; then
             echo "❌ Lint failed with errors"
             FAILED_CHARTS+=("$chart_name")
+            rm -f "$lint_output"
             return 1
         else
             echo "✓ Lint passed"
@@ -64,8 +66,10 @@ validate_chart() {
     else
         echo "❌ Lint failed"
         FAILED_CHARTS+=("$chart_name")
+        rm -f "$lint_output"
         return 1
     fi
+    rm -f "$lint_output"
     
     # Test template rendering with default values
     echo ""
@@ -116,7 +120,10 @@ else
     
     for chart_path in "$CHARTS_DIR"/*; do
         if [ -d "$chart_path" ] && [ -f "$chart_path/Chart.yaml" ]; then
-            validate_chart "$chart_path" || true
+            if ! validate_chart "$chart_path"; then
+                # Continue to next chart even if validation fails
+                continue
+            fi
         fi
     done
 fi
