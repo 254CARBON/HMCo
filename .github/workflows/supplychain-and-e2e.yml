@@ -39,7 +39,7 @@ jobs:
     - name: Validate Kubernetes manifests
       run: |
         echo "Validating Kubernetes manifests..."
-        find k8s -name '*.yaml' -o -name '*.yml' | while read file; do
+        find k8s -name '*.yaml' -o -name '*.yml' | while read -r file; do
           echo "Validating $file"
           kubeconform -summary -output json "$file" || true
         done
@@ -49,7 +49,7 @@ jobs:
         echo "Linting Helm charts..."
         for chart in helm/charts/*/; do
           if [ -f "$chart/Chart.yaml" ]; then
-            echo "Linting $(basename $chart)..."
+            echo "Linting $(basename "$chart")..."
             helm lint "$chart" || exit 1
           fi
         done
@@ -57,7 +57,7 @@ jobs:
         # Lint nested charts in data-platform
         for chart in helm/charts/data-platform/charts/*/; do
           if [ -f "$chart/Chart.yaml" ]; then
-            echo "Linting $(basename $chart)..."
+            echo "Linting $(basename "$chart")..."
             helm lint "$chart" || exit 1
           fi
         done
@@ -125,7 +125,7 @@ jobs:
           if [ -f "$service_dir/requirements.txt" ]; then
             service_name=$(basename "$service_dir")
             echo "Generating SBOM for $service_name..."
-            syft dir:"$service_dir" -o spdx-json=sbom-output/${service_name}-sbom.spdx.json
+            syft dir:"$service_dir" -o "spdx-json=sbom-output/${service_name}-sbom.spdx.json"
           fi
         done
     
@@ -199,10 +199,12 @@ jobs:
     
     - name: Generate SBOM summary
       run: |
-        echo "## SBOM Generation Summary" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-        echo "Generated SBOMs:" >> $GITHUB_STEP_SUMMARY
-        ls -lh sbom-output/ >> $GITHUB_STEP_SUMMARY
+        {
+          echo "## SBOM Generation Summary"
+          echo ""
+          echo "Generated SBOMs:"
+          ls -lh sbom-output/
+        } >> "$GITHUB_STEP_SUMMARY"
 
   e2e:
     name: End-to-End Tests
@@ -256,7 +258,7 @@ jobs:
         # Install service dependencies for testing
         for service_dir in services/*/; do
           if [ -f "$service_dir/requirements.txt" ]; then
-            echo "Installing dependencies for $(basename $service_dir)..."
+            echo "Installing dependencies for $(basename "$service_dir")..."
             pip install -r "$service_dir/requirements.txt" || true
           fi
         done
@@ -349,22 +351,28 @@ jobs:
     steps:
     - name: Check job status
       run: |
-        echo "## Workflow Summary" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-        echo "| Job | Status |" >> $GITHUB_STEP_SUMMARY
-        echo "|-----|--------|" >> $GITHUB_STEP_SUMMARY
-        echo "| k8s_validate | ${{ needs.k8s_validate.result }} |" >> $GITHUB_STEP_SUMMARY
-        echo "| sbom_and_sign | ${{ needs.sbom_and_sign.result }} |" >> $GITHUB_STEP_SUMMARY
-        echo "| e2e | ${{ needs.e2e.result }} |" >> $GITHUB_STEP_SUMMARY
+        {
+          echo "## Workflow Summary"
+          echo ""
+          echo "| Job | Status |"
+          echo "|-----|--------|"
+          echo "| k8s_validate | ${{ needs.k8s_validate.result }} |"
+          echo "| sbom_and_sign | ${{ needs.sbom_and_sign.result }} |"
+          echo "| e2e | ${{ needs.e2e.result }} |"
+        } >> "$GITHUB_STEP_SUMMARY"
         
         # Fail if any job failed
         if [ "${{ needs.k8s_validate.result }}" = "failure" ] || \
            [ "${{ needs.sbom_and_sign.result }}" = "failure" ] || \
            [ "${{ needs.e2e.result }}" = "failure" ]; then
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "❌ One or more required checks failed" >> $GITHUB_STEP_SUMMARY
+          {
+            echo ""
+            echo "❌ One or more required checks failed"
+          } >> "$GITHUB_STEP_SUMMARY"
           exit 1
         else
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "✅ All required checks passed" >> $GITHUB_STEP_SUMMARY
+          {
+            echo ""
+            echo "✅ All required checks passed"
+          } >> "$GITHUB_STEP_SUMMARY"
         fi
