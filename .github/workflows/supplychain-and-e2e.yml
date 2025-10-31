@@ -40,13 +40,13 @@ jobs:
       run: |
         echo "Validating Kubernetes manifests..."
         EXIT_CODE=0
-        find k8s -name '*.yaml' -o -name '*.yml' | while read -r file; do
+        while IFS= read -r file; do
           echo "Validating $file"
           if ! kubeconform -summary -ignore-missing-schemas "$file"; then
             echo "Warning: Validation issues in $file"
             EXIT_CODE=1
           fi
-        done
+        done < <(find k8s -name '*.yaml' -o -name '*.yml')
         exit $EXIT_CODE
     
     - name: Lint Helm charts

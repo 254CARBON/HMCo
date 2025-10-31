@@ -691,14 +691,6 @@ metadata:
   namespace: argocd
   annotations:
     argocd.argoproj.io/sync-wave: "-3"
-# ArgoCD Application: Progressive Delivery
-apiVersion: argoproj.io/v1alpha1
-kind: Application
-metadata:
-  name: progressive-delivery
-  namespace: argocd
-  annotations:
-    argocd.argoproj.io/sync-wave: "-10"
   finalizers:
     - resources-finalizer.argocd.argoproj.io
 spec:
@@ -746,6 +738,23 @@ spec:
       jsonPointers:
         - /metadata/labels
         - /metadata/annotations
+
+---
+# ArgoCD Application: Progressive Delivery
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: progressive-delivery
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "-10"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: production
+  source:
+    repoURL: https://github.com/254CARBON/HMCo.git
+    targetRevision: main
     path: helm/charts/progressive-delivery
     helm:
       valueFiles:
