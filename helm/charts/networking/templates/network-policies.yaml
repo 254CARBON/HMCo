@@ -157,16 +157,6 @@ spec:
     ports:
     - protocol: TCP
       port: 8200
-  - to:
-    - podSelector: {}
-      namespaceSelector:
-        matchLabels:
-          name: kube-system
-    ports:
-    - protocol: TCP
-      port: 53
-    - protocol: UDP
-      port: 53
 ---
 # Allow Velero namespace to reach MinIO for backups
 apiVersion: networking.k8s.io/v1
@@ -236,16 +226,6 @@ spec:
     ports:
     - protocol: TCP
       port: 5432
-  - to:
-    - podSelector: {}
-      namespaceSelector:
-        matchLabels:
-          name: kube-system
-    ports:
-    - protocol: TCP
-      port: 53
-    - protocol: UDP
-      port: 53
 ---
 # Restrict monitoring namespace access
 apiVersion: networking.k8s.io/v1
@@ -279,16 +259,6 @@ spec:
       port: 6379
     - protocol: TCP
       port: 9092
-  - to:
-    - podSelector: {}
-      namespaceSelector:
-        matchLabels:
-          name: kube-system
-    ports:
-    - protocol: TCP
-      port: 53
-    - protocol: UDP
-      port: 53
 ---
 # Deny all by default in data-platform (explicit allow only)
 apiVersion: networking.k8s.io/v1
@@ -618,17 +588,6 @@ spec:
   policyTypes:
   - Egress
   egress:
-  # Allow DNS
-  - to:
-    - namespaceSelector:
-        matchLabels:
-          kubernetes.io/metadata.name: kube-system
-    ports:
-    - protocol: UDP
-      port: 53
-    - protocol: TCP
-      port: 53
-  
   # Allow to all namespaces for webhook validation
   - to:
     - namespaceSelector: {}
@@ -780,12 +739,6 @@ spec:
     ports:
     - protocol: TCP
       port: 443
-  # Allow DNS
-  - to:
-    - namespaceSelector: {}
-    ports:
-    - protocol: UDP
-      port: 53
 ---
 # NetworkPolicy for Spark Application Pods (Drivers/Executors)
 apiVersion: networking.k8s.io/v1
@@ -863,18 +816,6 @@ spec:
     ports:
     - protocol: TCP
       port: 5000
-  # Allow DNS
-  - to:
-    - namespaceSelector: {}
-    ports:
-    - protocol: UDP
-      port: 53
-  # Allow external internet (for package downloads)
-  - to:
-    - namespaceSelector: {}
-    ports:
-    - protocol: TCP
-      port: 443
 ---
 # NetworkPolicy for Spark Executors
 apiVersion: networking.k8s.io/v1
@@ -960,18 +901,6 @@ spec:
     ports:
     - protocol: TCP
       port: 5000
-  # Allow DNS
-  - to:
-    - namespaceSelector: {}
-    ports:
-    - protocol: UDP
-      port: 53
-  # Allow external internet
-  - to:
-    - namespaceSelector: {}
-    ports:
-    - protocol: TCP
-      port: 443
 ---
 # NetworkPolicy for Spark History Server
 apiVersion: networking.k8s.io/v1
@@ -1015,12 +944,6 @@ spec:
     ports:
     - protocol: TCP
       port: 9000
-  # Allow DNS
-  - to:
-    - namespaceSelector: {}
-    ports:
-    - protocol: UDP
-      port: 53
 ---
 # Service Discovery for Spark Driver
 apiVersion: v1
