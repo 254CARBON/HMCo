@@ -1,8 +1,9 @@
 # Telemetry Configuration for Istio
 # Metrics, logs, and traces configuration
+# Enhanced for T4.2 - Logging and tracing baselines
 
 ---
-# Enable metrics collection for all services
+# Enable comprehensive metrics collection for all services
 apiVersion: telemetry.istio.io/v1alpha1
 kind: Telemetry
 metadata:
@@ -23,9 +24,28 @@ spec:
           value: "254carbon-primary"
         destination_cluster:
           value: "254carbon-primary"
+    # Ensure key request metrics are enabled
+    - match:
+        metric: REQUEST_COUNT
+      disabled: false
+    - match:
+        metric: REQUEST_DURATION
+      disabled: false
+    - match:
+        metric: REQUEST_SIZE
+      disabled: false
+    - match:
+        metric: RESPONSE_SIZE
+      disabled: false
+    - match:
+        metric: TCP_OPENED_CONNECTIONS
+      disabled: false
+    - match:
+        metric: TCP_CLOSED_CONNECTIONS
+      disabled: false
 
 ---
-# Configure distributed tracing
+# Configure distributed tracing with enhanced sampling
 apiVersion: telemetry.istio.io/v1alpha1
 kind: Telemetry
 metadata:
@@ -38,7 +58,8 @@ spec:
   tracing:
   - providers:
     - name: jaeger
-    randomSamplingPercentage: 10.0
+    # Increased sampling for better observability baseline
+    randomSamplingPercentage: 25.0
     customTags:
       environment:
         literal:
@@ -46,9 +67,22 @@ spec:
       platform:
         literal:
           value: "254carbon"
+      service_mesh_version:
+        literal:
+          value: "istio-1.20"
+      # Add request path for better trace analysis
+      request_path:
+        header:
+          name: ":path"
+          defaultValue: "unknown"
+      # Add response code for error tracking
+      response_code:
+        header:
+          name: ":status"
+          defaultValue: "unknown"
 
 ---
-# Access logging configuration
+# Access logging configuration with Loki integration
 apiVersion: telemetry.istio.io/v1alpha1
 kind: Telemetry
 metadata:
@@ -61,8 +95,10 @@ spec:
   accessLogging:
   - providers:
     - name: envoy
+    # Log all errors (4xx, 5xx) and a 10% sample of successful requests
+    # Structured logs are exported to stdout and scraped by Loki via Promtail/Fluentd
     filter:
-      expression: "response.code >= 400"
+      expression: "response.code >= 400 || (response.code < 400 && random(100) < 10)"
 
 ---
 # Istio-system namespace telemetry
@@ -191,6 +227,67 @@ spec:
   endpoints:
   - port: http-monitoring
     interval: 30s
+
+---
+# Telemetry for Portal Services namespace
+apiVersion: telemetry.istio.io/v1alpha1
+kind: Telemetry
+metadata:
+  name: portal-telemetry
+  namespace: default
+  annotations:
+    argocd.argoproj.io/sync-wave: "-5"
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+spec:
+  selector:
+    matchLabels:
+      app: portal-services
+  metrics:
+  - providers:
+    - name: prometheus
+  tracing:
+  - providers:
+    - name: jaeger
+    # Higher sampling for portal to ensure trace visibility
+    randomSamplingPercentage: 50.0
+    customTags:
+      service_type:
+        literal:
+          value: "portal"
+      slo_tier:
+        literal:
+          value: "critical"
+  accessLogging:
+  - providers:
+    - name: envoy
+
+---
+# Telemetry for ML Platform namespace
+apiVersion: telemetry.istio.io/v1alpha1
+kind: Telemetry
+metadata:
+  name: ml-platform-telemetry
+  namespace: ml-platform
+  annotations:
+    argocd.argoproj.io/sync-wave: "-5"
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+spec:
+  metrics:
+  - providers:
+    - name: prometheus
+  tracing:
+  - providers:
+    - name: jaeger
+    randomSamplingPercentage: 25.0
+    customTags:
+      platform_component:
+        literal:
+          value: "ml-platform"
+  accessLogging:
+  - providers:
+    - name: envoy
+    filter:
+      expression: "response.code >= 400"
 
 ---
 # Grafana dashboard ConfigMap for Istio
