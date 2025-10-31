@@ -76,7 +76,7 @@ RUN pip install --quiet \
 # ML & Deep Learning
 RUN pip install --quiet \
     tensorflow \
-    torch \
+    torch==2.8.0 \
     torchvision \
     xgboost \
     lightgbm \
@@ -84,7 +84,7 @@ RUN pip install --quiet \
 
 # ML Tracking & Management
 RUN pip install --quiet \
-    mlflow \
+    mlflow>=2.22.2 \
     wandb \
     optuna \
     ray[tune] \
@@ -131,7 +131,7 @@ RUN pip install --quiet \
 RUN pip install --quiet \
     python-dotenv \
     pyyaml \
-    requests \
+    requests>=2.32.4 \
     aiohttp \
     httpx
 
