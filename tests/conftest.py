@@ -5,14 +5,18 @@ import pytest
 import os
 from typing import Generator
 from kubernetes import client, config
+from kubernetes.config import ConfigException
 
 @pytest.fixture(scope="session")
 def k8s_client() -> Generator:
     """Kubernetes client for integration tests"""
     try:
         config.load_incluster_config()
-    except:
-        config.load_kube_config()
+    except ConfigException:
+        try:
+            config.load_kube_config()
+        except ConfigException:
+            pytest.skip("Kubernetes not accessible in test environment")
     
     yield client.CoreV1Api()
 
