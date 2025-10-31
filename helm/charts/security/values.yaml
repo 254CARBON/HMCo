@@ -1,0 +1,55 @@
+# Security policy configuration
+
+imageSigning:
+  # Enable image signing verification policy
+  enabled: true
+  
+  # Policy enforcement mode: enforce or audit
+  # Use 'audit' for testing, 'enforce' for production
+  validationFailureAction: enforce
+  
+  # Namespaces where the policy applies
+  # Supports glob patterns
+  includeNamespaces:
+    - "*"
+  
+  # Namespaces excluded from the policy (typically dev environments)
+  excludeNamespaces:
+    - kube-system
+    - kube-public
+    - kube-node-lease
+    - "*-dev"
+    - "*-development"
+    - local-path-storage
+    - ingress-nginx
+    - cert-manager
+    - monitoring
+    - logging
+  
+  # Trusted image registries and their public keys
+  # Images from these registries must be signed
+  trustedRegistries:
+    - registry: "ghcr.io/254carbon/*"
+      # Cosign keyless verification using Sigstore/Fulcio
+      keyless: true
+      
+  # Allow unsigned images from specific registries for system components
+  allowedUnsignedRegistries:
+    - "docker.io/library/*"
+    - "registry.k8s.io/*"
+    - "quay.io/jetstack/*"
+    - "quay.io/prometheus/*"
+    - "grafana/*"
+    - "prom/*"
+
+# RBAC configuration
+rbac:
+  # Create RBAC resources
+  create: true
+
+# Service account
+serviceAccount:
+  # Create service account
+  create: true
+  # Service account name
+  name: security-policy-sa

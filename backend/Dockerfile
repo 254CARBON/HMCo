@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 
-FROM node:20 AS builder
+FROM node:20@sha256:c11ae157cdd9f8b522d5a65e7f3f5f5c34cf45a8bd883c15e8f2028a2673dec7 AS builder
 WORKDIR /app
 COPY backend/package.json backend/package-lock.json ./
 RUN npm ci
@@ -11,7 +11,7 @@ RUN npm run build
 
 # Runner assets (python files) copied into image in final stage
 
-FROM node:20-slim AS runtime
+FROM node:20-slim@sha256:cba1d7bb8433bb920725193cd7d95d09688fb110b170406f7d4de948562f9850 AS runtime
 ENV NODE_ENV=production
 WORKDIR /app
 
