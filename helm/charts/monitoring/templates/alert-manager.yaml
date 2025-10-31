@@ -87,12 +87,12 @@ data:
         auth_username: 'alertmanager@example.com'
         auth_password: ''  # Use secret injection instead
         headers:
-          Subject: 'CRITICAL: {{ .GroupLabels.alertname }}'
+          Subject: 'CRITICAL: {{`{{ .GroupLabels.alertname }}`}}'
       # Optional: Slack for critical
       slack_configs:
       - channel: '#critical-alerts'
         title: 'CRITICAL ALERT'
-        text: '{{ range .Alerts }}{{ .Annotations.description }}{{ end }}'
+        text: '{{`{{ range .Alerts }}{{ .Annotations.description }}{{ end }}`}}'
     
     - name: 'storage-alerts'
       slack_configs:
@@ -103,7 +103,7 @@ data:
       slack_configs:
       - channel: '#slo-alerts'
         title: 'SLO Alert'
-        text: '{{ range .Alerts }}{{ .Annotations.summary }} — {{ .Annotations.description }}{{ "\\n" }}{{ end }}'
+        text: '{{`{{ range .Alerts }}{{ .Annotations.summary }} — {{ .Annotations.description }}{{ "\\n" }}{{ end }}`}}'
 
     - name: 'database-alerts'
       slack_configs:
