@@ -20,7 +20,7 @@ data:
             "targets": [
               {
                 "expr": "deequ_quality_score",
-                "legendFormat": "{{table_name}}"
+                "legendFormat": "{{ "{{" }}table_name{{ "}}" }}"
               }
             ],
             "fieldConfig": {
@@ -46,7 +46,7 @@ data:
             "targets": [
               {
                 "expr": "increase(deequ_check_failures_total[24h])",
-                "legendFormat": "{{table_name}}"
+                "legendFormat": "{{ "{{" }}table_name{{ "}}" }}"
               }
             ]
           },
@@ -57,7 +57,7 @@ data:
             "targets": [
               {
                 "expr": "deequ_quality_score",
-                "legendFormat": "{{table_name}}"
+                "legendFormat": "{{ "{{" }}table_name{{ "}}" }}"
               }
             ],
             "yAxes": [
@@ -71,7 +71,7 @@ data:
             "targets": [
               {
                 "expr": "deequ_anomaly_detected",
-                "legendFormat": "{{table_name}}.{{column_name}} - {{anomaly_type}}"
+                "legendFormat": "{{ "{{" }}table_name{{ "}}" }}.{{ "{{" }}column_name{{ "}}" }} - {{ "{{" }}anomaly_type{{ "}}" }}"
               }
             ]
           }
@@ -95,7 +95,7 @@ data:
             "targets": [
               {
                 "expr": "deequ_quality_score",
-                "legendFormat": "{{table_name}}"
+                "legendFormat": "{{ "{{" }}table_name{{ "}}" }}"
               }
             ],
             "yAxes": [
@@ -109,7 +109,7 @@ data:
             "targets": [
               {
                 "expr": "rate(deequ_check_passed_total[7d]) / rate(deequ_check_total[7d]) * 100",
-                "legendFormat": "{{table_name}}"
+                "legendFormat": "{{ "{{" }}table_name{{ "}}" }}"
               }
             ],
             "fieldConfig": {
@@ -125,7 +125,7 @@ data:
             "targets": [
               {
                 "expr": "deequ_check_duration_seconds",
-                "legendFormat": "{{check_name}} on {{table_name}}"
+                "legendFormat": "{{ "{{" }}check_name{{ "}}" }} on {{ "{{" }}table_name{{ "}}" }}"
               }
             ]
           }
@@ -148,7 +148,7 @@ data:
             "targets": [
               {
                 "expr": "deequ_anomaly_detected",
-                "legendFormat": "{{table_name}}.{{column_name}} - {{anomaly_type}}"
+                "legendFormat": "{{ "{{" }}table_name{{ "}}" }}.{{ "{{" }}column_name{{ "}}" }} - {{ "{{" }}anomaly_type{{ "}}" }}"
               }
             ]
           },
@@ -159,7 +159,7 @@ data:
             "targets": [
               {
                 "expr": "deequ_anomaly_severity",
-                "legendFormat": "{{severity}}"
+                "legendFormat": "{{ "{{" }}severity{{ "}}" }}"
               }
             ]
           },
@@ -170,7 +170,7 @@ data:
             "targets": [
               {
                 "expr": "increase(deequ_anomaly_detected[1h])",
-                "legendFormat": "{{table_name}}"
+                "legendFormat": "{{ "{{" }}table_name{{ "}}" }}"
               }
             ]
           }

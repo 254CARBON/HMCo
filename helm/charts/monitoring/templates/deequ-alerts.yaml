@@ -132,39 +132,39 @@ data:
     - name: 'default-receiver'
       email_configs:
       - to: 'admin@254carbon.com'
-        subject: 'Alert: {{ .GroupLabels.alertname }}`}}'
+        subject: 'Alert: {{`{{ .GroupLabels.alertname }}`}}'
         body: |
-          {{ range .Alerts }}`}}
-          Alert: {{ .Annotations.summary }}`}}
-          Description: {{ .Annotations.description }}`}}
-          Severity: {{ .Labels.severity }}`}}
-          Time: {{ .StartsAt }}`}}
-          {{ end }}`}}
+          {{`{{ range .Alerts }}`}}
+          Alert: {{`{{ .Annotations.summary }}`}}
+          Description: {{`{{ .Annotations.description }}`}}
+          Severity: {{`{{ .Labels.severity }}`}}
+          Time: {{`{{ .StartsAt }}`}}
+          {{`{{ end }}`}}
 
     - name: 'critical-receiver'
       email_configs:
       - to: 'critical-alerts@254carbon.com'
-        subject: 'CRITICAL: {{ .GroupLabels.alertname }}`}}'
+        subject: 'CRITICAL: {{`{{ .GroupLabels.alertname }}`}}'
         body: |
-          {{ range .Alerts }}`}}
-          Alert: {{ .Annotations.summary }}`}}
-          Description: {{ .Annotations.description }}`}}
-          Severity: {{ .Labels.severity }}`}}
-          Time: {{ .StartsAt }}`}}
-          Runbook: {{ .Annotations.runbook_url }}`}}
-          {{ end }}`}}
+          {{`{{ range .Alerts }}`}}
+          Alert: {{`{{ .Annotations.summary }}`}}
+          Description: {{`{{ .Annotations.description }}`}}
+          Severity: {{`{{ .Labels.severity }}`}}
+          Time: {{`{{ .StartsAt }}`}}
+          Runbook: {{`{{ .Annotations.runbook_url }}`}}
+          {{`{{ end }}`}}
 
     - name: 'data-quality-team'
       email_configs:
       - to: 'data-quality@254carbon.com'
-        subject: 'Data Quality Alert: {{ .GroupLabels.alertname }}`}}'
+        subject: 'Data Quality Alert: {{`{{ .GroupLabels.alertname }}`}}'
         body: |
-          {{ range .Alerts }}`}}
-          Alert: {{ .Annotations.summary }}`}}
-          Description: {{ .Annotations.description }}`}}
-          Severity: {{ .Labels.severity }}`}}
-          Dashboard: {{ .Annotations.dashboard_url }}`}}
-          {{ end }}`}}
+          {{`{{ range .Alerts }}`}}
+          Alert: {{`{{ .Annotations.summary }}`}}
+          Description: {{`{{ .Annotations.description }}`}}
+          Severity: {{`{{ .Labels.severity }}`}}
+          Dashboard: {{`{{ .Annotations.dashboard_url }}`}}
+          {{`{{ end }}`}}
 ---
 # Kafka Producer for Quality Alerts
 apiVersion: apps/v1
