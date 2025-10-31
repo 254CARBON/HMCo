@@ -151,7 +151,7 @@ class FlinkTemplates:
 
     @staticmethod
     def get_iceberg_sink_template() -> Dict[str, Any]:
-        """Get Iceberg sink template."""
+        """Get Iceberg sink template with exactly-once semantics."""
         return {
             "type": "iceberg",
             "name": "iceberg_sink",
@@ -160,16 +160,19 @@ class FlinkTemplates:
             "table": "",
             "format": "parquet",
             "write_mode": "append",
+            "exactly_once": True,  # Enable exactly-once semantics
+            "checkpoint_enabled": True,
             "options": {
                 "write.wap.enabled": "true",
                 "write.metadata.delete-after-commit.enabled": "true",
-                "write.metadata.previous-versions-max": "5"
+                "write.metadata.previous-versions-max": "5",
+                "write.upsert.enabled": "false"  # Use append-only for EOS
             }
         }
 
     @staticmethod
     def get_clickhouse_sink_template() -> Dict[str, Any]:
-        """Get ClickHouse sink template."""
+        """Get ClickHouse sink template with exactly-once semantics."""
         return {
             "type": "clickhouse",
             "name": "clickhouse_sink",
@@ -180,7 +183,14 @@ class FlinkTemplates:
             "username": "{{clickhouse_username}}",
             "password": "{{clickhouse_password}}",
             "batch_size": 10000,
-            "flush_interval_ms": 5000
+            "flush_interval_ms": 5000,
+            "exactly_once": True,  # Enable exactly-once via idempotent writes
+            "idempotency": {
+                "enabled": True,
+                "key_columns": ["event_id", "timestamp"],  # Dedup keys in CH
+                "engine": "ReplacingMergeTree",  # Use ReplacingMergeTree for dedup
+                "version_column": "event_version"
+            }
         }
 
     @staticmethod
@@ -205,12 +215,45 @@ class FlinkTemplates:
 
     @staticmethod
     def get_watermark_transform_template() -> Dict[str, Any]:
-        """Get watermark transform template."""
+        """Get watermark transform template with bounded out-of-order."""
         return {
             "type": "watermark",
             "name": "add_watermark",
             "timestamp_column": "event_time",
-            "max_out_of_orderness_ms": 5000
+            "max_out_of_orderness_ms": 5000,
+            "idle_source_timeout_ms": 60000,  # Mark source as idle after 1 min
+            "strategy": "bounded_out_of_orderness"
+        }
+    
+    @staticmethod
+    def get_keyed_dedup_transform_template() -> Dict[str, Any]:
+        """Get keyed deduplication transform template for exactly-once semantics."""
+        return {
+            "type": "keyed_dedup",
+            "name": "dedup_events",
+            "key_fields": ["event_id"],  # Fields to use for deduplication
+            "time_window_ms": 600000,  # 10-minute dedup window
+            "strategy": "first",  # Keep first occurrence
+            "state_ttl_ms": 3600000  # 1-hour state TTL
+        }
+    
+    @staticmethod
+    def get_late_data_side_output_template() -> Dict[str, Any]:
+        """Get late data side output template for quarantine."""
+        return {
+            "type": "late_data_side_output",
+            "name": "quarantine_late_data",
+            "output_tag": "late-data",
+            "destination": {
+                "type": "iceberg",
+                "table": "quarantine.late_events",
+                "partition_by": ["processing_date", "source"]
+            },
+            "metadata": {
+                "include_watermark": True,
+                "include_lateness_ms": True,
+                "include_original_timestamp": True
+            }
         }
 
     @staticmethod
@@ -369,6 +412,105 @@ class FlinkTemplates:
             ]
         }
 
+    @staticmethod
+    def get_hardened_iso_streaming_template() -> Dict[str, Any]:
+        """
+        Get hardened ISO streaming template with:
+        - Event-time watermarks with bounded out-of-order
+        - Keyed deduplication for exactly-once
+        - EOS sinks to Iceberg/ClickHouse
+        - Late data side-output to quarantine
+        """
+        return {
+            "job_type": "streaming",
+            "name": "hardened_iso_rt_streaming",
+            "description": "Production-grade ISO RT data with watermarks, dedup, and EOS",
+            "flink_config": FlinkTemplates.get_flink_config_template(),
+            "sources": [
+                {
+                    "type": "kafka",
+                    "name": "iso_rt_source",
+                    "bootstrap_servers": "redpanda:9092",
+                    "topics": ["ISO_RT_LMP"],
+                    "group_id": "flink-iso-rt-hardened",
+                    "starting_offsets": "latest",
+                    "format": "json",
+                    "properties": {
+                        "isolation.level": "read_committed"  # For exactly-once
+                    }
+                }
+            ],
+            "transforms": [
+                {
+                    "type": "watermark",
+                    "name": "add_event_time_watermark",
+                    "timestamp_column": "event_timestamp",
+                    "max_out_of_orderness_ms": 600000,  # 10 min for ISO feeds
+                    "idle_source_timeout_ms": 60000,
+                    "strategy": "bounded_out_of_orderness"
+                },
+                {
+                    "type": "keyed_dedup",
+                    "name": "dedup_by_message_id",
+                    "key_fields": ["iso", "node", "interval_start", "message_id"],
+                    "time_window_ms": 600000,  # 10-minute dedup window
+                    "strategy": "first",
+                    "state_ttl_ms": 3600000
+                },
+                {
+                    "type": "late_data_side_output",
+                    "name": "quarantine_late_data",
+                    "output_tag": "late-iso-data",
+                    "destination": {
+                        "type": "iceberg",
+                        "table": "quarantine.late_iso_lmp",
+                        "partition_by": ["processing_date", "iso"]
+                    }
+                },
+                {
+                    "type": "tumbling_window",
+                    "name": "aggregate_5min",
+                    "window_size_ms": 300000,
+                    "aggregations": [
+                        {"field": "lmp", "function": "avg"},
+                        {"field": "congestion", "function": "avg"},
+                        {"field": "loss", "function": "avg"}
+                    ],
+                    "group_by": ["iso", "node"]
+                }
+            ],
+            "sinks": [
+                {
+                    "type": "iceberg",
+                    "name": "curated_iceberg_sink",
+                    "catalog_name": "hive_prod",
+                    "database": "curated",
+                    "table": "rt_lmp_5m",
+                    "format": "parquet",
+                    "write_mode": "append",
+                    "exactly_once": True,
+                    "checkpoint_enabled": True
+                },
+                {
+                    "type": "clickhouse",
+                    "name": "rt_clickhouse_sink",
+                    "host": "clickhouse",
+                    "port": 8123,
+                    "database": "default",
+                    "table": "rt_lmp_5m",
+                    "batch_size": 5000,
+                    "flush_interval_ms": 10000,
+                    "exactly_once": True,
+                    "idempotency": {
+                        "enabled": True,
+                        "key_columns": ["iso", "node", "interval_start"],
+                        "engine": "ReplacingMergeTree",
+                        "version_column": "event_version"
+                    }
+                }
+            ]
+        }
+    
     @staticmethod
     def get_weather_rt_streaming_template() -> Dict[str, Any]:
         """Get real-time weather streaming pipeline template."""
