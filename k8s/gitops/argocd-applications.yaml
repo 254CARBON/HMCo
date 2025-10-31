@@ -672,3 +672,36 @@ spec:
       allowEmpty: false
     syncOptions:
       - CreateNamespace=true
+
+---
+# ArgoCD Application: Progressive Delivery
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: progressive-delivery
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "-10"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: production
+  source:
+    repoURL: https://github.com/254CARBON/HMCo.git
+    targetRevision: main
+    path: helm/charts/progressive-delivery
+    helm:
+      valueFiles:
+        - values.yaml
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argo-rollouts
+  syncPolicy:
+    automated:
+      prune: false
+      selfHeal: true
+      allowEmpty: false
+    syncOptions:
+      - CreateNamespace=true
+    syncWaves:
+      - order: -10
