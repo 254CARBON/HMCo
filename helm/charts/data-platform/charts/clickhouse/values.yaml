@@ -26,12 +26,49 @@ clickhouse:
   storage:
     dataPath: "/var/lib/clickhouse"
     logsPath: "/var/log/clickhouse-server"
+    
+  # Data retention policies
+  # TTL (Time To Live) policies for automatic data lifecycle management
+  retention:
+    # Default retention policy (can be overridden per table)
+    enabled: true
+    # Default retention period: 90 days
+    defaultTTL: "90 DAY"
+    # Cleanup interval for expired data
+    cleanupInterval: "1 HOUR"
+    # Retention policies by data type
+    policies:
+      # Raw data: 30 days retention
+      - name: "raw_data"
+        ttl: "30 DAY"
+        description: "Raw event data and logs"
+      # Aggregated data: 1 year retention
+      - name: "aggregated_data"
+        ttl: "365 DAY"
+        description: "Pre-aggregated metrics and reports"
+      # Archive data: 7 years retention (compliance)
+      - name: "archive_data"
+        ttl: "2555 DAY"
+        description: "Long-term archived data for compliance"
 
   # Security settings
   security:
     enableSSL: false
     allowEmptyPassword: false
     defaultPassword: "ClickHouse@254Carbon2025"
+    
+  # Encryption settings
+  encryption:
+    # Encryption at rest for ClickHouse data
+    # ClickHouse supports encryption via encrypted disks
+    enabled: true
+    # Algorithm: AES-128-CTR or AES-256-CTR
+    algorithm: "AES-256-CTR"
+    # Key management: environment variable or external KMS
+    keySource: "environment"
+    # For production, use external KMS (Vault, AWS KMS, etc.)
+    # keySource: "vault"
+    # vaultPath: "secret/clickhouse/encryption-key"
 
 # Service Account
 serviceAccount:
@@ -54,6 +91,16 @@ persistence:
   size: 100Gi
   accessModes:
     - ReadWriteOnce
+  # Encryption at rest (when supported by storage class)
+  encryption:
+    enabled: true
+    # Storage class should support encryption (e.g., encrypted-gp3, encrypted-local-path)
+    # For cloud providers: use encrypted storage classes
+    # For on-prem: use LUKS or dm-crypt at the volume level
+    storageClassEncrypted: encrypted-local-path
+    annotations:
+      # Kubernetes annotation to request encrypted volume
+      volume.beta.kubernetes.io/storage-class: encrypted-local-path
 
 # Service configuration
 service:
