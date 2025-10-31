@@ -28,6 +28,7 @@ class BayesianHMM:
     ):
         self.num_states = num_states
         self.feature_dim = feature_dim
+        self.epsilon = 1e-10  # Small constant to prevent division by zero
         
         # HMM parameters
         self.transition_matrix = np.ones((num_states, num_states)) / num_states
@@ -110,7 +111,9 @@ class BayesianHMM:
         
         # Forward algorithm for state probabilities
         alpha, _ = self._forward_backward(features)
-        state_probs = alpha / alpha.sum(axis=1, keepdims=True)
+        alpha_sum = alpha.sum(axis=1, keepdims=True)
+        # Add small epsilon to avoid division by zero
+        state_probs = alpha / (alpha_sum + self.epsilon)
         
         return most_likely_states, state_probs
     

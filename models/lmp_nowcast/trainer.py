@@ -113,13 +113,22 @@ class PhysicsGuidedSTTransformer(pl.LightningModule):
             # Process each timestep
             x_t = x[:, t]  # [batch, num_nodes, features]
             
-            # Apply graph attention layers
-            h = x_t
-            for layer in self.spatial_layers:
-                h = layer(h, edge_index)
-                h = torch.relu(h)
+            # Flatten batch dimension for graph processing
+            # GATConv expects [num_nodes, features] so we process each batch item separately
+            batch_outputs = []
+            for b in range(batch_size):
+                h = x_t[b]  # [num_nodes, features]
+                
+                # Apply graph attention layers
+                for layer in self.spatial_layers:
+                    h = layer(h, edge_index)
+                    h = torch.relu(h)
+                
+                batch_outputs.append(h)
             
-            spatial_features.append(h)
+            # Stack batch back together [batch, num_nodes, hidden_dim]
+            h_batched = torch.stack(batch_outputs, dim=0)
+            spatial_features.append(h_batched)
         
         # Stack temporal features [batch, seq_len, num_nodes, hidden_dim]
         spatial_features = torch.stack(spatial_features, dim=1)
