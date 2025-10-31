@@ -1,0 +1,68 @@
+postgresql:
+  enabled: true
+  auth:
+    username: geouser
+    password: ""  # Use external secret
+    database: geospatial
+  primary:
+    initdb:
+      scripts:
+        enable_postgis.sql: |
+          CREATE EXTENSION IF NOT EXISTS postgis;
+          CREATE EXTENSION IF NOT EXISTS postgis_topology;
+          CREATE EXTENSION IF NOT EXISTS h3;
+          CREATE EXTENSION IF NOT EXISTS h3_postgis;
+    persistence:
+      enabled: true
+      size: 50Gi
+      storageClass: "fast-ssd"
+    resources:
+      limits:
+        cpu: 4
+        memory: 8Gi
+      requests:
+        cpu: 2
+        memory: 4Gi
+
+h3:
+  # H3 hexagonal hierarchical spatial index configuration
+  resolution: 7  # ~5.7km edge length, good for load zones
+  resolutions:
+    zone: 7      # Load zone level
+    subzone: 8   # Sub-zone level
+    station: 9   # Weather station coverage
+
+jobs:
+  weatherIngest:
+    enabled: true
+    schedule: "0 * * * *"  # Every hour
+    image:
+      repository: 254carbon/weather-processor
+      tag: latest
+    resources:
+      limits:
+        cpu: 2
+        memory: 4Gi
+      requests:
+        cpu: 1
+        memory: 2Gi
+
+  featureComputation:
+    enabled: true
+    schedule: "15 * * * *"  # 15 minutes past hour
+    image:
+      repository: 254carbon/feature-processor
+      tag: latest
+    resources:
+      limits:
+        cpu: 4
+        memory: 8Gi
+      requests:
+        cpu: 2
+        memory: 4Gi
+
+monitoring:
+  enabled: true
+  serviceMonitor:
+    enabled: true
+    interval: 30s
