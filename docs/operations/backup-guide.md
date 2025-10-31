@@ -35,14 +35,28 @@ This guide implements comprehensive backup and disaster recovery capabilities fo
 ## Backup Strategy
 
 ### 1. Daily Backups (2 AM)
-- **Scope**: All namespaces (data-platform, monitoring, registry, vault-prod)
+- **Scope**: All critical namespaces including:
+  - `data-platform` - ClickHouse PVs (data + logs), portal services, Trino, Superset
+  - `monitoring` - Prometheus, Grafana, Loki metrics and dashboards
+  - `registry` - Container registry data
+  - `cert-manager` - TLS certificates
+  - `cloudflare-tunnel` - Tunnel configuration
+  - `vault-prod` - Vault Raft storage and secrets
+  - `ml-platform` - MLflow experiment tracking and model registry
+  - `kubeflow` - Kubeflow pipelines and workflows
 - **Retention**: 30 days
 - **Frequency**: Daily at 2:00 AM
+- **Volume Backup**: Enabled for all PVs (including ClickHouse data/logs, Vault Raft storage)
 
 ### 2. Critical Backups (Hourly)
-- **Scope**: Critical namespaces only (data-platform, monitoring)
+- **Scope**: Most critical namespaces:
+  - `data-platform` - ClickHouse PVs, portal services
+  - `monitoring` - Real-time metrics
+  - `vault-prod` - Vault storage and secrets
+  - `ml-platform` - MLflow tracking
 - **Retention**: 7 days
 - **Frequency**: Top of every hour
+- **Volume Backup**: Enabled for all PVs
 
 ### 3. Weekly Full Backups (Sunday 03:00)
 - **Scope**: Entire platform (all namespaces except Kubernetes system)
@@ -58,6 +72,142 @@ This guide implements comprehensive backup and disaster recovery capabilities fo
 - **Scope**: Custom selection
 - **Retention**: Configurable
 - **Trigger**: Manual execution
+
+## Backup Coverage Documentation
+
+### Complete Resource Coverage
+
+This section documents all resources included in backups per the backup configuration in `k8s/storage/velero-backup-config.yaml`.
+
+#### Data Platform Namespace (`data-platform`)
+**Included Resources:**
+- ✅ ClickHouse StatefulSet and PersistentVolumeClaims:
+  - `clickhouse-data` PVC - Database storage
+  - `clickhouse-logs` PVC - Log files
+- ✅ Portal services (Deployment, ConfigMaps, Secrets)
+- ✅ Trino coordinator and workers (Deployments, ConfigMaps)
+- ✅ Superset (Deployment, PostgreSQL PVC, ConfigMaps)
+- ✅ DolphinScheduler (StatefulSet, PostgreSQL PVC)
+- ✅ MinIO (StatefulSet, PVCs for backup storage)
+- ✅ Data Lake components (LakeFS, Iceberg catalogs)
+- ✅ All Services, Ingresses, and NetworkPolicies
+
+#### ML Platform Namespace (`ml-platform`)
+**Included Resources:**
+- ✅ MLflow server (Deployment, PostgreSQL PVC)
+- ✅ Experiment tracking data and model registry
+- ✅ MLflow artifacts PVC
+- ✅ Model serving infrastructure (if deployed)
+- ✅ All Services and ConfigMaps
+
+#### Kubeflow Namespace (`kubeflow`)
+**Included Resources:**
+- ✅ Kubeflow pipelines (Deployments, MySQL PVC)
+- ✅ Pipeline definitions and workflow metadata
+- ✅ Notebook servers (if persistent)
+- ✅ All Services, ConfigMaps, and Secrets
+
+#### Vault Production Namespace (`vault-prod`)
+**Included Resources:**
+- ✅ Vault StatefulSet
+- ✅ Vault Raft storage PVCs (all 3 replicas in HA mode)
+- ✅ Vault configuration (ConfigMaps)
+- ✅ Vault unseal keys and root token (Kubernetes Secrets)
+- ✅ External Secrets Operator deployments
+- ✅ ClusterSecretStore definitions
+
+#### Monitoring Namespace (`monitoring`)
+**Included Resources:**
+- ✅ Prometheus server (StatefulSet, PVC for TSDB)
+- ✅ Grafana (Deployment, dashboards PVC)
+- ✅ Loki (StatefulSet, logs PVC)
+- ✅ AlertManager (StatefulSet, PVC)
+- ✅ ServiceMonitor and PrometheusRule CRDs
+- ✅ All dashboards and alert configurations
+
+#### Registry Namespace (`registry`)
+**Included Resources:**
+- ✅ Container registry (Deployment or StatefulSet)
+- ✅ Registry storage PVC (all container images)
+- ✅ Registry configuration and credentials
+
+#### Certificate Manager Namespace (`cert-manager`)
+**Included Resources:**
+- ✅ Certificate CRDs and resources
+- ✅ Issuer and ClusterIssuer definitions
+- ✅ TLS certificates and private keys
+- ✅ ACME account keys
+
+#### Cloudflare Tunnel Namespace (`cloudflare-tunnel`)
+**Included Resources:**
+- ✅ Cloudflare tunnel daemon (Deployment)
+- ✅ Tunnel credentials and configuration
+- ✅ Ingress routing rules
+
+### Volume Snapshot Settings
+- **snapshotVolumes**: `true` - Uses native volume snapshots when available
+- **defaultVolumesToFsBackup**: `true` - Falls back to file-system backup (restic/kopia) for volumes without snapshot support
+- All PersistentVolumes are backed up including:
+  - ClickHouse data and logs volumes
+  - Vault Raft storage volumes
+  - Database PVCs (Postgres, MySQL for various services)
+  - Registry storage volumes
+  - Monitoring data volumes (Prometheus TSDB, Grafana, Loki)
+
+### Resources Explicitly Excluded
+- Events and ephemeral resources (`events`, `events.events.k8s.io`)
+- System namespaces (`kube-system`, `kube-public`, `kube-node-lease`)
+- Temporary pods and jobs
+
+### Verification Commands
+
+#### Verify Backup Includes All Expected Namespaces
+```bash
+# Get the latest backup
+BACKUP_NAME=$(velero backup get --selector velero.io/schedule-name=daily-backup \
+  --output json | jq -r '.items | map(select(.status.phase=="Completed")) | sort_by(.status.completionTimestamp) | last | .metadata.name')
+
+# Describe backup and verify included namespaces
+velero backup describe ${BACKUP_NAME}
+
+# Check included namespaces in backup
+velero backup describe ${BACKUP_NAME} --details | grep -A 20 "Namespaces:"
+```
+
+#### Verify ClickHouse PVs Are Included
+```bash
+# Check PVCs in data-platform namespace
+kubectl get pvc -n data-platform
+
+# Verify backup includes PVs
+velero backup describe ${BACKUP_NAME} --details | grep -A 50 "Persistent Volumes:"
+
+# List volume snapshots
+velero backup describe ${BACKUP_NAME} --volume-details
+```
+
+#### Verify Vault Storage Is Included
+```bash
+# Check Vault PVCs
+kubectl get pvc -n vault-prod
+
+# Verify in backup
+velero backup describe ${BACKUP_NAME} --details | grep -B 5 -A 5 "vault-prod"
+```
+
+#### Dry-Run Backup Test
+```bash
+# Create a test backup to verify configuration without waiting for schedule
+velero backup create test-coverage-$(date +%Y%m%d-%H%M%S) \
+  --include-namespaces data-platform,ml-platform,vault-prod,monitoring,kubeflow,registry,cert-manager,cloudflare-tunnel \
+  --snapshot-volumes \
+  --default-volumes-to-fs-backup \
+  --ttl 24h
+
+# Monitor the backup
+velero backup get
+velero backup describe test-coverage-<timestamp> --details
+```
 
 ## Deployment
 
@@ -178,9 +328,255 @@ kubectl create -f <(envsubst < k8s/storage/velero-restore-app.yaml)
 3. **Full Cluster Loss**: Complete restoration from backups
 
 ### DR Testing
-- Monthly DR drills
+- Monthly DR drills (see Restore Drill section below)
 - Quarterly full recovery tests
 - Annual comprehensive DR exercise
+
+### Restore Drill (Non-Production) {#restore-drill}
+
+This section provides step-by-step instructions for conducting disaster recovery drills in a non-production environment.
+
+#### Prerequisites
+- Empty Kubernetes cluster available for testing
+- Velero CLI installed (`velero` command available)
+- `kubectl` configured with cluster access
+- `jq` installed for JSON parsing
+- MinIO/S3 backup storage accessible from the test cluster
+
+#### Step 1: Install Velero in the Empty Cluster
+```bash
+# Record start time
+echo "Restore drill started: $(date -u +"%Y-%m-%d %H:%M:%S UTC")"
+
+# Set MinIO credentials
+export VELERO_S3_ACCESS_KEY="<minio-access-key>"
+export VELERO_S3_SECRET_KEY="<minio-secret-key>"
+
+# Deploy Velero (uses existing backup location)
+./scripts/deploy-velero-backup.sh
+
+# Verify Velero is ready
+kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=velero -n velero --timeout=300s
+echo "Velero deployed: $(date -u +"%Y-%m-%d %H:%M:%S UTC")"
+```
+
+#### Step 2: Identify the Latest Backup
+```bash
+# List available backups
+velero backup get
+
+# Get the latest successful daily backup
+export BACKUP_NAME=$(velero backup get \
+  --selector velero.io/schedule-name=daily-backup \
+  --output json | jq -r '.items | map(select(.status.phase=="Completed")) | sort_by(.status.completionTimestamp) | last | .metadata.name')
+
+echo "Selected backup: ${BACKUP_NAME}"
+echo "Backup identified: $(date -u +"%Y-%m-%d %H:%M:%S UTC")"
+
+# Verify backup details
+velero backup describe ${BACKUP_NAME}
+```
+
+#### Step 3: Restore Data Platform (ClickHouse, Portal Services)
+```bash
+# Restore data-platform namespace with all PVs
+export TARGET_NAMESPACE="data-platform"
+export RESTORE_NAMESPACE="data-platform"
+
+kubectl create -f <(envsubst < k8s/storage/velero-restore-namespace.yaml)
+
+# Monitor restore progress
+RESTORE_NAME="restore-${TARGET_NAMESPACE}-$(date +%Y%m%d-%H%M%S)"
+velero restore describe ${RESTORE_NAME}
+
+# Wait for restore completion (alternatively add --wait to restore create command)
+while true; do
+  PHASE=$(velero restore get ${RESTORE_NAME} -o json | jq -r '.status.phase // "Unknown"')
+  echo "Restore phase: ${PHASE} - $(date -u +"%Y-%m-%d %H:%M:%S UTC")"
+  [[ "${PHASE}" == "Completed" || "${PHASE}" == "PartiallyFailed" || "${PHASE}" == "Failed" ]] && break
+  sleep 10
+done
+
+echo "Data platform restore completed: $(date -u +"%Y-%m-%d %H:%M:%S UTC")"
+```
+
+#### Step 4: Restore ML Platform (MLflow)
+```bash
+# Restore ml-platform namespace
+export TARGET_NAMESPACE="ml-platform"
+export RESTORE_NAMESPACE="ml-platform"
+
+kubectl create -f <(envsubst < k8s/storage/velero-restore-namespace.yaml)
+
+echo "ML platform restore completed: $(date -u +"%Y-%m-%d %H:%M:%S UTC")"
+```
+
+#### Step 5: Restore Vault and Supporting Services
+```bash
+# Restore vault-prod namespace
+export TARGET_NAMESPACE="vault-prod"
+export RESTORE_NAMESPACE="vault-prod"
+kubectl create -f <(envsubst < k8s/storage/velero-restore-namespace.yaml)
+
+# Restore monitoring namespace
+export TARGET_NAMESPACE="monitoring"
+export RESTORE_NAMESPACE="monitoring"
+kubectl create -f <(envsubst < k8s/storage/velero-restore-namespace.yaml)
+
+echo "Supporting services restore completed: $(date -u +"%Y-%m-%d %H:%M:%S UTC")"
+```
+
+#### Step 6: Verify Pod Health
+```bash
+# Check all pods in restored namespaces
+kubectl get pods -n data-platform
+kubectl get pods -n ml-platform
+kubectl get pods -n vault-prod
+kubectl get pods -n monitoring
+
+# Wait for critical pods to be ready
+kubectl wait --for=condition=ready pod -l app=clickhouse -n data-platform --timeout=600s
+kubectl wait --for=condition=ready pod -l app=mlflow -n ml-platform --timeout=300s
+
+echo "Pod health verified: $(date -u +"%Y-%m-%d %H:%M:%S UTC")"
+```
+
+#### Step 7: Verify ClickHouse Data Integrity
+```bash
+# Connect to ClickHouse and verify databases
+kubectl exec -n data-platform -it deploy/clickhouse -- clickhouse-client --query "SHOW DATABASES"
+
+# Check table counts
+kubectl exec -n data-platform -it deploy/clickhouse -- clickhouse-client --query "SELECT database, name, total_rows FROM system.tables WHERE database NOT IN ('system', 'INFORMATION_SCHEMA', 'information_schema')"
+
+# Verify PVs are mounted and contain data
+kubectl exec -n data-platform -it deploy/clickhouse -- df -h /var/lib/clickhouse
+kubectl exec -n data-platform -it deploy/clickhouse -- du -sh /var/lib/clickhouse/data
+
+echo "ClickHouse data verified: $(date -u +"%Y-%m-%d %H:%M:%S UTC")"
+```
+
+#### Step 8: Verify Portal Reachability
+```bash
+# Forward portal service port (if not using ingress)
+kubectl port-forward -n data-platform svc/portal-services 3000:3000 &
+PORTAL_PID=$!
+
+# Wait for service to be ready
+sleep 10
+
+# Test portal endpoint
+curl -f http://localhost:3000/api/health || echo "Portal health check failed"
+curl -f http://localhost:3000/ || echo "Portal not reachable"
+
+# Stop port forward
+kill ${PORTAL_PID}
+
+echo "Portal reachability verified: $(date -u +"%Y-%m-%d %H:%M:%S UTC")"
+```
+
+#### Step 9: Verify MLflow Reachability
+```bash
+# Forward MLflow service port
+kubectl port-forward -n ml-platform svc/mlflow 5000:5000 &
+MLFLOW_PID=$!
+
+# Wait for service to be ready
+sleep 10
+
+# Test MLflow endpoint
+curl -f http://localhost:5000/health || echo "MLflow health check failed"
+curl -f http://localhost:5000/ || echo "MLflow not reachable"
+
+# Verify experiments are accessible
+curl -f http://localhost:5000/api/2.0/mlflow/experiments/list || echo "MLflow API not responding"
+
+# Stop port forward
+kill ${MLFLOW_PID}
+
+echo "MLflow reachability verified: $(date -u +"%Y-%m-%d %H:%M:%S UTC")"
+```
+
+#### Step 10: Document Results
+```bash
+# Capture final state
+echo "=== RESTORE DRILL SUMMARY ==="
+echo "Drill completed: $(date -u +"%Y-%m-%d %H:%M:%S UTC")"
+echo ""
+echo "Backup used: ${BACKUP_NAME}"
+velero backup describe ${BACKUP_NAME} --details
+
+echo ""
+echo "Restores performed:"
+velero restore get
+
+echo ""
+echo "Namespace status:"
+kubectl get all -n data-platform
+kubectl get all -n ml-platform
+kubectl get all -n vault-prod
+
+echo ""
+echo "PV status:"
+kubectl get pv
+kubectl get pvc -n data-platform
+kubectl get pvc -n ml-platform
+
+echo ""
+echo "=== Evidence Captured ==="
+echo "All commands above include timestamps for audit trail"
+```
+
+#### Automated Restore Drill Script
+For convenience, use the provided validation script:
+```bash
+# Run complete restore drill with verification
+./scripts/velero-restore-validate.sh \
+  --schedule daily-backup \
+  --namespace data-platform \
+  --restore-namespace data-platform \
+  --restore-pvs \
+  --wait
+
+# Verify MLflow separately
+./scripts/velero-restore-validate.sh \
+  --schedule daily-backup \
+  --namespace ml-platform \
+  --restore-namespace ml-platform \
+  --restore-pvs \
+  --wait
+```
+
+#### Success Criteria
+- ✅ All backups identified and accessible
+- ✅ Velero successfully deployed in empty cluster
+- ✅ All namespaces restored without errors
+- ✅ All pods reach Ready state
+- ✅ ClickHouse database accessible with data intact
+- ✅ Portal service responds to HTTP requests
+- ✅ MLflow API responds and experiments are accessible
+- ✅ All persistent volumes restored with correct data
+- ✅ Complete timestamp evidence captured
+
+#### Troubleshooting Restore Issues
+```bash
+# Check restore errors
+velero restore describe <restore-name> --details
+
+# View restore logs
+velero restore logs <restore-name>
+
+# Check pod logs for startup issues
+kubectl logs -n data-platform -l app=clickhouse --tail=100
+kubectl logs -n ml-platform -l app=mlflow --tail=100
+
+# Verify PVC binding
+kubectl get pvc -n data-platform
+kubectl describe pvc clickhouse-data-pvc -n data-platform
+
+# Check storage class compatibility
+kubectl get storageclass
+```
 
 ## Maintenance
 
