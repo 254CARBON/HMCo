@@ -39,3 +39,4 @@ test-reports/
 benchmark-results.json
 benchmark-baseline.json
 .tox/
+trivy-results.sarif
