@@ -471,11 +471,6 @@ jobs:
           npx playwright install --with-deps chromium
         fi
     
-    - name: Build portal
-      run: |
-        cd portal
-        npm run build
-    
     - name: Run Playwright E2E smoke tests
       env:
         E2E_BYPASS: '1'
@@ -486,9 +481,9 @@ jobs:
         if [ -f "smoke.spec.ts" ]; then
           echo "Running Playwright smoke tests with E2E bypass enabled..."
           
-          # Start portal in background
+          # Start portal in dev mode in background
           cd ../../portal
-          npm start &
+          npm run dev &
           PORTAL_PID=$!
           
           # Wait for portal to be ready
