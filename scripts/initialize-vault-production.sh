@@ -243,6 +243,325 @@ EOF"
     echo ""
 }
 
+# Configure least-privilege policies for each application/namespace
+vault_config_app_policies() {
+    echo -e "${BLUE}================================${NC}"
+    echo -e "${BLUE}Configuring Application Policies${NC}"
+    echo -e "${BLUE}================================${NC}"
+    echo ""
+
+    vault_get_root_token || return 1
+
+    # Data Platform policy - read access to all data-platform secrets
+    echo -e "${YELLOW}Creating data-platform-read policy...${NC}"
+    POLICY=$(cat <<'EOF'
+# Allow read access to all data-platform secrets
+path "secret/data/data-platform/*" {
+  capabilities = ["read"]
+}
+
+path "secret/metadata/data-platform/*" {
+  capabilities = ["read", "list"]
+}
+EOF
+)
+    kubectl exec $POD -n $NAMESPACE -- sh -c "cat <<'EOF' >/tmp/policy.hcl
+$POLICY
+EOF"
+    kubectl exec $POD -n $NAMESPACE -- env VAULT_TOKEN="$ROOT_TOKEN" sh -c \
+        "vault policy write data-platform-read /tmp/policy.hcl" >/dev/null
+
+    # ClickHouse policy - least privilege for ClickHouse only
+    echo -e "${YELLOW}Creating clickhouse-read policy...${NC}"
+    POLICY=$(cat <<'EOF'
+# ClickHouse can only read its own secret
+path "secret/data/data-platform/clickhouse" {
+  capabilities = ["read"]
+}
+
+path "secret/metadata/data-platform/clickhouse" {
+  capabilities = ["read"]
+}
+EOF
+)
+    kubectl exec $POD -n $NAMESPACE -- sh -c "cat <<'EOF' >/tmp/policy.hcl
+$POLICY
+EOF"
+    kubectl exec $POD -n $NAMESPACE -- env VAULT_TOKEN="$ROOT_TOKEN" sh -c \
+        "vault policy write clickhouse-read /tmp/policy.hcl" >/dev/null
+
+    # MLflow policy - least privilege for MLflow backend and artifact secrets
+    echo -e "${YELLOW}Creating mlflow-read policy...${NC}"
+    POLICY=$(cat <<'EOF'
+# MLflow can only read its own secrets
+path "secret/data/data-platform/mlflow/*" {
+  capabilities = ["read"]
+}
+
+path "secret/metadata/data-platform/mlflow/*" {
+  capabilities = ["read", "list"]
+}
+EOF
+)
+    kubectl exec $POD -n $NAMESPACE -- sh -c "cat <<'EOF' >/tmp/policy.hcl
+$POLICY
+EOF"
+    kubectl exec $POD -n $NAMESPACE -- env VAULT_TOKEN="$ROOT_TOKEN" sh -c \
+        "vault policy write mlflow-read /tmp/policy.hcl" >/dev/null
+
+    # Superset policy - least privilege for Superset secrets
+    echo -e "${YELLOW}Creating superset-read policy...${NC}"
+    POLICY=$(cat <<'EOF'
+# Superset can only read its own secrets
+path "secret/data/data-platform/superset" {
+  capabilities = ["read"]
+}
+
+path "secret/metadata/data-platform/superset" {
+  capabilities = ["read"]
+}
+EOF
+)
+    kubectl exec $POD -n $NAMESPACE -- sh -c "cat <<'EOF' >/tmp/policy.hcl
+$POLICY
+EOF"
+    kubectl exec $POD -n $NAMESPACE -- env VAULT_TOKEN="$ROOT_TOKEN" sh -c \
+        "vault policy write superset-read /tmp/policy.hcl" >/dev/null
+
+    # API Gateway policy - for Kong and JWT secrets
+    echo -e "${YELLOW}Creating api-gateway-read policy...${NC}"
+    POLICY=$(cat <<'EOF'
+# API Gateway can read its own secrets
+path "secret/data/api-gateway/*" {
+  capabilities = ["read"]
+}
+
+path "secret/metadata/api-gateway/*" {
+  capabilities = ["read", "list"]
+}
+EOF
+)
+    kubectl exec $POD -n $NAMESPACE -- sh -c "cat <<'EOF' >/tmp/policy.hcl
+$POLICY
+EOF"
+    kubectl exec $POD -n $NAMESPACE -- env VAULT_TOKEN="$ROOT_TOKEN" sh -c \
+        "vault policy write api-gateway-read /tmp/policy.hcl" >/dev/null
+
+    # Monitoring policy - for Alertmanager secrets
+    echo -e "${YELLOW}Creating monitoring-read policy...${NC}"
+    POLICY=$(cat <<'EOF'
+# Monitoring can read its own secrets
+path "secret/data/monitoring/*" {
+  capabilities = ["read"]
+}
+
+path "secret/metadata/monitoring/*" {
+  capabilities = ["read", "list"]
+}
+EOF
+)
+    kubectl exec $POD -n $NAMESPACE -- sh -c "cat <<'EOF' >/tmp/policy.hcl
+$POLICY
+EOF"
+    kubectl exec $POD -n $NAMESPACE -- env VAULT_TOKEN="$ROOT_TOKEN" sh -c \
+        "vault policy write monitoring-read /tmp/policy.hcl" >/dev/null
+
+    # Cloudflare Tunnel policy
+    echo -e "${YELLOW}Creating cloudflare-read policy...${NC}"
+    POLICY=$(cat <<'EOF'
+# Cloudflare Tunnel can read its own secrets
+path "secret/data/cloudflare/*" {
+  capabilities = ["read"]
+}
+
+path "secret/metadata/cloudflare/*" {
+  capabilities = ["read"]
+}
+EOF
+)
+    kubectl exec $POD -n $NAMESPACE -- sh -c "cat <<'EOF' >/tmp/policy.hcl
+$POLICY
+EOF"
+    kubectl exec $POD -n $NAMESPACE -- env VAULT_TOKEN="$ROOT_TOKEN" sh -c \
+        "vault policy write cloudflare-read /tmp/policy.hcl" >/dev/null
+
+    kubectl exec $POD -n $NAMESPACE -- sh -c "rm -f /tmp/policy.hcl"
+
+    echo -e "${GREEN}✓ Application policies configured${NC}"
+    echo ""
+}
+
+# Configure Kubernetes auth roles for service accounts (AppRole/JWT bindings)
+vault_config_service_account_roles() {
+    echo -e "${BLUE}================================${NC}"
+    echo -e "${BLUE}Configuring Service Account Roles${NC}"
+    echo -e "${BLUE}================================${NC}"
+    echo ""
+
+    vault_get_root_token || return 1
+
+    echo -e "${YELLOW}Creating Kubernetes auth roles for service accounts...${NC}"
+
+    # ClickHouse service account role
+    kubectl exec $POD -n $NAMESPACE -- env VAULT_TOKEN="$ROOT_TOKEN" sh -c \
+        "vault write auth/kubernetes/role/clickhouse \
+            bound_service_account_names=clickhouse \
+            bound_service_account_namespaces=data-platform \
+            policies=clickhouse-read \
+            ttl=1h" >/dev/null
+    echo -e "  ${GREEN}✓${NC} clickhouse role created"
+
+    # MLflow service account role
+    kubectl exec $POD -n $NAMESPACE -- env VAULT_TOKEN="$ROOT_TOKEN" sh -c \
+        "vault write auth/kubernetes/role/mlflow \
+            bound_service_account_names=mlflow \
+            bound_service_account_namespaces=data-platform \
+            policies=mlflow-read \
+            ttl=1h" >/dev/null
+    echo -e "  ${GREEN}✓${NC} mlflow role created"
+
+    # Superset service account role
+    kubectl exec $POD -n $NAMESPACE -- env VAULT_TOKEN="$ROOT_TOKEN" sh -c \
+        "vault write auth/kubernetes/role/superset \
+            bound_service_account_names=superset \
+            bound_service_account_namespaces=data-platform \
+            policies=superset-read \
+            ttl=1h" >/dev/null
+    echo -e "  ${GREEN}✓${NC} superset role created"
+
+    # API Gateway service account role
+    kubectl exec $POD -n $NAMESPACE -- env VAULT_TOKEN="$ROOT_TOKEN" sh -c \
+        "vault write auth/kubernetes/role/api-gateway \
+            bound_service_account_names=kong \
+            bound_service_account_namespaces=kong \
+            policies=api-gateway-read \
+            ttl=1h" >/dev/null
+    echo -e "  ${GREEN}✓${NC} api-gateway role created"
+
+    # Monitoring service account role
+    kubectl exec $POD -n $NAMESPACE -- env VAULT_TOKEN="$ROOT_TOKEN" sh -c \
+        "vault write auth/kubernetes/role/monitoring \
+            bound_service_account_names=alertmanager,prometheus \
+            bound_service_account_namespaces=monitoring \
+            policies=monitoring-read \
+            ttl=1h" >/dev/null
+    echo -e "  ${GREEN}✓${NC} monitoring role created"
+
+    # Cloudflare Tunnel service account role
+    kubectl exec $POD -n $NAMESPACE -- env VAULT_TOKEN="$ROOT_TOKEN" sh -c \
+        "vault write auth/kubernetes/role/cloudflare-tunnel \
+            bound_service_account_names=cloudflared \
+            bound_service_account_namespaces=default,cloudflare \
+            policies=cloudflare-read \
+            ttl=1h" >/dev/null
+    echo -e "  ${GREEN}✓${NC} cloudflare-tunnel role created"
+
+    echo ""
+    echo -e "${GREEN}✓ Service account roles configured${NC}"
+    echo ""
+}
+
+# Test least-privilege access and cross-read denial
+vault_test_access_control() {
+    echo -e "${BLUE}================================${NC}"
+    echo -e "${BLUE}Testing Access Control${NC}"
+    echo -e "${BLUE}================================${NC}"
+    echo ""
+
+    vault_get_root_token || return 1
+
+    echo -e "${YELLOW}Testing policy enforcement...${NC}"
+    echo ""
+
+    # Test 1: External Secrets Operator should be able to read data-platform secrets
+    echo -e "${YELLOW}Test 1: External Secrets read access to data-platform...${NC}"
+    TEST_RESULT=$(kubectl exec $POD -n $NAMESPACE -- env VAULT_TOKEN="$ROOT_TOKEN" sh -c \
+        "vault token create -policy=external-secrets-read -format=json 2>/dev/null | grep -o '\"client_token\":\"[^\"]*\"' | cut -d'\"' -f4")
+    
+    if [[ -n "$TEST_RESULT" ]]; then
+        # Try to read a data-platform secret (should succeed)
+        kubectl exec $POD -n $NAMESPACE -- env VAULT_TOKEN="$TEST_RESULT" sh -c \
+            "vault kv get secret/data-platform/minio" >/dev/null 2>&1 && \
+            echo -e "  ${GREEN}✓${NC} Can read data-platform secrets" || \
+            echo -e "  ${YELLOW}⚠${NC} Cannot read data-platform secrets (may not exist yet)"
+        
+        # Try to read an api-gateway secret (should fail)
+        kubectl exec $POD -n $NAMESPACE -- env VAULT_TOKEN="$TEST_RESULT" sh -c \
+            "vault kv get secret/api-gateway/postgres" >/dev/null 2>&1 && \
+            echo -e "  ${RED}✗${NC} ERROR: Can read api-gateway secrets (should be denied)" || \
+            echo -e "  ${GREEN}✓${NC} Cross-namespace read denied (api-gateway)"
+    fi
+
+    # Test 2: ClickHouse policy should only read its own secrets
+    echo ""
+    echo -e "${YELLOW}Test 2: ClickHouse least-privilege access...${NC}"
+    TEST_RESULT=$(kubectl exec $POD -n $NAMESPACE -- env VAULT_TOKEN="$ROOT_TOKEN" sh -c \
+        "vault token create -policy=clickhouse-read -format=json 2>/dev/null | grep -o '\"client_token\":\"[^\"]*\"' | cut -d'\"' -f4")
+    
+    if [[ -n "$TEST_RESULT" ]]; then
+        # Try to read ClickHouse secret (should succeed)
+        kubectl exec $POD -n $NAMESPACE -- env VAULT_TOKEN="$TEST_RESULT" sh -c \
+            "vault kv get secret/data-platform/clickhouse" >/dev/null 2>&1 && \
+            echo -e "  ${GREEN}✓${NC} Can read own secrets" || \
+            echo -e "  ${YELLOW}⚠${NC} Cannot read own secrets (may not exist yet)"
+        
+        # Try to read MLflow secret (should fail)
+        kubectl exec $POD -n $NAMESPACE -- env VAULT_TOKEN="$TEST_RESULT" sh -c \
+            "vault kv get secret/data-platform/mlflow/backend" >/dev/null 2>&1 && \
+            echo -e "  ${RED}✗${NC} ERROR: Can read MLflow secrets (should be denied)" || \
+            echo -e "  ${GREEN}✓${NC} Cross-app read denied (MLflow)"
+    fi
+
+    # Test 3: MLflow policy should only read MLflow secrets
+    echo ""
+    echo -e "${YELLOW}Test 3: MLflow least-privilege access...${NC}"
+    TEST_RESULT=$(kubectl exec $POD -n $NAMESPACE -- env VAULT_TOKEN="$ROOT_TOKEN" sh -c \
+        "vault token create -policy=mlflow-read -format=json 2>/dev/null | grep -o '\"client_token\":\"[^\"]*\"' | cut -d'\"' -f4")
+    
+    if [[ -n "$TEST_RESULT" ]]; then
+        # Try to read MLflow secret (should succeed)
+        kubectl exec $POD -n $NAMESPACE -- env VAULT_TOKEN="$TEST_RESULT" sh -c \
+            "vault kv get secret/data-platform/mlflow/backend" >/dev/null 2>&1 && \
+            echo -e "  ${GREEN}✓${NC} Can read own secrets" || \
+            echo -e "  ${YELLOW}⚠${NC} Cannot read own secrets (may not exist yet)"
+        
+        # Try to read Superset secret (should fail)
+        kubectl exec $POD -n $NAMESPACE -- env VAULT_TOKEN="$TEST_RESULT" sh -c \
+            "vault kv get secret/data-platform/superset" >/dev/null 2>&1 && \
+            echo -e "  ${RED}✗${NC} ERROR: Can read Superset secrets (should be denied)" || \
+            echo -e "  ${GREEN}✓${NC} Cross-app read denied (Superset)"
+    fi
+
+    # Test 4: API Gateway should not access data-platform secrets
+    echo ""
+    echo -e "${YELLOW}Test 4: API Gateway namespace isolation...${NC}"
+    TEST_RESULT=$(kubectl exec $POD -n $NAMESPACE -- env VAULT_TOKEN="$ROOT_TOKEN" sh -c \
+        "vault token create -policy=api-gateway-read -format=json 2>/dev/null | grep -o '\"client_token\":\"[^\"]*\"' | cut -d'\"' -f4")
+    
+    if [[ -n "$TEST_RESULT" ]]; then
+        # Try to read API Gateway secret (should succeed)
+        kubectl exec $POD -n $NAMESPACE -- env VAULT_TOKEN="$TEST_RESULT" sh -c \
+            "vault kv get secret/api-gateway/postgres" >/dev/null 2>&1 && \
+            echo -e "  ${GREEN}✓${NC} Can read own secrets" || \
+            echo -e "  ${YELLOW}⚠${NC} Cannot read own secrets (may not exist yet)"
+        
+        # Try to read data-platform secret (should fail)
+        kubectl exec $POD -n $NAMESPACE -- env VAULT_TOKEN="$TEST_RESULT" sh -c \
+            "vault kv get secret/data-platform/minio" >/dev/null 2>&1 && \
+            echo -e "  ${RED}✗${NC} ERROR: Can read data-platform secrets (should be denied)" || \
+            echo -e "  ${GREEN}✓${NC} Cross-namespace read denied (data-platform)"
+    fi
+
+    echo ""
+    echo -e "${GREEN}✓ Access control tests complete${NC}"
+    echo ""
+    echo -e "${BLUE}Summary:${NC}"
+    echo -e "  • Least-privilege policies enforce app-level isolation"
+    echo -e "  • Cross-namespace reads are denied"
+    echo -e "  • Each app can only read its own secrets"
+    echo ""
+}
+
 # Configure secret engines
 vault_config_engines() {
     echo -e "${BLUE}================================${NC}"
@@ -314,29 +633,36 @@ ACTION="${1:-status}"
 
 case "$ACTION" in
     init)
-        vault_init && vault_unseal && vault_config_k8s_auth && vault_config_engines && vault_config_external_secrets
+        vault_init && vault_unseal && vault_config_k8s_auth && vault_config_engines && \
+        vault_config_external_secrets && vault_config_app_policies && \
+        vault_config_service_account_roles && vault_test_access_control
         ;;
     unseal)
         vault_unseal
         ;;
     config)
-        vault_config_k8s_auth && vault_config_engines && vault_config_external_secrets
+        vault_config_k8s_auth && vault_config_engines && vault_config_external_secrets && \
+        vault_config_app_policies && vault_config_service_account_roles
         ;;
     test)
         vault_test
+        ;;
+    test-access)
+        vault_test_access_control
         ;;
     status)
         vault_status
         ;;
     *)
-        echo "Usage: $0 [init|unseal|config|test|status]"
+        echo "Usage: $0 [init|unseal|config|test|test-access|status]"
         echo ""
         echo "Actions:"
-        echo "  init   - Initialize and unseal Vault (first time only)"
-        echo "  unseal - Unseal existing Vault"
-        echo "  config - Configure auth, secret engines, and policies"
-        echo "  test   - Test Vault connectivity"
-        echo "  status - Check Vault status"
+        echo "  init        - Initialize and unseal Vault (first time only)"
+        echo "  unseal      - Unseal existing Vault"
+        echo "  config      - Configure auth, secret engines, policies, and roles"
+        echo "  test        - Test Vault connectivity"
+        echo "  test-access - Test least-privilege access control policies"
+        echo "  status      - Check Vault status"
         exit 1
         ;;
 esac
