@@ -58,7 +58,7 @@ data:
             "targets": [
               {
                 "expr": "sum(rate(container_cpu_usage_seconds_total{namespace=\"data-platform\"}[5m])) by (pod)",
-                "legendFormat": "{{pod}}"
+                "legendFormat": "{{ "{{pod}}" }}"
               }
             ],
             "gridPos": {
@@ -75,7 +75,7 @@ data:
             "targets": [
               {
                 "expr": "sum(container_memory_working_set_bytes{namespace=\"data-platform\"}) by (pod)",
-                "legendFormat": "{{pod}}"
+                "legendFormat": "{{ "{{pod}}" }}"
               }
             ],
             "gridPos": {
@@ -92,11 +92,11 @@ data:
             "targets": [
               {
                 "expr": "sum(rate(container_network_receive_bytes_total{namespace=\"data-platform\"}[5m])) by (pod)",
-                "legendFormat": "{{pod}} RX"
+                "legendFormat": "{{ "{{pod}}" }} RX"
               },
               {
                 "expr": "sum(rate(container_network_transmit_bytes_total{namespace=\"data-platform\"}[5m])) by (pod)",
-                "legendFormat": "{{pod}} TX"
+                "legendFormat": "{{ "{{pod}}" }} TX"
               }
             ],
             "gridPos": {
@@ -130,7 +130,7 @@ data:
             "title": "p95 Latency by Service (s)",
             "type": "timeseries",
             "targets": [
-              {"expr": "ingress:http_latency_p95_service:5m", "legendFormat": "{{namespace}}/{{service}}"}
+              {"expr": "ingress:http_latency_p95_service:5m", "legendFormat": "{{ "{{namespace}}" }}/{{ "{{service}}" }}"}
             ],
             "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0}
           },
@@ -139,7 +139,7 @@ data:
             "title": "Error Ratio by Service (5m)",
             "type": "timeseries",
             "targets": [
-              {"expr": "ingress:http_error_ratio_service:5m", "legendFormat": "{{namespace}}/{{service}}"}
+              {"expr": "ingress:http_error_ratio_service:5m", "legendFormat": "{{ "{{namespace}}" }}/{{ "{{service}}" }}"}
             ],
             "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0}
           },
@@ -151,7 +151,7 @@ data:
               {
                 "expr": "topk(10, ingress:http_latency_p95:5m)",
                 "format": "table",
-                "legendFormat": "{{host}} {{path}} {{namespace}}/{{service}}"
+                "legendFormat": "{{ "{{host}}" }} {{ "{{path}}" }} {{ "{{namespace}}" }}/{{ "{{service}}" }}"
               }
             ],
             "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8}
@@ -161,7 +161,7 @@ data:
             "title": "Requests by Path (rps)",
             "type": "timeseries",
             "targets": [
-              {"expr": "sum(ingress:http_requests:rate5m) by (host, path)", "legendFormat": "{{host}} {{path}}"}
+              {"expr": "sum(ingress:http_requests:rate5m) by (host, path)", "legendFormat": "{{ "{{host}}" }} {{ "{{path}}" }}"}
             ],
             "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8}
           }
@@ -186,7 +186,7 @@ data:
             "targets": [
               {
                 "expr": "sum(rate(http_requests_total{job=\"datahub-gms\"}[5m])) by (method, status)",
-                "legendFormat": "{{method}} {{status}}"
+                "legendFormat": "{{ "{{method}}" }} {{ "{{status}}" }}"
               }
             ],
             "gridPos": {
@@ -203,7 +203,7 @@ data:
             "targets": [
               {
                 "expr": "sum(rate(http_requests_total{job=\"datahub-frontend\"}[5m])) by (method, status)",
-                "legendFormat": "{{method}} {{status}}"
+                "legendFormat": "{{ "{{method}}" }} {{ "{{status}}" }}"
               }
             ],
             "gridPos": {
@@ -290,7 +290,7 @@ data:
             "targets": [
               {
                 "expr": "sum(rate(minio_api_requests_total[5m])) by (api)",
-                "legendFormat": "{{api}}"
+                "legendFormat": "{{ "{{api}}" }}"
               }
             ],
             "gridPos": {
@@ -307,7 +307,7 @@ data:
             "targets": [
               {
                 "expr": "sum(rate(vault_core_handle_request[5m])) by (method)",
-                "legendFormat": "{{method}}"
+                "legendFormat": "{{ "{{method}}" }}"
               }
             ],
             "gridPos": {
@@ -341,7 +341,7 @@ data:
             "title": "HTTP Error Ratio (5m)",
             "type": "timeseries",
             "targets": [
-              {"expr": "sli:http_error_ratio:5m", "legendFormat": "{{job}}"}
+              {"expr": "sli:http_error_ratio:5m", "legendFormat": "{{ "{{job}}" }}"}
             ],
             "gridPos": {"h": 7, "w": 12, "x": 0, "y": 0}
           },
@@ -350,7 +350,7 @@ data:
             "title": "HTTP p95 Latency (s)",
             "type": "timeseries",
             "targets": [
-              {"expr": "sli:http_latency_p95:5m", "legendFormat": "{{job}}"}
+              {"expr": "sli:http_latency_p95:5m", "legendFormat": "{{ "{{job}}" }}"}
             ],
             "gridPos": {"h": 7, "w": 12, "x": 12, "y": 0}
           },
@@ -359,7 +359,7 @@ data:
             "title": "Availability (5m)",
             "type": "timeseries",
             "targets": [
-              {"expr": "sli:service_availability:5m", "legendFormat": "{{job}}"}
+              {"expr": "sli:service_availability:5m", "legendFormat": "{{ "{{job}}" }}"}
             ],
             "gridPos": {"h": 7, "w": 12, "x": 0, "y": 7}
           },

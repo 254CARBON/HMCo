@@ -63,7 +63,7 @@ spec:
         severity: warning
       annotations:
         summary: "PVC {{`{{ $labels.persistentvolumeclaim }}`}} usage above 85%"
-        description: "PVC {{`{{ $labels.namespace }}`}}/{{`{{ $labels.persistentvolumeclaim }}`}} is {{ humanizePercentage $value }}`}} full"
+        description: "PVC {{`{{ $labels.namespace }}`}}/{{`{{ $labels.persistentvolumeclaim }}`}} is {{`{{ humanizePercentage $value }}`}} full"
     
     - alert: PersistentVolumeLowSpace
       expr: kubelet_volume_stats_available_bytes / kubelet_volume_stats_capacity_bytes < 0.05
@@ -72,7 +72,7 @@ spec:
         severity: critical
       annotations:
         summary: "PVC {{`{{ $labels.persistentvolumeclaim }}`}} critically low on space"
-        description: "Only {{ humanizePercentage $value }}`}} space remaining on {{`{{ $labels.namespace }}`}}/{{`{{ $labels.persistentvolumeclaim }}`}}"
+        description: "Only {{`{{ humanizePercentage $value }}`}} space remaining on {{`{{ $labels.namespace }}`}}/{{`{{ $labels.persistentvolumeclaim }}`}}"
     
     - alert: PersistentVolumeInodeLow
       expr: kubelet_volume_stats_inodes_free / kubelet_volume_stats_inodes < 0.05
@@ -81,7 +81,7 @@ spec:
         severity: warning
       annotations:
         summary: "PVC {{`{{ $labels.persistentvolumeclaim }}`}} inode usage high"
-        description: "Only {{ humanizePercentage $value }}`}} of inodes remaining"
+        description: "Only {{`{{ humanizePercentage $value }}`}} of inodes remaining"
 
 ---
 # Memory & CPU
@@ -106,7 +106,7 @@ spec:
         severity: warning
       annotations:
         summary: "Pod {{`{{ $labels.namespace }}`}}/{{`{{ $labels.pod }}`}} memory usage above 90%"
-        description: "Pod memory usage is {{ humanizePercentage $value }}`}}"
+        description: "Pod memory usage is {{`{{ humanizePercentage $value }}`}}"
     
     - alert: ContainerCpuThrottled
       expr: rate(container_cpu_cfs_throttled_seconds_total[5m]) > 0.1
@@ -197,7 +197,7 @@ spec:
         severity: warning
       annotations:
         summary: "High error rate for {{`{{ $labels.service }}`}}"
-        description: "Error rate is {{ humanizePercentage $value }}`}}"
+        description: "Error rate is {{`{{ humanizePercentage $value }}`}}"
     
     - alert: HighLatency
       expr: histogram_quantile(0.99, http_request_duration_seconds_bucket) > 1
@@ -206,7 +206,7 @@ spec:
         severity: warning
       annotations:
         summary: "High latency for {{`{{ $labels.service }}`}}"
-        description: "99th percentile latency is {{ humanizeDuration $value }}`}}"
+        description: "99th percentile latency is {{`{{ humanizeDuration $value }}`}}"
 
 ---
 # Deployment & ReplicaSet
