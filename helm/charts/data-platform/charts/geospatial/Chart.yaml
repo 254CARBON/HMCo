@@ -1,0 +1,20 @@
+apiVersion: v2
+name: geospatial
+description: Geospatial processing with PostGIS and H3 for weather features
+type: application
+version: 0.1.0
+appVersion: "15.3"
+keywords:
+  - geospatial
+  - postgis
+  - h3
+  - weather
+  - features
+maintainers:
+  - name: 254Carbon Platform Team
+    email: platform@254carbon.com
+dependencies:
+  - name: postgresql
+    version: "12.x.x"
+    repository: "https://charts.bitnami.com/bitnami"
+    condition: postgresql.enabled

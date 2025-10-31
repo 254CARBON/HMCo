@@ -1,0 +1,95 @@
+replicaCount: 2
+
+image:
+  repository: openmetadata/server
+  tag: "1.2.0"
+  pullPolicy: IfNotPresent
+
+ingestionImage:
+  repository: openmetadata/ingestion
+  tag: "1.2.0"
+
+service:
+  type: ClusterIP
+  port: 8585
+
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+  hosts:
+    - host: catalog.254carbon.com
+      paths:
+        - path: /
+          pathType: Prefix
+
+postgresql:
+  enabled: true
+  auth:
+    username: openmetadata
+    password: ""  # Use external secret
+    database: openmetadata
+  primary:
+    persistence:
+      enabled: true
+      size: 20Gi
+
+elasticsearch:
+  enabled: true
+  replicas: 2
+  persistence:
+    enabled: true
+    size: 50Gi
+
+resources:
+  limits:
+    cpu: 4
+    memory: 8Gi
+  requests:
+    cpu: 2
+    memory: 4Gi
+
+# Ingestion connectors configuration
+connectors:
+  trino:
+    enabled: true
+    host: trino
+    port: 8080
+    catalog: hive_prod
+    includeViews: true
+    includeTables: true
+    includeStoredProcedures: false
+  
+  clickhouse:
+    enabled: true
+    host: clickhouse
+    port: 8123
+    database: default
+    includeViews: true
+    includeTables: true
+  
+  minio:
+    enabled: true
+    endpoint: http://minio:9000
+    accessKey: ""  # Use external secret
+    secretKey: ""  # Use external secret
+    buckets:
+      - data-lake
+      - ml-features
+  
+  dolphinscheduler:
+    enabled: true
+    host: dolphinscheduler-api
+    port: 12345
+
+# Lineage extraction from UIS pipelines
+lineage:
+  enabled: true
+  extractFromUIS: true
+  uisPipelinesPath: /app/workflows
+
+monitoring:
+  enabled: true
+  serviceMonitor:
+    enabled: true

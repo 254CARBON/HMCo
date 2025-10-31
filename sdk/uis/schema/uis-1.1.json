@@ -13,6 +13,77 @@
       "title": "AuthType",
       "type": "string"
     },
+    "ISOMarket": {
+      "description": "ISO/RTO market identifiers for canonical schema.",
+      "enum": [
+        "CAISO",
+        "MISO",
+        "SPP",
+        "PJM",
+        "NYISO",
+        "ERCOT",
+        "ISONE"
+      ],
+      "title": "ISOMarket",
+      "type": "string"
+    },
+    "PriceUnit": {
+      "description": "Price unit metadata for energy markets.",
+      "enum": [
+        "USD/MWh",
+        "USD/kWh",
+        "cents/kWh"
+      ],
+      "title": "PriceUnit",
+      "type": "string"
+    },
+    "PowerUnit": {
+      "description": "Power unit metadata for energy markets.",
+      "enum": [
+        "MW",
+        "kW",
+        "GW"
+      ],
+      "title": "PowerUnit",
+      "type": "string"
+    },
+    "EnergyUnit": {
+      "description": "Energy unit metadata for energy markets.",
+      "enum": [
+        "MWh",
+        "kWh",
+        "GWh"
+      ],
+      "title": "EnergyUnit",
+      "type": "string"
+    },
+    "NodeType": {
+      "description": "Node type classification in ISO markets.",
+      "enum": [
+        "GEN",
+        "LOAD",
+        "HUB",
+        "ZONE",
+        "INTERFACE",
+        "AGGREGATE"
+      ],
+      "title": "NodeType",
+      "type": "string"
+    },
+    "MarketRun": {
+      "description": "Market run types across ISOs.",
+      "enum": [
+        "RTM",
+        "RTPD",
+        "RTD",
+        "RTEX",
+        "RTBM",
+        "SCED",
+        "DAM"
+      ],
+      "title": "MarketRun",
+      "type": "string"
+    },
     "EndpointConfig": {
       "description": "Configuration for a single data endpoint.",
       "properties": {

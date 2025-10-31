@@ -1,0 +1,14 @@
+apiVersion: v2
+name: redpanda
+description: Redpanda streaming platform for real-time ISO and vendor feeds
+type: application
+version: 0.1.0
+appVersion: "23.3.5"
+keywords:
+  - streaming
+  - kafka
+  - real-time
+  - data-platform
+maintainers:
+  - name: 254Carbon Platform Team
+    email: platform@254carbon.com

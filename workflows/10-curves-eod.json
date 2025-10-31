@@ -1,0 +1,126 @@
+{
+  "name": "10-curves-eod",
+  "description": "End-of-day forward curve and risk factor computation",
+  "schedule": "0 0 * * *",
+  "timezone": "UTC",
+  "tasks": [
+    {
+      "name": "collect_market_data",
+      "type": "PYTHON",
+      "script": "/app/curves/collectors/market_data_collector.py",
+      "args": ["--date", "${system.biz.date}"],
+      "timeout": 600
+    },
+    {
+      "name": "compute_power_curves",
+      "type": "SPARK",
+      "main_class": "com.carbon254.curves.PowerCurveBuilder",
+      "jar": "/app/curves/curve-builder.jar",
+      "args": [
+        "--curve-date", "${system.biz.date}",
+        "--output-table", "curves_eod",
+        "--commodity", "POWER"
+      ],
+      "spark_conf": {
+        "spark.driver.memory": "4g",
+        "spark.executor.memory": "8g",
+        "spark.executor.instances": "2"
+      },
+      "dependsOn": ["collect_market_data"],
+      "timeout": 900
+    },
+    {
+      "name": "compute_gas_curves",
+      "type": "SPARK",
+      "main_class": "com.carbon254.curves.GasCurveBuilder",
+      "jar": "/app/curves/curve-builder.jar",
+      "args": [
+        "--curve-date", "${system.biz.date}",
+        "--output-table", "curves_eod",
+        "--commodity", "GAS"
+      ],
+      "spark_conf": {
+        "spark.driver.memory": "4g",
+        "spark.executor.memory": "8g",
+        "spark.executor.instances": "2"
+      },
+      "dependsOn": ["collect_market_data"],
+      "timeout": 900
+    },
+    {
+      "name": "validate_curves",
+      "type": "PYTHON",
+      "script": "/app/curves/validation/curve_validator.py",
+      "args": [
+        "--date", "${system.biz.date}",
+        "--table", "curves_eod",
+        "--checks", "no_negative,monotonicity,consistency"
+      ],
+      "dependsOn": ["compute_power_curves", "compute_gas_curves"],
+      "timeout": 300
+    },
+    {
+      "name": "snapshot_iceberg",
+      "type": "PYTHON",
+      "script": "/app/curves/snapshot/iceberg_snapshot.py",
+      "args": [
+        "--date", "${system.biz.date}",
+        "--table", "curves_eod",
+        "--metadata-table", "curve_snapshot_metadata"
+      ],
+      "dependsOn": ["validate_curves"],
+      "timeout": 300
+    },
+    {
+      "name": "publish_clickhouse",
+      "type": "PYTHON",
+      "script": "/app/curves/publishers/clickhouse_publisher.py",
+      "args": [
+        "--date", "${system.biz.date}",
+        "--source-table", "curves_eod",
+        "--target-table", "curves_latest",
+        "--clickhouse-host", "clickhouse"
+      ],
+      "dependsOn": ["snapshot_iceberg"],
+      "timeout": 300
+    },
+    {
+      "name": "compute_factors",
+      "type": "PYTHON",
+      "script": "/app/curves/factors/factor_extractor.py",
+      "args": [
+        "--date", "${system.biz.date}",
+        "--curves-table", "curves_eod",
+        "--factors-table", "factors_eod",
+        "--methods", "pca,basis,correlation"
+      ],
+      "dependsOn": ["publish_clickhouse"],
+      "timeout": 600
+    },
+    {
+      "name": "validate_and_alert",
+      "type": "PYTHON",
+      "script": "/app/curves/validation/anomaly_detector.py",
+      "args": [
+        "--date", "${system.biz.date}",
+        "--threshold-sigma", "3.0",
+        "--alert-channel", "slack-trading-ops"
+      ],
+      "dependsOn": ["compute_factors"],
+      "timeout": 300
+    }
+  ],
+  "sla": {
+    "completion_time": "02:00",
+    "alert": {
+      "enabled": true,
+      "channel": "slack-trading-ops",
+      "recipients": ["trading@254carbon.com", "data-eng@254carbon.com"]
+    }
+  },
+  "failure_policy": {
+    "retry_count": 2,
+    "retry_interval": 300,
+    "alert_on_failure": true
+  }
+}

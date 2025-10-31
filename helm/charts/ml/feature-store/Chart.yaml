@@ -1,0 +1,15 @@
+apiVersion: v2
+name: feature-store
+description: Feature Store with offline (Iceberg) and online (ClickHouse) storage
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
+keywords:
+  - ml
+  - feature-store
+  - feast
+  - iceberg
+  - clickhouse
+maintainers:
+  - name: 254Carbon ML Team
+    email: ml-platform@254carbon.com
