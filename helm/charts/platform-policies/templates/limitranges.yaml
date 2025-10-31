@@ -1,0 +1,152 @@
+# LimitRanges enforce default and maximum resource limits per namespace
+# Provides guardrails to prevent runaway resource usage
+
+---
+# Data Platform LimitRange
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: data-platform-limits
+  namespace: data-platform
+spec:
+  limits:
+  - type: Pod
+    min:
+      cpu: "10m"
+      memory: "32Mi"
+    max:
+      cpu: "8"
+      memory: "16Gi"
+  - type: Container
+    default:
+      cpu: "500m"
+      memory: "1Gi"
+    defaultRequest:
+      cpu: "100m"
+      memory: "256Mi"
+    min:
+      cpu: "10m"
+      memory: "32Mi"
+    max:
+      cpu: "8"
+      memory: "16Gi"
+
+---
+# Monitoring namespace LimitRange
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: monitoring-limits
+  namespace: monitoring
+spec:
+  limits:
+  - type: Pod
+    min:
+      cpu: "10m"
+      memory: "32Mi"
+    max:
+      cpu: "2"
+      memory: "4Gi"
+  - type: Container
+    default:
+      cpu: "200m"
+      memory: "256Mi"
+    defaultRequest:
+      cpu: "50m"
+      memory: "128Mi"
+    min:
+      cpu: "10m"
+      memory: "32Mi"
+    max:
+      cpu: "2"
+      memory: "4Gi"
+
+---
+# Vault production LimitRange
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: vault-prod-limits
+  namespace: vault-prod
+spec:
+  limits:
+  - type: Pod
+    min:
+      cpu: "50m"
+      memory: "64Mi"
+    max:
+      cpu: "2"
+      memory: "4Gi"
+  - type: Container
+    default:
+      cpu: "500m"
+      memory: "512Mi"
+    defaultRequest:
+      cpu: "250m"
+      memory: "256Mi"
+    min:
+      cpu: "50m"
+      memory: "64Mi"
+    max:
+      cpu: "2"
+      memory: "4Gi"
+
+---
+# Ingress Nginx LimitRange
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: ingress-nginx-limits
+  namespace: ingress-nginx
+spec:
+  limits:
+  - type: Pod
+    min:
+      cpu: "10m"
+      memory: "32Mi"
+    max:
+      cpu: "2"
+      memory: "4Gi"
+  - type: Container
+    default:
+      cpu: "500m"
+      memory: "512Mi"
+    defaultRequest:
+      cpu: "100m"
+      memory: "128Mi"
+    min:
+      cpu: "10m"
+      memory: "32Mi"
+    max:
+      cpu: "2"
+      memory: "4Gi"
+
+---
+# Cert Manager LimitRange
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: cert-manager-limits
+  namespace: cert-manager
+spec:
+  limits:
+  - type: Pod
+    min:
+      cpu: "10m"
+      memory: "32Mi"
+    max:
+      cpu: "1"
+      memory: "2Gi"
+  - type: Container
+    default:
+      cpu: "200m"
+      memory: "256Mi"
+    defaultRequest:
+      cpu: "50m"
+      memory: "128Mi"
+    min:
+      cpu: "10m"
+      memory: "32Mi"
+    max:
+      cpu: "1"
+      memory: "2Gi"

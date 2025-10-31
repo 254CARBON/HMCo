@@ -98,4 +98,8 @@ httpRoute:
   enabled: false
 
 autoscaling:
-  enabled: false
+  enabled: true
+  frontend:
+    minReplicas: 2
+    maxReplicas: 6
+    targetCPUUtilizationPercentage: 70
