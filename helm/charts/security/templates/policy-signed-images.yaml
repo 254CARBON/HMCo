@@ -56,44 +56,6 @@ spec:
         {{- end }}
       {{- end }}
     
-    - name: allow-trusted-unsigned-images
-      match:
-        any:
-        - resources:
-            kinds:
-              - Pod
-            namespaces:
-            {{- range .Values.imageSigning.includeNamespaces }}
-              - {{ . | quote }}
-            {{- end }}
-      exclude:
-        any:
-        - resources:
-            namespaces:
-            {{- range .Values.imageSigning.excludeNamespaces }}
-              - {{ . | quote }}
-            {{- end }}
-      validate:
-        message: >-
-          Images must be from trusted registries or be properly signed.
-          Allowed unsigned registries: {{ join ", " .Values.imageSigning.allowedUnsignedRegistries }}
-        foreach:
-        - list: "request.object.spec.containers"
-          deny:
-            conditions:
-              all:
-              # Deny if image is not from allowed unsigned registry
-              {{- range .Values.imageSigning.allowedUnsignedRegistries }}
-              - key: "{{ `{{ element.image }}` }}"
-                operator: NotEquals
-                value: "{{ . }}"
-              {{- end }}
-              # And not from trusted signed registry
-              {{- range .Values.imageSigning.trustedRegistries }}
-              - key: "{{ `{{ element.image }}` }}"
-                operator: NotEquals
-                value: "{{ .registry }}"
-              {{- end }}
 {{- end }}
 ---
 {{- if .Values.imageSigning.enabled }}

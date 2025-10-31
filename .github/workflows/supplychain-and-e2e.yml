@@ -181,10 +181,6 @@ jobs:
         echo "Building and pushing images..."
         mkdir -p sbom-output
         
-        # Initialize arrays to track images
-        declare -a IMAGE_REFS
-        declare -a SBOM_FILES
-        
         # Build backend image
         if [ -f "backend/Dockerfile" ]; then
           echo "Building backend image..."
@@ -193,11 +189,9 @@ jobs:
           docker push "$IMAGE_TAG"
           IMAGE_DIGEST=$(docker inspect --format='{{index .RepoDigests 0}}' "$IMAGE_TAG")
           echo "BACKEND_IMAGE_DIGEST=$IMAGE_DIGEST" >> "$GITHUB_ENV"
-          IMAGE_REFS+=("$IMAGE_DIGEST")
           
           # Generate SBOM for backend image
           syft "$IMAGE_DIGEST" -o spdx-json=sbom-output/sbom.backend.spdx.json
-          SBOM_FILES+=("sbom-output/sbom.backend.spdx.json")
         fi
         
         # Build portal-services image
@@ -208,11 +202,9 @@ jobs:
           docker push "$IMAGE_TAG"
           IMAGE_DIGEST=$(docker inspect --format='{{index .RepoDigests 0}}' "$IMAGE_TAG")
           echo "PORTAL_SERVICES_IMAGE_DIGEST=$IMAGE_DIGEST" >> "$GITHUB_ENV"
-          IMAGE_REFS+=("$IMAGE_DIGEST")
           
           # Generate SBOM for portal-services image
           syft "$IMAGE_DIGEST" -o spdx-json=sbom-output/sbom.portal-services.spdx.json
-          SBOM_FILES+=("sbom-output/sbom.portal-services.spdx.json")
         fi
         
         # Build jupyter-notebook image
@@ -223,15 +215,10 @@ jobs:
           docker push "$IMAGE_TAG"
           IMAGE_DIGEST=$(docker inspect --format='{{index .RepoDigests 0}}' "$IMAGE_TAG")
           echo "JUPYTER_NOTEBOOK_IMAGE_DIGEST=$IMAGE_DIGEST" >> "$GITHUB_ENV"
-          IMAGE_REFS+=("$IMAGE_DIGEST")
           
           # Generate SBOM for jupyter-notebook image
           syft "$IMAGE_DIGEST" -o spdx-json=sbom-output/sbom.jupyter-notebook.spdx.json
-          SBOM_FILES+=("sbom-output/sbom.jupyter-notebook.spdx.json")
         fi
-        
-        # Store image refs for signing
-        echo "IMAGE_REFS=${IMAGE_REFS[*]}" >> "$GITHUB_ENV"
     
     - name: Sign container images
       if: github.event_name != 'pull_request'
@@ -315,33 +302,33 @@ jobs:
           if [ -n "$BACKEND_IMAGE_DIGEST" ]; then
             echo "**Backend Image:**"
             echo '```bash'
-            echo "# Verify signature"
-            echo "cosign verify $BACKEND_IMAGE_DIGEST"
+            echo "# Verify signature (keyless)"
+            echo "COSIGN_EXPERIMENTAL=1 cosign verify $BACKEND_IMAGE_DIGEST"
             echo ""
             echo "# Verify SBOM attestation"
-            echo "cosign verify-attestation --type spdx $BACKEND_IMAGE_DIGEST"
+            echo "COSIGN_EXPERIMENTAL=1 cosign verify-attestation --type spdx $BACKEND_IMAGE_DIGEST"
             echo '```'
             echo ""
           fi
           if [ -n "$PORTAL_SERVICES_IMAGE_DIGEST" ]; then
             echo "**Portal Services Image:**"
             echo '```bash'
-            echo "# Verify signature"
-            echo "cosign verify $PORTAL_SERVICES_IMAGE_DIGEST"
+            echo "# Verify signature (keyless)"
+            echo "COSIGN_EXPERIMENTAL=1 cosign verify $PORTAL_SERVICES_IMAGE_DIGEST"
             echo ""
             echo "# Verify SBOM attestation"
-            echo "cosign verify-attestation --type spdx $PORTAL_SERVICES_IMAGE_DIGEST"
+            echo "COSIGN_EXPERIMENTAL=1 cosign verify-attestation --type spdx $PORTAL_SERVICES_IMAGE_DIGEST"
             echo '```'
             echo ""
           fi
           if [ -n "$JUPYTER_NOTEBOOK_IMAGE_DIGEST" ]; then
             echo "**Jupyter Notebook Image:**"
             echo '```bash'
-            echo "# Verify signature"
-            echo "cosign verify $JUPYTER_NOTEBOOK_IMAGE_DIGEST"
+            echo "# Verify signature (keyless)"
+            echo "COSIGN_EXPERIMENTAL=1 cosign verify $JUPYTER_NOTEBOOK_IMAGE_DIGEST"
             echo ""
             echo "# Verify SBOM attestation"
-            echo "cosign verify-attestation --type spdx $JUPYTER_NOTEBOOK_IMAGE_DIGEST"
+            echo "COSIGN_EXPERIMENTAL=1 cosign verify-attestation --type spdx $JUPYTER_NOTEBOOK_IMAGE_DIGEST"
             echo '```'
           fi
         } >> "$GITHUB_STEP_SUMMARY"

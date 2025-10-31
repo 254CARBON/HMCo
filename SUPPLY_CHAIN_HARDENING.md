@@ -73,17 +73,14 @@ The workflow performs:
 Verify image signatures and attestations:
 
 ```bash
-# Set COSIGN_EXPERIMENTAL for keyless verification
-export COSIGN_EXPERIMENTAL=1
-
-# Verify image signature
-cosign verify ghcr.io/254carbon/hmco-backend@sha256:...
+# Verify image signature (keyless)
+COSIGN_EXPERIMENTAL=1 cosign verify ghcr.io/254carbon/hmco-backend@sha256:...
 
 # Verify SBOM attestation
-cosign verify-attestation --type spdx ghcr.io/254carbon/hmco-backend@sha256:...
+COSIGN_EXPERIMENTAL=1 cosign verify-attestation --type spdx ghcr.io/254carbon/hmco-backend@sha256:...
 
 # Extract and view SBOM from attestation
-cosign verify-attestation --type spdx ghcr.io/254carbon/hmco-backend@sha256:... | \
+COSIGN_EXPERIMENTAL=1 cosign verify-attestation --type spdx ghcr.io/254carbon/hmco-backend@sha256:... | \
   jq -r '.payload' | base64 -d | jq .predicate
 ```
 

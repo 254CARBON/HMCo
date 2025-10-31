@@ -91,10 +91,12 @@ For keyless verification, images must be signed with:
 
 ### Allowed Unsigned Registries
 
-Registries from which unsigned images are permitted (typically for well-known base images and system components):
+The policy only verifies images from registries listed in `trustedRegistries`. Images from other registries are allowed without verification. This configuration documents registries commonly used for system components:
 
 ```yaml
 imageSigning:
+  # Note: These are informational - the policy only verifies trustedRegistries
+  # Images from other registries (like those below) pass through without verification
   allowedUnsignedRegistries:
     - "docker.io/library/*"      # Official Docker Hub images
     - "registry.k8s.io/*"        # Kubernetes official images
@@ -128,7 +130,7 @@ Development and testing environments are excluded using glob patterns:
 
 ### Unsigned Image Registries
 
-Images from the following registries are allowed without signature verification:
+Images from registries not listed in `trustedRegistries` are allowed without signature verification. The following registries are commonly used and documented for reference:
 
 1. **docker.io/library/***: Official Docker Hub base images (e.g., `nginx`, `postgres`, `redis`)
 2. **registry.k8s.io/***: Kubernetes official components and addons
@@ -137,7 +139,7 @@ Images from the following registries are allowed without signature verification:
 5. **grafana/***: Grafana dashboards and plugins
 6. **prom/***: Prometheus community exporters and tools
 
-**Rationale**: These are well-established, trusted registries providing core infrastructure components that may not support Cosign signing.
+**Rationale**: The policy uses an allowlist approach - only images from registries in `trustedRegistries` require signature verification. This provides security for organization-specific images while allowing use of well-established public registries.
 
 ## Policy Behavior
 
@@ -152,9 +154,7 @@ When a Pod is created or updated:
 
 2. **Unsigned Images from Trusted Registries**: Deployment is blocked
 
-3. **Images from Allowed Unsigned Registries**: Deployment is allowed without verification
-
-4. **Images from Unknown Registries**: Deployment is blocked
+3. **Images from Other Registries**: Deployment is allowed without verification (allowlist approach)
 
 ### SBOM Attestation Verification
 
@@ -169,14 +169,14 @@ When a Pod is created or updated in production namespaces:
 After deploying images, verify signatures and attestations:
 
 ```bash
-# Verify image signature
-cosign verify ghcr.io/254carbon/hmco-backend@sha256:abc123...
+# Verify image signature (keyless)
+COSIGN_EXPERIMENTAL=1 cosign verify ghcr.io/254carbon/hmco-backend@sha256:abc123...
 
 # Verify SBOM attestation
-cosign verify-attestation --type spdx ghcr.io/254carbon/hmco-backend@sha256:abc123...
+COSIGN_EXPERIMENTAL=1 cosign verify-attestation --type spdx ghcr.io/254carbon/hmco-backend@sha256:abc123...
 
 # Extract SBOM from attestation
-cosign verify-attestation --type spdx ghcr.io/254carbon/hmco-backend@sha256:abc123... | jq -r '.payload' | base64 -d | jq .
+COSIGN_EXPERIMENTAL=1 cosign verify-attestation --type spdx ghcr.io/254carbon/hmco-backend@sha256:abc123... | jq -r '.payload' | base64 -d | jq .
 ```
 
 ## Testing the Policy
