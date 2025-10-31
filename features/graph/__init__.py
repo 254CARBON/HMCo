@@ -1,6 +1,14 @@
 """
-Graph-based feature engineering for network topology analysis.
+Graph feature engineering for power grid networks
+Includes node-hub mappings, PTDF/shift factors, and topology
 """
 
-__version__ = "1.0.0"
-__all__ = ["topology_signals"]
+from .topology import GraphTopology
+from .ptdf import PTDFEstimator
+from .node_features import NodeFeatureExtractor
+
+__all__ = [
+    'GraphTopology',
+    'PTDFEstimator',
+    'NodeFeatureExtractor'
+]
