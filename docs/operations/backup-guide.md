@@ -395,8 +395,11 @@ export RESTORE_NAMESPACE="data-platform"
 
 kubectl create -f <(envsubst < k8s/storage/velero-restore-namespace.yaml)
 
-# Monitor restore progress
-RESTORE_NAME="restore-${TARGET_NAMESPACE}-$(date +%Y%m%d-%H%M%S)"
+# Get the actual restore name that was created (uses generateName)
+RESTORE_NAME=$(velero restore get --selector velero.254carbon.com/target=${TARGET_NAMESPACE} -o json | \
+  jq -r '.items | sort_by(.metadata.creationTimestamp) | last | .metadata.name')
+
+echo "Monitoring restore: ${RESTORE_NAME}"
 velero restore describe ${RESTORE_NAME}
 
 # Wait for restore completion (alternatively add --wait to restore create command)

@@ -42,10 +42,10 @@ spec:
   backupName: ${BACKUP_NAME:?Set BACKUP_NAME to an existing Velero backup}
   # Include only critical namespaces for DR drill
   includedNamespaces:
-  - data-platform      # ClickHouse PVs, portal services, Trino
-  - ml-platform        # MLflow experiment tracking
-  - vault-prod         # Vault Raft storage
-  - monitoring         # Essential observability
+  - data-platform      # ClickHouse PVs (data/logs), portal services, Trino, Superset
+  - ml-platform        # MLflow experiment tracking, model registry
+  - vault-prod         # Vault Raft storage, secrets, External Secrets Operator
+  - monitoring         # Prometheus TSDB, Grafana dashboards, Loki logs, AlertManager
   excludedResources:
   - events
   - events.events.k8s.io
