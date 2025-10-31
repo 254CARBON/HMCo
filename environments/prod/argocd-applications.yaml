@@ -1,0 +1,300 @@
+---
+# ArgoCD Application: Data Platform (Production)
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: data-platform-prod
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "-5"
+    notifications.argoproj.io/subscribe.on-sync-succeeded.slack: "prod-deployments"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: production
+  source:
+    repoURL: https://github.com/254CARBON/HMCo.git
+    targetRevision: main
+    path: helm/charts/data-platform
+    helm:
+      version: v3
+      releaseName: data-platform
+      valueFiles:
+        - values.yaml
+        - values/prod.yaml
+      parameters:
+      - name: "data-lake.enabled"
+        value: "true"
+      - name: "datahub.enabled"
+        value: "false"
+      - name: "spark-operator.enabled"
+        value: "true"
+      - name: "dolphinscheduler.enabled"
+        value: "true"
+      - name: "trino.enabled"
+        value: "true"
+      - name: "superset.enabled"
+        value: "true"
+      - name: "clickhouse.enabled"
+        value: "true"
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: data-platform
+  syncPolicy:
+    # Manual sync for production - no auto-sync
+    automated: null
+    syncOptions:
+      - CreateNamespace=true
+    retry:
+      limit: 3
+      backoff:
+        duration: 5s
+        factor: 2
+
+---
+# ArgoCD Application: Cloudflare Tunnel (Production)
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: cloudflare-tunnel-prod
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "-7"
+    notifications.argoproj.io/subscribe.on-sync-succeeded.slack: "prod-deployments"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: production
+  source:
+    repoURL: https://github.com/254CARBON/HMCo.git
+    targetRevision: main
+    path: helm/charts/cloudflare-tunnel
+    helm:
+      version: v3
+      releaseName: cloudflare-tunnel
+      valueFiles:
+        - values.yaml
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: cloudflare-tunnel
+  syncPolicy:
+    # Manual sync for production - no auto-sync
+    automated: null
+    syncOptions:
+      - CreateNamespace=true
+
+---
+# ArgoCD Application: ML Platform (Production)
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: ml-platform-prod
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "-3"
+    notifications.argoproj.io/subscribe.on-sync-succeeded.slack: "prod-deployments"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: production
+  source:
+    repoURL: https://github.com/254CARBON/HMCo.git
+    targetRevision: main
+    path: helm/charts/ml-platform
+    helm:
+      version: v3
+      releaseName: ml-platform
+      valueFiles:
+        - values.yaml
+        - values/prod.yaml
+      parameters:
+      - name: "mlflow.enabled"
+        value: "true"
+      - name: "kubeflow.enabled"
+        value: "true"
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: data-platform
+  syncPolicy:
+    # Manual sync for production - no auto-sync
+    automated: null
+    syncOptions:
+      - CreateNamespace=true
+    retry:
+      limit: 3
+      backoff:
+        duration: 5s
+        factor: 2
+
+---
+# ArgoCD Application: Monitoring Stack (Production)
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: monitoring-prod
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "-2"
+    notifications.argoproj.io/subscribe.on-sync-succeeded.slack: "prod-deployments"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: production
+  source:
+    repoURL: https://github.com/254CARBON/HMCo.git
+    targetRevision: main
+    path: helm/charts/monitoring
+    helm:
+      version: v3
+      releaseName: monitoring
+      valueFiles:
+        - values.yaml
+        - values/prod.yaml
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: monitoring
+  syncPolicy:
+    # Manual sync for production - no auto-sync
+    automated: null
+    syncOptions:
+      - CreateNamespace=true
+    retry:
+      limit: 3
+      backoff:
+        duration: 5s
+        factor: 2
+
+---
+# ArgoCD Application: API Gateway (Production)
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: api-gateway-prod
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "-6"
+    notifications.argoproj.io/subscribe.on-sync-succeeded.slack: "prod-deployments"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: production
+  source:
+    repoURL: https://github.com/254CARBON/HMCo.git
+    targetRevision: main
+    path: helm/charts/api-gateway
+    helm:
+      version: v3
+      releaseName: api-gateway
+      valueFiles:
+        - values.yaml
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: data-platform
+  syncPolicy:
+    # Manual sync for production - no auto-sync
+    automated: null
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
+    retry:
+      limit: 3
+      backoff:
+        duration: 5s
+        factor: 2
+
+---
+# ArgoCD Application: Service Mesh (Production)
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: service-mesh-prod
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+    notifications.argoproj.io/subscribe.on-sync-succeeded.slack: "prod-deployments"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: production
+  source:
+    repoURL: https://github.com/254CARBON/HMCo.git
+    targetRevision: main
+    path: helm/charts/service-mesh
+    helm:
+      version: v3
+      releaseName: service-mesh
+      valueFiles:
+        - values.yaml
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: istio-system
+  syncPolicy:
+    # Manual sync for production - no auto-sync
+    automated: null
+    syncOptions:
+      - CreateNamespace=true
+
+---
+# ArgoCD Application: Storage (Production)
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: storage-prod
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "-10"
+    notifications.argoproj.io/subscribe.on-sync-succeeded.slack: "prod-deployments"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: production
+  source:
+    repoURL: https://github.com/254CARBON/HMCo.git
+    targetRevision: main
+    path: helm/charts/storage
+    helm:
+      version: v3
+      releaseName: storage
+      valueFiles:
+        - values.yaml
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: kube-system
+  syncPolicy:
+    # Manual sync for production - no auto-sync
+    automated: null
+    syncOptions:
+      - CreateNamespace=true
+
+---
+# ArgoCD AppProject: Production
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: production
+  namespace: argocd
+spec:
+  description: Production environment applications - manual sync only
+  sourceRepos:
+    - 'https://github.com/254CARBON/HMCo.git'
+    - 'https://charts.helm.sh/stable'
+    - 'https://ray-project.github.io/kuberay-helm/'
+    - 'https://kyverno.github.io/kyverno/'
+  destinations:
+    - namespace: '*'
+      server: https://kubernetes.default.svc
+  clusterResourceWhitelist:
+    - group: '*'
+      kind: '*'
+  orphanedResources:
+    warn: true
+    ignore:
+      - group: ""
+        kind: ConfigMap
+        name: kube-root-ca.crt
+      - group: ""
+        kind: ConfigMap
+        name: istio-ca-root-cert
+      - group: ""
+        kind: ServiceAccount
+        name: default

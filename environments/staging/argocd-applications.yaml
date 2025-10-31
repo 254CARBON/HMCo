@@ -1,0 +1,277 @@
+---
+# ArgoCD Application: Data Platform (Staging)
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: data-platform-staging
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "-5"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: staging
+  source:
+    repoURL: https://github.com/254CARBON/HMCo.git
+    targetRevision: main
+    path: helm/charts/data-platform
+    helm:
+      version: v3
+      releaseName: data-platform
+      valueFiles:
+        - values.yaml
+        - values/staging.yaml
+      parameters:
+      - name: "data-lake.enabled"
+        value: "true"
+      - name: "datahub.enabled"
+        value: "false"
+      - name: "spark-operator.enabled"
+        value: "true"
+      - name: "dolphinscheduler.enabled"
+        value: "true"
+      - name: "trino.enabled"
+        value: "true"
+      - name: "superset.enabled"
+        value: "true"
+      - name: "clickhouse.enabled"
+        value: "true"
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: data-platform-staging
+  syncPolicy:
+    automated:
+      prune: false
+      selfHeal: true
+      allowEmpty: false
+    syncOptions:
+      - CreateNamespace=true
+
+---
+# ArgoCD Application: Cloudflare Tunnel (Staging)
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: cloudflare-tunnel-staging
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "-7"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: staging
+  source:
+    repoURL: https://github.com/254CARBON/HMCo.git
+    targetRevision: main
+    path: helm/charts/cloudflare-tunnel
+    helm:
+      version: v3
+      releaseName: cloudflare-tunnel
+      valueFiles:
+        - values.yaml
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: cloudflare-tunnel-staging
+  syncPolicy:
+    automated:
+      prune: false
+      selfHeal: true
+      allowEmpty: false
+    syncOptions:
+      - CreateNamespace=true
+
+---
+# ArgoCD Application: ML Platform (Staging)
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: ml-platform-staging
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "-3"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: staging
+  source:
+    repoURL: https://github.com/254CARBON/HMCo.git
+    targetRevision: main
+    path: helm/charts/ml-platform
+    helm:
+      version: v3
+      releaseName: ml-platform
+      valueFiles:
+        - values.yaml
+        - values/staging.yaml
+      parameters:
+      - name: "mlflow.enabled"
+        value: "true"
+      - name: "kubeflow.enabled"
+        value: "true"
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: ml-platform-staging
+  syncPolicy:
+    automated:
+      prune: false
+      selfHeal: true
+      allowEmpty: false
+    syncOptions:
+      - CreateNamespace=true
+
+---
+# ArgoCD Application: Monitoring Stack (Staging)
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: monitoring-staging
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "-2"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: staging
+  source:
+    repoURL: https://github.com/254CARBON/HMCo.git
+    targetRevision: main
+    path: helm/charts/monitoring
+    helm:
+      version: v3
+      releaseName: monitoring
+      valueFiles:
+        - values.yaml
+        - values/staging.yaml
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: monitoring-staging
+  syncPolicy:
+    automated:
+      prune: false
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+
+---
+# ArgoCD Application: API Gateway (Staging)
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: api-gateway-staging
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "-6"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: staging
+  source:
+    repoURL: https://github.com/254CARBON/HMCo.git
+    targetRevision: main
+    path: helm/charts/api-gateway
+    helm:
+      version: v3
+      releaseName: api-gateway
+      valueFiles:
+        - values.yaml
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: data-platform-staging
+  syncPolicy:
+    automated:
+      prune: false
+      selfHeal: true
+      allowEmpty: false
+    syncOptions:
+      - CreateNamespace=true
+
+---
+# ArgoCD Application: Service Mesh (Staging)
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: service-mesh-staging
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: staging
+  source:
+    repoURL: https://github.com/254CARBON/HMCo.git
+    targetRevision: main
+    path: helm/charts/service-mesh
+    helm:
+      version: v3
+      releaseName: service-mesh
+      valueFiles:
+        - values.yaml
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: istio-system-staging
+  syncPolicy:
+    automated:
+      prune: false
+      selfHeal: true
+      allowEmpty: false
+    syncOptions:
+      - CreateNamespace=true
+
+---
+# ArgoCD Application: Storage (Staging)
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: storage-staging
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "-10"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: staging
+  source:
+    repoURL: https://github.com/254CARBON/HMCo.git
+    targetRevision: main
+    path: helm/charts/storage
+    helm:
+      version: v3
+      releaseName: storage
+      valueFiles:
+        - values.yaml
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: kube-system
+  syncPolicy:
+    automated:
+      prune: false
+      selfHeal: true
+      allowEmpty: false
+    syncOptions:
+      - CreateNamespace=true
+
+---
+# ArgoCD AppProject: Staging
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: staging
+  namespace: argocd
+spec:
+  description: Staging environment applications
+  sourceRepos:
+    - 'https://github.com/254CARBON/HMCo.git'
+    - 'https://charts.helm.sh/stable'
+    - 'https://ray-project.github.io/kuberay-helm/'
+    - 'https://kyverno.github.io/kyverno/'
+  destinations:
+    - namespace: '*-staging'
+      server: https://kubernetes.default.svc
+    - namespace: 'kube-system'
+      server: https://kubernetes.default.svc
+  clusterResourceWhitelist:
+    - group: '*'
+      kind: '*'
+  orphanedResources:
+    warn: true

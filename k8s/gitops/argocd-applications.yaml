@@ -1,4 +1,13 @@
 ---
+# DEPRECATED: This file contains legacy ArgoCD applications
+# For environment-specific deployments, use the manifests in environments/
+# - environments/dev/argocd-applications.yaml
+# - environments/staging/argocd-applications.yaml
+# - environments/prod/argocd-applications.yaml
+#
+# These legacy applications are for backward compatibility only
+
+---
 # ArgoCD Application: Data Platform
 apiVersion: argoproj.io/v1alpha1
 kind: Application

@@ -1,0 +1,224 @@
+name: Chart Promotion Pipeline
+
+on:
+  workflow_dispatch:
+    inputs:
+      chart_name:
+        description: 'Chart name to promote (e.g., data-platform, ml-platform)'
+        required: true
+        type: string
+      new_version:
+        description: 'New chart version (e.g., 1.0.1)'
+        required: true
+        type: string
+      source_env:
+        description: 'Source environment'
+        required: true
+        type: choice
+        options:
+          - dev
+          - staging
+      target_env:
+        description: 'Target environment'
+        required: true
+        type: choice
+        options:
+          - staging
+          - prod
+
+jobs:
+  validate-promotion:
+    name: Validate Promotion Request
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Validate promotion path
+        run: |
+          SOURCE="${{ inputs.source_env }}"
+          TARGET="${{ inputs.target_env }}"
+          
+          # Ensure valid promotion path
+          if [[ "$SOURCE" == "dev" && "$TARGET" != "staging" ]]; then
+            echo "ERROR: Can only promote from dev to staging"
+            exit 1
+          fi
+          
+          if [[ "$SOURCE" == "staging" && "$TARGET" != "prod" ]]; then
+            echo "ERROR: Can only promote from staging to prod"
+            exit 1
+          fi
+          
+          echo "✓ Valid promotion path: $SOURCE → $TARGET"
+      
+      - name: Verify chart exists
+        run: |
+          CHART_PATH="helm/charts/${{ inputs.chart_name }}"
+          if [ ! -d "$CHART_PATH" ]; then
+            echo "ERROR: Chart ${{ inputs.chart_name }} not found at $CHART_PATH"
+            exit 1
+          fi
+          echo "✓ Chart found at $CHART_PATH"
+      
+      - name: Validate version format
+        run: |
+          VERSION="${{ inputs.new_version }}"
+          if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "ERROR: Version must follow semantic versioning (e.g., 1.0.1)"
+            exit 1
+          fi
+          echo "✓ Version format is valid: $VERSION"
+
+  create-promotion-pr:
+    name: Create Promotion PR
+    runs-on: ubuntu-latest
+    needs: validate-promotion
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+      
+      - name: Create promotion branch
+        run: |
+          BRANCH_NAME="promote/${{ inputs.chart_name }}-${{ inputs.new_version }}-to-${{ inputs.target_env }}"
+          git checkout -b "$BRANCH_NAME"
+          echo "BRANCH_NAME=$BRANCH_NAME" >> $GITHUB_ENV
+      
+      - name: Update Chart version
+        run: |
+          CHART_FILE="helm/charts/${{ inputs.chart_name }}/Chart.yaml"
+          
+          # Update version in Chart.yaml
+          sed -i "s/^version: .*/version: ${{ inputs.new_version }}/" "$CHART_FILE"
+          
+          echo "Updated $CHART_FILE to version ${{ inputs.new_version }}"
+          cat "$CHART_FILE" | grep "^version:"
+      
+      - name: Update CHANGELOG
+        run: |
+          CHANGELOG_FILE="helm/charts/${{ inputs.chart_name }}/CHANGELOG.md"
+          DATE=$(date +%Y-%m-%d)
+          
+          # Create temporary file with new entry
+          cat > /tmp/new_entry.md << EOF
+          
+          ## [${{ inputs.new_version }}] - $DATE
+          
+          ### Changed
+          - Promoted to ${{ inputs.target_env }} environment
+          
+          EOF
+          
+          # Insert new entry after the header (after line 6)
+          if [ -f "$CHANGELOG_FILE" ]; then
+            head -n 6 "$CHANGELOG_FILE" > /tmp/changelog_new.md
+            cat /tmp/new_entry.md >> /tmp/changelog_new.md
+            tail -n +7 "$CHANGELOG_FILE" >> /tmp/changelog_new.md
+            mv /tmp/changelog_new.md "$CHANGELOG_FILE"
+          fi
+          
+          echo "Updated $CHANGELOG_FILE"
+      
+      - name: Update environment manifest
+        run: |
+          ENV_FILE="environments/${{ inputs.target_env }}/argocd-applications.yaml"
+          
+          if [ -f "$ENV_FILE" ]; then
+            echo "Environment manifest exists at $ENV_FILE"
+            echo "Note: ArgoCD will automatically pick up the new chart version from the updated Chart.yaml"
+          fi
+      
+      - name: Commit changes
+        run: |
+          git add helm/charts/${{ inputs.chart_name }}/Chart.yaml
+          git add helm/charts/${{ inputs.chart_name }}/CHANGELOG.md
+          git add environments/${{ inputs.target_env }}/ || true
+          
+          git commit -m "Promote ${{ inputs.chart_name }} to version ${{ inputs.new_version }} in ${{ inputs.target_env }}
+          
+          - Chart: ${{ inputs.chart_name }}
+          - Version: ${{ inputs.new_version }}
+          - Source: ${{ inputs.source_env }}
+          - Target: ${{ inputs.target_env }}
+          
+          This is an automated promotion created by the chart promotion pipeline."
+      
+      - name: Push branch
+        run: |
+          git push origin "$BRANCH_NAME"
+      
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@v5
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          branch: ${{ env.BRANCH_NAME }}
+          title: "🚀 Promote ${{ inputs.chart_name }} v${{ inputs.new_version }} to ${{ inputs.target_env }}"
+          body: |
+            ## Chart Promotion Request
+            
+            **Chart**: `${{ inputs.chart_name }}`
+            **Version**: `${{ inputs.new_version }}`
+            **Source Environment**: `${{ inputs.source_env }}`
+            **Target Environment**: `${{ inputs.target_env }}`
+            
+            ---
+            
+            ### Changes
+            
+            - ✅ Updated `Chart.yaml` version to `${{ inputs.new_version }}`
+            - ✅ Updated `CHANGELOG.md` with promotion details
+            - ✅ Ready for deployment to `${{ inputs.target_env }}`
+            
+            ### Deployment Process
+            
+            1. **Review** this PR for accuracy
+            2. **Approve** via required reviewers
+            3. **Merge** to trigger deployment
+            ${{ inputs.target_env == 'prod' && '4. **Manual sync** required in ArgoCD for production' || '4. ArgoCD will auto-sync changes' }}
+            
+            ### Validation Checklist
+            
+            - [ ] Chart version is correct
+            - [ ] CHANGELOG is updated
+            - [ ] Changes tested in ${{ inputs.source_env }}
+            ${{ inputs.target_env == 'prod' && '- [ ] Approval from SRE team' || '' }}
+            
+            ---
+            
+            This PR was automatically created by the [Chart Promotion Pipeline](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}).
+          labels: |
+            promotion
+            ${{ inputs.target_env }}
+            ${{ inputs.chart_name }}
+          draft: ${{ inputs.target_env == 'prod' }}
+
+  helm-lint:
+    name: Lint Promoted Chart
+    runs-on: ubuntu-latest
+    needs: create-promotion-pr
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          ref: promote/${{ inputs.chart_name }}-${{ inputs.new_version }}-to-${{ inputs.target_env }}
+      
+      - name: Set up Helm
+        uses: azure/setup-helm@v3
+        with:
+          version: 'v3.12.0'
+      
+      - name: Lint chart
+        run: |
+          helm lint helm/charts/${{ inputs.chart_name }}
+      
+      - name: Template rendering test
+        run: |
+          helm template ${{ inputs.chart_name }} helm/charts/${{ inputs.chart_name }} \
+            --values helm/charts/${{ inputs.chart_name }}/values.yaml \
+            --debug > /dev/null
+          
+          echo "✓ Chart templates render successfully"
