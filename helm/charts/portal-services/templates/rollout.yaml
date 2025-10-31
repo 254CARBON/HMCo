@@ -1,6 +1,6 @@
-{{- if not .Values.rollout.enabled }}
-apiVersion: apps/v1
-kind: Deployment
+{{- if .Values.rollout.enabled }}
+apiVersion: argoproj.io/v1alpha1
+kind: Rollout
 metadata:
   name: portal-services
   namespace: data-platform
@@ -8,9 +8,36 @@ metadata:
     {{- include "portal-services.labels" . | nindent 4 }}
 spec:
   replicas: {{ .Values.replicaCount }}
+  revisionHistoryLimit: 5
   selector:
     matchLabels:
       {{- include "portal-services.selectorLabels" . | nindent 6 }}
+  strategy:
+    canary:
+      maxSurge: {{ .Values.rollout.strategy.canary.maxSurge }}
+      maxUnavailable: {{ .Values.rollout.strategy.canary.maxUnavailable }}
+      steps:
+      {{- range .Values.rollout.strategy.canary.steps }}
+      {{- if .setWeight }}
+      - setWeight: {{ .setWeight }}
+      {{- end }}
+      {{- if .pause }}
+      - pause:
+          duration: {{ .pause.duration }}
+      {{- end }}
+      {{- end }}
+      {{- if .Values.rollout.strategy.canary.analysis }}
+      analysis:
+        templates:
+        {{- range .Values.rollout.strategy.canary.analysis.templates }}
+        - templateName: {{ .templateName }}
+        {{- end }}
+        args:
+        {{- range .Values.rollout.strategy.canary.analysis.args }}
+        - name: {{ .name }}
+          value: {{ .value }}
+        {{- end }}
+      {{- end }}
   template:
     metadata:
       labels:
@@ -90,4 +117,3 @@ spec:
       - name: npm-cache
         emptyDir: {}
 {{- end }}
-

@@ -1,0 +1,13 @@
+apiVersion: v2
+name: progressive-delivery
+description: Argo Rollouts for progressive delivery with canary deployments
+type: application
+version: 0.1.0
+appVersion: "1.6.0"
+keywords:
+  - argo-rollouts
+  - canary
+  - progressive-delivery
+  - deployment
+maintainers:
+  - name: 254Carbon Platform Team

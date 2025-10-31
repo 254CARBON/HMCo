@@ -156,3 +156,28 @@ nodeSelector: {}
 tolerations: []
 
 affinity: {}
+
+# Progressive delivery with Argo Rollouts
+rollout:
+  enabled: true
+  strategy:
+    canary:
+      maxSurge: "25%"
+      maxUnavailable: 0
+      steps:
+      - setWeight: 20
+      - pause: {duration: 3m}
+      - setWeight: 40
+      - pause: {duration: 3m}
+      - setWeight: 60
+      - pause: {duration: 3m}
+      - setWeight: 80
+      - pause: {duration: 3m}
+      analysis:
+        templates:
+        - templateName: success-rate
+        - templateName: error-rate
+        - templateName: latency
+        args:
+        - name: service-name
+          value: mlflow
