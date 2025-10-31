@@ -37,6 +37,8 @@ from tracing import Tracer
 from job_executor import JobExecutor, JobExecutionError
 
 # Feed ledger imports
+# Note: Using sys.path manipulation for imports follows the existing pattern in this repository.
+# Future refactoring should consider using proper Python packaging with setup.py/pyproject.toml.
 try:
     services_path = Path(__file__).parent.parent.parent / "services" / "feed-ledger"
     sys.path.insert(0, str(services_path))

@@ -127,12 +127,23 @@ class FeedLedger:
         cursor.close()
         conn.close()
 
+    def _parse_clickhouse_host(self) -> str:
+        """
+        Parse ClickHouse host from connection string.
+        
+        Returns:
+            Host string
+        """
+        from urllib.parse import urlparse
+        parsed = urlparse(self.connection_string)
+        return parsed.hostname or "clickhouse"
+
     def _init_clickhouse_tables(self):
         """Initialize ClickHouse tables."""
         if not CLICKHOUSE_AVAILABLE:
             raise ImportError("clickhouse-connect not available")
         
-        client = clickhouse_connect.get_client(host=self.connection_string.split("@")[1].split(":")[0])
+        client = clickhouse_connect.get_client(host=self._parse_clickhouse_host())
         
         client.command("""
             CREATE TABLE IF NOT EXISTS feed_ledger (
@@ -197,7 +208,7 @@ class FeedLedger:
 
     def _write_clickhouse_entry(self, entry: FeedLedgerEntry) -> bool:
         """Write entry to ClickHouse."""
-        client = clickhouse_connect.get_client(host=self.connection_string.split("@")[1].split(":")[0])
+        client = clickhouse_connect.get_client(host=self._parse_clickhouse_host())
         
         client.insert('feed_ledger', [[
             hash(f"{entry.feed_id}:{entry.partition}:{entry.watermark_ts}") % (2**64),
@@ -250,7 +261,7 @@ class FeedLedger:
 
     def _get_clickhouse_watermark(self, feed_id: str, partition: str) -> Optional[datetime]:
         """Get latest watermark from ClickHouse."""
-        client = clickhouse_connect.get_client(host=self.connection_string.split("@")[1].split(":")[0])
+        client = clickhouse_connect.get_client(host=self._parse_clickhouse_host())
         
         result = client.query("""
             SELECT watermark_ts FROM feed_ledger
@@ -357,7 +368,7 @@ class FeedLedger:
         limit: int
     ) -> List[FeedLedgerEntry]:
         """List entries from ClickHouse."""
-        client = clickhouse_connect.get_client(host=self.connection_string.split("@")[1].split(":")[0])
+        client = clickhouse_connect.get_client(host=self._parse_clickhouse_host())
         
         query = "SELECT * FROM feed_ledger WHERE 1=1"
         params = {}
