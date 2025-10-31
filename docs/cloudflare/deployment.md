@@ -4,6 +4,36 @@
 
 This guide walks through the complete process of deploying Cloudflare Tunnel integration for your Kubernetes cluster.
 
+## Quick Start: One-Command Bootstrap
+
+For rapid deployment with pre-configured values:
+
+```bash
+# Set environment variables
+export CLOUDFLARE_API_TOKEN=<your-api-token>
+export CLOUDFLARE_ACCOUNT_ID=<your-account-id>
+export CLOUDFLARE_TUNNEL_ID=<your-tunnel-id>
+export CLOUDFLARE_ZONE_NAME=254carbon.com
+
+# One-command bootstrap (creates tunnel config, DNS records, and Access apps)
+./scripts/bootstrap-cloudflare.sh
+```
+
+This will:
+1. Configure Cloudflare tunnel token in Kubernetes
+2. Create all DNS records pointing to the tunnel
+3. Set up Cloudflare Access applications and policies
+4. Deploy cloudflared to Kubernetes
+5. Verify the setup
+
+**Prerequisites for one-command bootstrap:**
+- Cloudflare tunnel already created (see Phase 1 below if needed)
+- API token with permissions: Tunnel:Read, DNS:Edit, Access:Edit
+- kubectl configured and connected to your cluster
+- Tunnel credentials available
+
+For detailed step-by-step instructions or troubleshooting, continue with Phase 1 below.
+
 ---
 
 ## Phase 1: Cloudflare Setup (Dashboard)
@@ -343,9 +373,67 @@ curl http://localhost:2000/metrics | grep cloudflared
 # Backup all configurations
 kubectl get configmap,secret -n cloudflare-tunnel -o yaml > cloudflare-backup-$(date +%Y%m%d).yaml
 
+# Backup Access applications and policies
+./scripts/export-cloudflare-access-apps.sh --output docs/cloudflare/access-baseline.json
+
 # Backup DNS records (via Cloudflare API)
 curl -X GET "https://api.cloudflare.com/client/v4/zones/ZONE_ID/dns_records" \
   -H "Authorization: Bearer YOUR_API_TOKEN" > dns-backup.json
+
+# Version control the backups
+git add docs/cloudflare/access-baseline.json
+git commit -m "Backup Cloudflare configuration"
+```
+
+### Drift Detection and Remediation
+
+The infrastructure should be managed as code. To detect and fix configuration drift:
+
+```bash
+# Detect DNS drift - compare current DNS with desired state
+# Option 1: Dry run to see what would change
+./scripts/create-cloudflare-dns-records.sh --dry-run
+
+# Option 2: Apply changes to fix drift
+./scripts/create-cloudflare-dns-records.sh --force
+
+# Detect Access policy drift
+# Export current state and compare with baseline
+./scripts/export-cloudflare-access-apps.sh --output /tmp/access-current.json
+diff docs/cloudflare/access-baseline.json /tmp/access-current.json
+
+# Fix Access drift - reconcile to desired state
+./scripts/create-cloudflare-access-apps.sh \
+  --mode zone \
+  --zone-domain 254carbon.com \
+  --allowed-email-domains 254carbon.com \
+  --force
+
+# Full infrastructure reconciliation
+./scripts/bootstrap-cloudflare.sh --skip-deploy
+```
+
+**Recommended**: Run drift detection weekly or as part of CI/CD:
+
+```bash
+#!/bin/bash
+# drift-check.sh - Add to cron or CI
+
+# Check DNS
+./scripts/create-cloudflare-dns-records.sh --dry-run > /tmp/dns-drift.log
+if grep -q "Would create\|Would update" /tmp/dns-drift.log; then
+    echo "DNS drift detected!"
+    # Send alert or auto-remediate
+    ./scripts/create-cloudflare-dns-records.sh --force
+fi
+
+# Check Access
+./scripts/export-cloudflare-access-apps.sh --output /tmp/access-current.json
+if ! diff -q docs/cloudflare/access-baseline.json /tmp/access-current.json; then
+    echo "Access policy drift detected!"
+    # Send alert or auto-remediate
+    ./scripts/create-cloudflare-access-apps.sh --force
+fi
 ```
 
 ---
