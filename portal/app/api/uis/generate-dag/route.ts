@@ -3,7 +3,8 @@ import { NextRequest, NextResponse } from 'next/server';
 export async function POST(request: NextRequest) {
   try {
     const spec = await request.json();
-    const workflowId = `${spec.name.toLowerCase().replace(/\s+/g, '-')}-${Date.now()}`;
+    // Use crypto.randomUUID() for more robust ID generation
+    const workflowId = `${spec.name.toLowerCase().replace(/\s+/g, '-')}-${crypto.randomUUID().slice(0, 8)}`;
     
     const workflow = {
       name: workflowId,

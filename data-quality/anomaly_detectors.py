@@ -9,6 +9,12 @@ from typing import Dict, List, Optional, Tuple
 from datetime import datetime, timedelta
 import pandas as pd
 
+try:
+    from pyiceberg.catalog import load_catalog
+    ICEBERG_AVAILABLE = True
+except ImportError:
+    ICEBERG_AVAILABLE = False
+
 
 class SeasonalZScoreDetector:
     """Detect anomalies using seasonal z-scores (day-of-week, hour-of-day patterns)."""
@@ -254,9 +260,11 @@ def tag_iceberg_snapshot(
     Returns:
         True if tagging successful
     """
+    if not ICEBERG_AVAILABLE:
+        print("pyiceberg not available, skipping snapshot tagging")
+        return False
+    
     try:
-        from pyiceberg.catalog import load_catalog
-        
         catalog = load_catalog("default")
         table = catalog.load_table(table_path)
         
