@@ -1,0 +1,43 @@
+hmco:
+  target: dev
+  outputs:
+    dev:
+      type: trino
+      method: none
+      host: trino-coordinator
+      port: 8080
+      database: iceberg
+      schema: analytics_dev
+      threads: 4
+      http_scheme: http
+      
+    prod:
+      type: trino
+      method: none
+      host: trino-coordinator
+      port: 8080
+      database: iceberg
+      schema: analytics
+      threads: 8
+      http_scheme: http
+    
+    # ClickHouse for fast aggregates
+    clickhouse_dev:
+      type: clickhouse
+      host: clickhouse-service
+      port: 9000
+      user: default
+      password: "{{ env_var('CLICKHOUSE_PASSWORD') }}"
+      database: analytics_dev
+      schema: dbt
+      threads: 4
+      
+    clickhouse_prod:
+      type: clickhouse
+      host: clickhouse-service
+      port: 9000
+      user: default
+      password: "{{ env_var('CLICKHOUSE_PASSWORD') }}"
+      database: analytics
+      schema: dbt
+      threads: 8

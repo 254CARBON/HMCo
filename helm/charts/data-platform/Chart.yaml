@@ -32,5 +32,13 @@ dependencies:
     version: "0.1.0"
     repository: "file://./charts/superset"
     condition: superset.enabled
+  - name: lakefs
+    version: "1.0.0"
+    repository: "file://./charts/lakefs"
+    condition: lakefs.enabled
+  - name: marquez
+    version: "1.0.0"
+    repository: "file://./charts/marquez"
+    condition: marquez.enabled
 
 

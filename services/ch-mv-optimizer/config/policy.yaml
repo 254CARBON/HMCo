@@ -1,0 +1,100 @@
+# ClickHouse Materialized View Optimizer Policy
+# Guardrails for automatic MV creation and lifecycle management
+
+optimizer:
+  # Run optimization every N minutes
+  interval_minutes: 30
+  
+  # Query analysis window
+  analysis_window_hours: 24
+  
+  # Minimum query frequency to consider for MV
+  min_query_count: 100
+  
+  # Minimum average query time to optimize (ms)
+  min_avg_query_time_ms: 500
+  
+  # Target performance improvement
+  target_p95_ms: 200
+
+guardrails:
+  # Maximum storage overhead for all MVs
+  max_storage_percent: 20
+  
+  # Maximum number of MVs per table
+  max_mvs_per_table: 5
+  
+  # Minimum rows in base table to create MV
+  min_base_table_rows: 10000
+  
+  # MV retention - drop if unused for N days
+  unused_retention_days: 7
+  
+  # Maximum MV refresh time (seconds)
+  max_refresh_time_seconds: 300
+
+# MV patterns to auto-create
+patterns:
+  - name: hourly_aggregates
+    match_pattern: "SELECT .* GROUP BY toStartOfHour"
+    template: |
+      CREATE MATERIALIZED VIEW {mv_name}
+      ENGINE = AggregatingMergeTree()
+      ORDER BY (time_hour, {group_by_cols})
+      AS SELECT
+        toStartOfHour({time_col}) as time_hour,
+        {group_by_cols},
+        {agg_functions}
+      FROM {base_table}
+      GROUP BY time_hour, {group_by_cols}
+  
+  - name: daily_aggregates
+    match_pattern: "SELECT .* GROUP BY toDate"
+    template: |
+      CREATE MATERIALIZED VIEW {mv_name}
+      ENGINE = SummingMergeTree()
+      ORDER BY (date, {group_by_cols})
+      AS SELECT
+        toDate({time_col}) as date,
+        {group_by_cols},
+        {sum_columns}
+      FROM {base_table}
+      GROUP BY date, {group_by_cols}
+  
+  - name: top_k_queries
+    match_pattern: "SELECT .* ORDER BY .* LIMIT [0-9]+"
+    template: |
+      CREATE MATERIALIZED VIEW {mv_name}
+      ENGINE = AggregatingMergeTree()
+      ORDER BY ({order_by_cols})
+      AS SELECT
+        {select_cols},
+        count() as query_count
+      FROM {base_table}
+      GROUP BY {group_by_cols}
+      ORDER BY {order_by_cols}
+
+# Tables to monitor
+monitored_tables:
+  - database: analytics
+    table: lmp_prices
+    priority: high
+  
+  - database: analytics
+    table: weather_data
+    priority: high
+  
+  - database: trading
+    table: trades
+    priority: critical
+  
+  - database: trading
+    table: positions
+    priority: critical
+
+# Excluded patterns (don't optimize these)
+exclusions:
+  - pattern: ".*_mv$"  # Don't optimize MVs
+  - pattern: ".*SYSTEM.*"  # Don't optimize system queries
+  - pattern: ".*SHOW.*"
+  - pattern: ".*DESCRIBE.*"

@@ -1,0 +1,60 @@
+name: 'hmco_analytics'
+version: '1.0.0'
+config-version: 2
+
+profile: 'hmco'
+
+model-paths: ["models"]
+analysis-paths: ["analyses"]
+test-paths: ["tests"]
+seed-paths: ["seeds"]
+macro-paths: ["macros"]
+snapshot-paths: ["snapshots"]
+
+target-path: "target"
+clean-targets:
+  - "target"
+  - "dbt_packages"
+
+models:
+  hmco_analytics:
+    # Staging models - raw to clean
+    staging:
+      +materialized: view
+      +tags: ["staging"]
+      
+    # Core business logic models
+    marts:
+      +materialized: table
+      +tags: ["marts"]
+      
+      # LMP (Locational Marginal Pricing)
+      lmp:
+        +schema: lmp
+        +tags: ["lmp", "energy"]
+        
+      # Weather features
+      weather:
+        +schema: weather
+        +tags: ["weather", "features"]
+        
+      # Outages and events
+      outages:
+        +schema: outages
+        +tags: ["outages", "incidents"]
+
+# Test configurations
+tests:
+  +store_failures: true
+  +schema: dbt_test_failures
+
+# Snapshot configurations
+snapshots:
+  +target_schema: snapshots
+  +strategy: timestamp
+  +updated_at: updated_at
+
+# Seeds
+seeds:
+  +schema: reference_data
+  +quote_columns: false

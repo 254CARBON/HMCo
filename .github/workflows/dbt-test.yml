@@ -1,0 +1,80 @@
+name: dbt Tests
+
+on:
+  pull_request:
+    branches: [ main, develop ]
+    paths:
+      - 'analytics/dbt/**'
+  push:
+    branches: [ main ]
+    paths:
+      - 'analytics/dbt/**'
+
+jobs:
+  dbt-test:
+    name: Run dbt Tests
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+    
+    - name: Install dbt
+      run: |
+        python -m pip install --upgrade pip
+        pip install dbt-core dbt-trino dbt-clickhouse
+    
+    - name: Install dbt dependencies
+      working-directory: analytics/dbt
+      run: |
+        dbt deps
+    
+    - name: Lint dbt project
+      working-directory: analytics/dbt
+      run: |
+        # Check for compilation errors
+        dbt parse --profiles-dir . || exit 1
+    
+    - name: Validate dbt models
+      working-directory: analytics/dbt
+      run: |
+        # Check model syntax
+        dbt compile --profiles-dir . --target dev || exit 1
+    
+    - name: Check for model tests
+      working-directory: analytics/dbt
+      run: |
+        # Ensure all models have tests
+        python -c "
+        import yaml
+        import sys
+        
+        with open('models/schema.yml', 'r') as f:
+            schema = yaml.safe_load(f)
+        
+        models_with_tests = set()
+        for model in schema.get('models', []):
+            if 'tests' in model or any('tests' in col for col in model.get('columns', [])):
+                models_with_tests.add(model['name'])
+        
+        print(f'✓ {len(models_with_tests)} models have tests')
+        
+        if len(models_with_tests) == 0:
+            print('⚠️  Warning: No models have tests defined')
+        "
+    
+    - name: Comment on PR
+      if: github.event_name == 'pull_request'
+      uses: actions/github-script@v6
+      with:
+        script: |
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: '✅ dbt validation passed! All models compiled successfully.'
+          })

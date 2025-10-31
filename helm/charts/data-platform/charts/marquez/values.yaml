@@ -1,0 +1,97 @@
+replicaCount: 2
+
+marquez:
+  image:
+    repository: marquezproject/marquez
+    pullPolicy: IfNotPresent
+    tag: "0.45.0"
+  
+  service:
+    type: ClusterIP
+    port: 5000
+    
+  db:
+    host: postgres
+    port: 5432
+    name: marquez
+    user: marquez
+    passwordSecretName: marquez-postgres-secret
+    passwordSecretKey: password
+
+marquezWeb:
+  enabled: true
+  image:
+    repository: marquezproject/marquez-web
+    pullPolicy: IfNotPresent
+    tag: "0.45.0"
+  
+  service:
+    type: ClusterIP
+    port: 3000
+
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+  hosts:
+    - host: lineage.254carbon.com
+      paths:
+        - path: /
+          pathType: Prefix
+          service: marquez-web
+        - path: /api
+          pathType: Prefix
+          service: marquez
+  tls:
+    - secretName: marquez-tls
+      hosts:
+        - lineage.254carbon.com
+
+# OpenLineage configuration
+openlineage:
+  # Namespaces to track
+  namespaces:
+    - hmco-production
+    - hmco-staging
+  
+  # Instrumentation for various engines
+  instrumentation:
+    spark:
+      enabled: true
+      listener: "io.openlineage.spark.agent.OpenLineageSparkListener"
+    
+    flink:
+      enabled: true
+      listener: "io.openlineage.flink.OpenLineageFlinkJobListener"
+    
+    trino:
+      enabled: true
+      plugin: "io.openlineage.trino.OpenLineageEventListener"
+    
+    dolphinscheduler:
+      enabled: true
+      plugin: "io.openlineage.dolphinscheduler.OpenLineagePlugin"
+
+resources:
+  marquez:
+    limits:
+      cpu: 2000m
+      memory: 4Gi
+    requests:
+      cpu: 500m
+      memory: 1Gi
+  
+  marquezWeb:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
