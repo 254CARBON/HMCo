@@ -1,0 +1,66 @@
+# Argo Rollouts Configuration
+argoRollouts:
+  image:
+    repository: quay.io/argoproj/argo-rollouts
+    tag: v1.6.0
+    pullPolicy: IfNotPresent
+
+  replicaCount: 2
+
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+  serviceAccount:
+    create: true
+    name: argo-rollouts
+
+  # Enable dashboard
+  dashboard:
+    enabled: true
+    service:
+      type: ClusterIP
+      port: 3100
+
+# Analysis Templates for Canary Deployments
+analysisTemplates:
+  # Success rate analysis
+  successRate:
+    enabled: true
+    threshold: 95
+    intervalSeconds: 60
+    
+  # Error rate analysis
+  errorRate:
+    enabled: true
+    threshold: 5
+    intervalSeconds: 60
+    
+  # Latency analysis
+  latency:
+    enabled: true
+    threshold: 1000  # milliseconds
+    intervalSeconds: 60
+
+# Prometheus integration for metrics
+prometheus:
+  enabled: true
+  address: http://prometheus-operated.monitoring.svc.cluster.local:9090
+
+# Default canary strategy
+defaultCanaryStrategy:
+  maxSurge: "25%"
+  maxUnavailable: 0
+  steps:
+    - setWeight: 20
+    - pause: {duration: 2m}
+    - setWeight: 40
+    - pause: {duration: 2m}
+    - setWeight: 60
+    - pause: {duration: 2m}
+    - setWeight: 80
+    - pause: {duration: 2m}

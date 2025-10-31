@@ -1,0 +1,39 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: argo-rollouts-metrics
+  namespace: argo-rollouts
+  labels:
+    {{- include "progressive-delivery.labels" . | nindent 4 }}
+    app.kubernetes.io/component: controller
+spec:
+  type: ClusterIP
+  ports:
+  - name: metrics
+    port: 8090
+    protocol: TCP
+    targetPort: 8090
+  selector:
+    {{- include "progressive-delivery.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: controller
+---
+{{- if .Values.argoRollouts.dashboard.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: argo-rollouts-dashboard
+  namespace: argo-rollouts
+  labels:
+    {{- include "progressive-delivery.labels" . | nindent 4 }}
+    app.kubernetes.io/component: dashboard
+spec:
+  type: {{ .Values.argoRollouts.dashboard.service.type }}
+  ports:
+  - name: dashboard
+    port: {{ .Values.argoRollouts.dashboard.service.port }}
+    protocol: TCP
+    targetPort: 3100
+  selector:
+    {{- include "progressive-delivery.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: controller
+{{- end }}
