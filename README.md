@@ -46,3 +46,9 @@ All platform components are managed as Helm charts and deployed via ArgoCD. The 
 - Single Sign-On (SSO): `docs/sso/index.md`, `docs/sso/guide.md`
 - Operations: `docs/operations/deployment/index.md`, `docs/operations/scripts.md`
 - Disaster Recovery: `docs/disaster-recovery/DR_RUNBOOK.md`
+
+## Operator Links
+
+### Cost Management & Monitoring
+
+- **Kubecost Dashboard:** [https://kubecost.254carbon.com](https://kubecost.254carbon.com) - Real-time cost monitoring, budget tracking, and monthly run-rate estimates for all namespaces. See [`docs/monitoring/kubecost.md`](docs/monitoring/kubecost.md) for configuration details and alert thresholds.
