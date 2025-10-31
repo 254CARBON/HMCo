@@ -40,5 +40,29 @@ dependencies:
     version: "1.0.0"
     repository: "file://./charts/marquez"
     condition: marquez.enabled
+  - name: backup
+    version: "0.1.0"
+    repository: "file://./charts/backup"
+    condition: backup.enabled
+  - name: maintenance
+    version: "0.1.0"
+    repository: "file://./charts/maintenance"
+    condition: maintenance.enabled
+  - name: geospatial
+    version: "0.1.0"
+    repository: "file://./charts/geospatial"
+    condition: geospatial.enabled
+  - name: iceberg-rest-catalog
+    version: "0.1.0"
+    repository: "file://./charts/iceberg-rest-catalog"
+    condition: iceberg-rest-catalog.enabled
+  - name: geo-router
+    version: "0.1.0"
+    repository: "file://./charts/geo-router"
+    condition: geo-router.enabled
+  - name: openmetadata
+    version: "0.1.0"
+    repository: "file://./charts/openmetadata"
+    condition: openmetadata.enabled
 
 
