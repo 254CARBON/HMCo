@@ -506,7 +506,71 @@ Internal use - 254Carbon Data Platform
 
 ---
 
-**Last Updated**: October 21, 2025  
+## Release Management Scripts
+
+### `validate-charts.sh`
+**Validate all Helm charts in the repository**
+
+Comprehensive validation of chart structure, syntax, and rendering.
+
+```bash
+# Validate all charts
+./validate-charts.sh
+
+# Validate specific chart
+./validate-charts.sh data-platform
+```
+
+**What it checks**:
+- Chart.yaml exists and is valid
+- CHANGELOG.md exists (warning if missing)
+- Helm lint passes
+- Templates render successfully
+- Environment-specific values work (if present)
+
+**Time**: ~30 seconds per chart
+
+---
+
+### `bump-chart-version.sh`
+**Bump chart version and update CHANGELOG**
+
+Automated version bumping following semantic versioning.
+
+```bash
+./bump-chart-version.sh <chart-name> <version-type> [description]
+```
+
+**Version types**:
+- `major`: Breaking changes (1.0.0 → 2.0.0)
+- `minor`: New features (1.0.0 → 1.1.0)
+- `patch`: Bug fixes (1.0.0 → 1.0.1)
+
+**Examples**:
+```bash
+# Patch bump
+./bump-chart-version.sh data-platform patch "Fix ClickHouse configuration"
+
+# Minor bump
+./bump-chart-version.sh ml-platform minor "Add new MLflow feature"
+
+# Major bump
+./bump-chart-version.sh api-gateway major "Breaking API changes"
+```
+
+**What it does**:
+1. Validates chart exists
+2. Calculates new version
+3. Updates Chart.yaml
+4. Updates CHANGELOG.md with entry
+5. Runs helm lint validation
+6. Provides commit instructions
+
+**Time**: <1 minute
+
+---
+
+**Last Updated**: October 31, 2025  
 **Scripts Version**: 1.0.0
 
 
