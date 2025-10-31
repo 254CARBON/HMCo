@@ -281,7 +281,17 @@ export BACKUP_NAME=daily-backup-$(date +%Y%m%d020000)
 kubectl create -f <(envsubst < k8s/storage/velero-restore-app.yaml)
 ```
 
-### 4. Automate Restore Validation
+### 4. DR Drill Recovery (Recommended for Testing)
+```bash
+# Use the dedicated DR drill template for complete recovery testing
+export BACKUP_NAME=$(velero backup get \
+  --selector velero.io/schedule-name=daily-backup \
+  --output json | jq -r '.items | map(select(.status.phase=="Completed")) | sort_by(.status.completionTimestamp) | last | .metadata.name')
+
+kubectl create -f <(envsubst < k8s/storage/velero-restore-dr-drill.yaml)
+```
+
+### 5. Automate Restore Validation
 ```bash
 # Restore latest completed backup into a scratch namespace and wait for completion
 ./scripts/velero-restore-validate.sh \
@@ -683,10 +693,15 @@ kubectl scale deployment velero -n velero --replicas=2
 
 | File | Purpose | Location |
 |------|---------|----------|
-| `velero-backup-config.yaml` | Main backup configuration | `k8s/storage/` |
+| `velero-backup-config.yaml` | Main backup configuration with all namespaces | `k8s/storage/` |
+| `velero-restore-full.yaml` | Full cluster restore template | `k8s/storage/` |
+| `velero-restore-dr-drill.yaml` | DR drill restore (critical namespaces only) | `k8s/storage/` |
+| `velero-restore-namespace.yaml` | Single namespace restore template | `k8s/storage/` |
+| `velero-restore-app.yaml` | Application-specific restore template | `k8s/storage/` |
+| `velero-restore-test.yaml` | Test restore configuration (no PVs) | `k8s/storage/` |
 | `deploy-velero-backup.sh` | Deployment script | `scripts/` |
-| `velero-restore-test.yaml` | Test restore configuration | `k8s/storage/` |
-| This guide | Complete procedures | `PHASE5_BACKUP_GUIDE.md` |
+| `velero-restore-validate.sh` | Automated restore validation script | `scripts/` |
+| This guide | Complete procedures | `docs/operations/backup-guide.md` |
 
 ## Support
 

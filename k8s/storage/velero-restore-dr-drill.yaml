@@ -1,0 +1,59 @@
+# Disaster Recovery Drill restore template.
+#
+# This template is specifically designed for DR drill scenarios where you restore
+# critical services (data-platform, ml-platform, vault-prod) into an empty cluster
+# to verify backup completeness and practice recovery procedures.
+#
+# Prerequisites:
+#   * Velero installed in the target cluster with access to backup storage
+#   * Empty cluster or test environment
+#   * No existing resources in target namespaces
+#
+# Usage for complete DR drill:
+#   # Get latest successful daily backup
+#   export BACKUP_NAME="$(velero backup get --selector 'velero.io/schedule-name=daily-backup' \
+#     --output json | jq -r '.items | map(select(.status.phase=="Completed")) | sort_by(.status.completionTimestamp) | last | .metadata.name')"
+#   
+#   # Perform restore
+#   kubectl create -f <(envsubst < k8s/storage/velero-restore-dr-drill.yaml)
+#   
+#   # Monitor progress
+#   velero restore describe restore-dr-drill-<timestamp>
+#
+# This restore includes:
+# - ClickHouse with data and logs PVs
+# - Portal services
+# - MLflow with experiment tracking
+# - Vault with Raft storage
+# - Supporting monitoring infrastructure
+
+apiVersion: velero.io/v1
+kind: Restore
+metadata:
+  generateName: restore-dr-drill-
+  namespace: velero
+  labels:
+    velero.254carbon.com/purpose: dr-drill
+    velero.254carbon.com/environment: test
+  annotations:
+    velero.254carbon.com/drill-date: "${DRILL_DATE:-}"
+    velero.254carbon.com/operator: "${OPERATOR:-system}"
+spec:
+  backupName: ${BACKUP_NAME:?Set BACKUP_NAME to an existing Velero backup}
+  # Include only critical namespaces for DR drill
+  includedNamespaces:
+  - data-platform      # ClickHouse PVs, portal services, Trino
+  - ml-platform        # MLflow experiment tracking
+  - vault-prod         # Vault Raft storage
+  - monitoring         # Essential observability
+  excludedResources:
+  - events
+  - events.events.k8s.io
+  # Restore all persistent volumes
+  restorePVs: true
+  # Update existing resources if they exist (for partial restores)
+  existingResourcePolicy: update
+  # Include namespace-scoped cluster resources (RBAC, etc.)
+  includeClusterResources: true
+  # Use file-system backup for volumes without snapshots
+  defaultVolumesToFsBackup: true
