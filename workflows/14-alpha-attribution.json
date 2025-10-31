@@ -1,0 +1,41 @@
+{
+  "name": "14-alpha-attribution",
+  "description": "Alpha attribution and decision Shapley value calculation",
+  "schedule": "0 2 * * *",
+  "timezone": "UTC",
+  "tasks": [
+    {
+      "name": "compute_shapley_values",
+      "type": "PYTHON",
+      "script": "/app/analytics/attribution/decision_shapley.py",
+      "args": [
+        "--decisions", "${data.decisions_path}",
+        "--pnl", "${data.pnl_path}",
+        "--output", "${output.attribution_path}"
+      ],
+      "timeout": 1800
+    },
+    {
+      "name": "aggregate_signals",
+      "type": "PYTHON",
+      "script": "/app/analytics/attribution/aggregate_performance.py",
+      "args": [
+        "--attribution", "${output.attribution_path}",
+        "--output", "${output.signal_performance}"
+      ],
+      "dependsOn": ["compute_shapley_values"],
+      "timeout": 300
+    },
+    {
+      "name": "load_to_clickhouse",
+      "type": "PYTHON",
+      "script": "/app/scripts/load_alpha_attribution.py",
+      "args": [
+        "--attribution-path", "${output.attribution_path}",
+        "--clickhouse-host", "${clickhouse.host}"
+      ],
+      "dependsOn": ["aggregate_signals"],
+      "timeout": 600
+    }
+  ]
+}

@@ -1,0 +1,51 @@
+{
+  "name": "12-grid-sensitivities",
+  "description": "PTDF/LODF network sensitivity estimation workflow",
+  "schedule": "0 */6 * * *",
+  "timezone": "UTC",
+  "tasks": [
+    {
+      "name": "extract_topology_signals",
+      "type": "PYTHON",
+      "script": "/app/features/graph/topology_signals.py",
+      "args": [
+        "--flow-data", "${data.flow_path}",
+        "--lmp-data", "${data.lmp_path}",
+        "--nodes", "${data.nodes_path}",
+        "--lines", "${data.lines_path}",
+        "--output", "${output.topology_signals}"
+      ],
+      "timeout": 600
+    },
+    {
+      "name": "train_ptdf_lodf",
+      "type": "PYTHON",
+      "script": "/app/models/grid_sensitivities/train.py",
+      "args": [
+        "--flow-data", "${data.flow_path}",
+        "--lmp-data", "${data.lmp_path}",
+        "--topology-signals", "${output.topology_signals}",
+        "--output-model", "${output.model_path}",
+        "--alpha", "1.0"
+      ],
+      "dependsOn": ["extract_topology_signals"],
+      "timeout": 1800
+    },
+    {
+      "name": "load_to_clickhouse",
+      "type": "PYTHON",
+      "script": "/app/scripts/load_grid_sensitivities.py",
+      "args": [
+        "--model-path", "${output.model_path}",
+        "--clickhouse-host", "${clickhouse.host}",
+        "--clickhouse-db", "default"
+      ],
+      "dependsOn": ["train_ptdf_lodf"],
+      "timeout": 300
+    }
+  ],
+  "notifications": {
+    "on_failure": ["data-engineering@254carbon.com"],
+    "on_success": []
+  }
+}
