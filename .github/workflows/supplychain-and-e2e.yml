@@ -39,10 +39,15 @@ jobs:
     - name: Validate Kubernetes manifests
       run: |
         echo "Validating Kubernetes manifests..."
+        EXIT_CODE=0
         find k8s -name '*.yaml' -o -name '*.yml' | while read -r file; do
           echo "Validating $file"
-          kubeconform -summary -output json "$file" || true
+          if ! kubeconform -summary -ignore-missing-schemas "$file"; then
+            echo "Warning: Validation issues in $file"
+            EXIT_CODE=1
+          fi
         done
+        exit $EXIT_CODE
     
     - name: Lint Helm charts
       run: |
@@ -72,9 +77,9 @@ jobs:
           if [ -f "helm/charts/data-platform/values/dev.yaml" ]; then
             helm template data-platform helm/charts/data-platform \
               --values helm/charts/data-platform/values/dev.yaml \
-              --debug > /dev/null
+              --debug
           else
-            helm template data-platform helm/charts/data-platform --debug > /dev/null
+            helm template data-platform helm/charts/data-platform --debug
           fi
         fi
     
@@ -82,7 +87,7 @@ jobs:
       run: |
         echo "Validating ArgoCD application manifests..."
         if [ -f "k8s/gitops/argocd-applications.yaml" ]; then
-          kubeconform -summary k8s/gitops/argocd-applications.yaml || true
+          kubeconform -summary -ignore-missing-schemas k8s/gitops/argocd-applications.yaml
         fi
 
   sbom_and_sign:
@@ -147,23 +152,34 @@ jobs:
       if: github.event_name == 'pull_request'
       run: |
         echo "Building test image for verification..."
-        if [ -f "docker/Dockerfile" ]; then
-          docker build -f docker/Dockerfile -t test-image:${{ github.sha }} .
+        # Try different Dockerfile locations
+        if [ -f "backend/Dockerfile" ]; then
+          echo "Building backend image..."
+          docker build -f backend/Dockerfile -t test-image:${{ github.sha }} ./backend
+        elif [ -f "portal/Dockerfile" ]; then
+          echo "Building portal image..."
+          docker build -f portal/Dockerfile -t test-image:${{ github.sha }} ./portal
         else
-          echo "No Dockerfile found, skipping image build"
+          echo "No primary Dockerfile found for testing, skipping image build"
         fi
     
     - name: Build and push images
       if: github.event_name != 'pull_request'
       run: |
         echo "Building and pushing images..."
-        if [ -f "docker/Dockerfile" ]; then
-          IMAGE_TAG="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}"
-          docker build -f docker/Dockerfile -t $IMAGE_TAG .
-          docker push $IMAGE_TAG
-          echo "IMAGE_DIGEST=$(docker inspect --format='{{index .RepoDigests 0}}' $IMAGE_TAG)" >> $GITHUB_ENV
+        # Build backend or portal image (primary deployable artifacts)
+        if [ -f "backend/Dockerfile" ]; then
+          IMAGE_TAG="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-backend:${{ github.sha }}"
+          docker build -f backend/Dockerfile -t "$IMAGE_TAG" ./backend
+          docker push "$IMAGE_TAG"
+          echo "IMAGE_DIGEST=$(docker inspect --format='{{index .RepoDigests 0}}' "$IMAGE_TAG")" >> "$GITHUB_ENV"
+        elif [ -f "portal/Dockerfile" ]; then
+          IMAGE_TAG="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-portal:${{ github.sha }}"
+          docker build -f portal/Dockerfile -t "$IMAGE_TAG" ./portal
+          docker push "$IMAGE_TAG"
+          echo "IMAGE_DIGEST=$(docker inspect --format='{{index .RepoDigests 0}}' "$IMAGE_TAG")" >> "$GITHUB_ENV"
         else
-          echo "No Dockerfile found, skipping image build"
+          echo "No primary Dockerfile found for deployment"
         fi
     
     - name: Sign container image
@@ -256,10 +272,12 @@ jobs:
         fi
         
         # Install service dependencies for testing
+        # Note: We continue on error here as some services may have conflicting deps
+        # The actual tests will fail if required dependencies are missing
         for service_dir in services/*/; do
           if [ -f "$service_dir/requirements.txt" ]; then
             echo "Installing dependencies for $(basename "$service_dir")..."
-            pip install -r "$service_dir/requirements.txt" || true
+            pip install -r "$service_dir/requirements.txt" || echo "Warning: Some dependencies failed to install for $(basename "$service_dir")"
           fi
         done
     
@@ -280,14 +298,19 @@ jobs:
         echo "Testing Helm chart deployment..."
         
         # Create test namespace
-        kubectl create namespace data-platform-test || true
+        kubectl create namespace data-platform-test
         
         # Try to install a lightweight chart if available
+        # Note: This may fail due to missing dependencies/CRDs, which is acceptable
         if [ -f "helm/charts/data-platform/Chart.yaml" ]; then
           echo "Performing dry-run of data-platform chart..."
-          helm install data-platform-test helm/charts/data-platform \
+          if helm install data-platform-test helm/charts/data-platform \
             --namespace data-platform-test \
-            --dry-run --debug > /dev/null || true
+            --dry-run --debug; then
+            echo "Dry-run successful"
+          else
+            echo "Dry-run failed - this is acceptable if CRDs are missing"
+          fi
         fi
     
     - name: Run E2E tests
@@ -303,14 +326,16 @@ jobs:
         echo "Running E2E tests..."
         
         # Run E2E tests if they exist
-        if [ -d "tests/e2e" ]; then
-          pytest tests/e2e/ -v --timeout=300 || true
-        elif [ -d "tests/integration" ]; then
+        if [ -d "tests/e2e" ] && [ -n "$(ls -A tests/e2e/*.py 2>/dev/null)" ]; then
+          echo "Found E2E tests, running..."
+          pytest tests/e2e/ -v --timeout=300
+        elif [ -d "tests/integration" ] && [ -n "$(ls -A tests/integration/*.py 2>/dev/null)" ]; then
           echo "Running integration tests as E2E..."
-          pytest tests/integration/ -v --timeout=300 -m "not requires_kafka" || true
+          pytest tests/integration/ -v --timeout=300 -m "not requires_kafka"
         else
-          echo "No E2E tests found, running basic validation..."
-          python -c "import sys; print('Python E2E test placeholder - OK'); sys.exit(0)"
+          echo "No E2E or integration tests found - this is expected for new infrastructure"
+          echo "E2E job passes as no tests are defined yet"
+          exit 0
         fi
     
     - name: Test API endpoints (if backend exists)
