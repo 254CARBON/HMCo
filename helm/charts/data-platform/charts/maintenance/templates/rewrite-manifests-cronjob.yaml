@@ -1,0 +1,56 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: iceberg-rewrite-manifests
+  namespace: data-platform
+  labels:
+    app: iceberg-maintenance
+    component: rewrite-manifests
+spec:
+  schedule: {{ .Values.schedules.rewriteManifests | quote }}
+  concurrencyPolicy: Forbid
+  jobTemplate:
+    spec:
+      template:
+        metadata:
+          labels:
+            app: iceberg-maintenance
+            component: rewrite-manifests
+        spec:
+          restartPolicy: OnFailure
+          containers:
+          - name: rewrite-manifests
+            image: "{{ .Values.spark.image.repository }}:{{ .Values.spark.image.tag }}"
+            command:
+            - /bin/sh
+            - -c
+            - |
+              spark-sql \
+                --conf spark.sql.catalog.iceberg=org.apache.iceberg.spark.SparkCatalog \
+                --conf spark.sql.catalog.iceberg.type=rest \
+                --conf spark.sql.catalog.iceberg.uri={{ .Values.iceberg.catalogUri }} \
+                --conf spark.sql.catalog.iceberg.warehouse={{ .Values.iceberg.warehouse }} \
+                --conf spark.sql.catalog.iceberg.io-impl=org.apache.iceberg.aws.s3.S3FileIO \
+                --conf spark.sql.catalog.iceberg.s3.endpoint={{ .Values.s3.endpoint }} \
+                --conf spark.sql.catalog.iceberg.s3.path-style-access={{ .Values.s3.pathStyleAccess }} \
+                -e "
+                -- Rewrite manifests to consolidate metadata
+                CALL iceberg.system.rewrite_manifests('hub_curated.eia_daily_fuel');
+                CALL iceberg.system.rewrite_manifests('hub_curated.iso_rt_lmp');
+                CALL iceberg.system.rewrite_manifests('hub_curated.noaa_hourly');
+                CALL iceberg.system.rewrite_manifests('hub_curated.fred_daily');
+                CALL iceberg.system.rewrite_manifests('hub_curated.census_static');
+                "
+            env:
+            - name: AWS_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.s3.secretName }}
+                  key: accesskey
+            - name: AWS_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.s3.secretName }}
+                  key: secretkey
+            resources:
+              {{- toYaml .Values.resources | nindent 14 }}

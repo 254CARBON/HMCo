@@ -1,0 +1,106 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: clickhouse-backup-full
+  namespace: data-platform
+  labels:
+    app: backup
+    component: clickhouse-backup
+    backup-type: full
+spec:
+  schedule: {{ .Values.clickhouse.schedules.full | quote }}
+  concurrencyPolicy: Forbid
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: OnFailure
+          containers:
+          - name: clickhouse-backup
+            image: altinity/clickhouse-backup:latest
+            env:
+            - name: CLICKHOUSE_HOST
+              value: {{ .Values.clickhouse.host | quote }}
+            - name: CLICKHOUSE_PORT
+              value: {{ .Values.clickhouse.port | quote }}
+            - name: S3_BUCKET
+              value: {{ .Values.clickhouse.backupBucket | quote }}
+            - name: S3_ENDPOINT
+              value: "http://minio.minio.svc.cluster.local:9000"
+            command:
+            - /bin/sh
+            - -c
+            - |
+              echo "Starting ClickHouse full backup"
+              
+              # Create backup
+              clickhouse-backup create full-$(date +%Y%m%d-%H%M%S)
+              
+              # Upload to S3
+              clickhouse-backup upload full-$(date +%Y%m%d-%H%M%S)
+              
+              # Clean old local backups (keep last 3)
+              clickhouse-backup delete local --keep-last 3
+              
+              # Clean old remote backups (keep last 10)
+              clickhouse-backup delete remote --keep-last 10
+              
+              echo "Full backup complete"
+            resources:
+              limits:
+                memory: "2Gi"
+                cpu: "1000m"
+              requests:
+                memory: "1Gi"
+                cpu: "500m"
+
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: clickhouse-backup-incremental
+  namespace: data-platform
+  labels:
+    app: backup
+    component: clickhouse-backup
+    backup-type: incremental
+spec:
+  schedule: {{ .Values.clickhouse.schedules.incremental | quote }}
+  concurrencyPolicy: Forbid
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: OnFailure
+          containers:
+          - name: clickhouse-backup
+            image: altinity/clickhouse-backup:latest
+            env:
+            - name: CLICKHOUSE_HOST
+              value: {{ .Values.clickhouse.host | quote }}
+            - name: CLICKHOUSE_PORT
+              value: {{ .Values.clickhouse.port | quote }}
+            - name: S3_BUCKET
+              value: {{ .Values.clickhouse.backupBucket | quote }}
+            - name: S3_ENDPOINT
+              value: "http://minio.minio.svc.cluster.local:9000"
+            command:
+            - /bin/sh
+            - -c
+            - |
+              echo "Starting ClickHouse incremental backup"
+              
+              # Create incremental backup
+              clickhouse-backup create --diff-from-remote incremental-$(date +%Y%m%d-%H%M%S)
+              
+              # Upload to S3
+              clickhouse-backup upload incremental-$(date +%Y%m%d-%H%M%S)
+              
+              echo "Incremental backup complete"
+            resources:
+              limits:
+                memory: "1Gi"
+                cpu: "500m"
+              requests:
+                memory: "512Mi"
+                cpu: "250m"

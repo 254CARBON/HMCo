@@ -1,0 +1,146 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: dolphinscheduler-alerts
+  namespace: data-platform
+  labels:
+    app: dolphinscheduler
+    component: alerts
+data:
+  freshness-alerts.yaml: |
+    groups:
+    - name: data_freshness
+      interval: 1m
+      rules:
+      # EIA Daily Data Freshness
+      - alert: EIADataStale
+        expr: |
+          (time() - max(iceberg_table_last_update_timestamp{table="eia_daily_fuel"})) > 1800
+        for: 5m
+        labels:
+          severity: warning
+          component: data-platform
+          dataset: eia
+        annotations:
+          summary: "EIA daily data is stale"
+          description: "EIA daily fuel data has not been updated in 30 minutes (SLA: 30min)"
+      
+      # FRED Daily Data Freshness
+      - alert: FREDDataStale
+        expr: |
+          (time() - max(iceberg_table_last_update_timestamp{table="fred_daily"})) > 1800
+        for: 5m
+        labels:
+          severity: warning
+          component: data-platform
+          dataset: fred
+        annotations:
+          summary: "FRED daily data is stale"
+          description: "FRED economic indicators have not been updated in 30 minutes (SLA: 30min)"
+      
+      # NOAA Hourly Data Freshness
+      - alert: NOAADataStale
+        expr: |
+          (time() - max(iceberg_table_last_update_timestamp{table="noaa_hourly"})) > 1200
+        for: 5m
+        labels:
+          severity: warning
+          component: data-platform
+          dataset: noaa
+        annotations:
+          summary: "NOAA hourly data is stale"
+          description: "NOAA weather data has not been updated in 20 minutes (SLA: 20min after top of hour)"
+      
+      # CAISO RT LMP Data Freshness (Critical)
+      - alert: CAISODataStale
+        expr: |
+          (time() - max(clickhouse_table_last_update_timestamp{table="rt_lmp",iso="CAISO"})) > 600
+        for: 5m
+        labels:
+          severity: critical
+          component: data-platform
+          dataset: caiso
+          iso: CAISO
+        annotations:
+          summary: "CAISO RT LMP data is stale"
+          description: "CAISO 5-minute LMP data has not been updated in 10 minutes (SLA: 10min)"
+      
+      # MISO RT LMP Data Freshness (Critical)
+      - alert: MISODataStale
+        expr: |
+          (time() - max(clickhouse_table_last_update_timestamp{table="rt_lmp",iso="MISO"})) > 600
+        for: 5m
+        labels:
+          severity: critical
+          component: data-platform
+          dataset: miso
+          iso: MISO
+        annotations:
+          summary: "MISO RT LMP data is stale"
+          description: "MISO 5-minute LMP data has not been updated in 10 minutes (SLA: 10min)"
+      
+      # SPP RT LMP Data Freshness (Critical)
+      - alert: SPPDataStale
+        expr: |
+          (time() - max(clickhouse_table_last_update_timestamp{table="rt_lmp",iso="SPP"})) > 600
+        for: 5m
+        labels:
+          severity: critical
+          component: data-platform
+          dataset: spp
+          iso: SPP
+        annotations:
+          summary: "SPP RT LMP data is stale"
+          description: "SPP 5-minute LMP data has not been updated in 10 minutes (SLA: 10min)"
+      
+      # Census Data Freshness
+      - alert: CensusDataStale
+        expr: |
+          (time() - max(iceberg_table_last_update_timestamp{table="census_static"})) > 86400
+        for: 1h
+        labels:
+          severity: warning
+          component: data-platform
+          dataset: census
+        annotations:
+          summary: "Census data is stale"
+          description: "Census data has not been updated in 24 hours (SLA: 24h after publish)"
+      
+    - name: workflow_failures
+      interval: 1m
+      rules:
+      # Workflow Failure Alert
+      - alert: WorkflowFailed
+        expr: |
+          dolphinscheduler_workflow_status{status="FAILURE"} == 1
+        for: 1m
+        labels:
+          severity: warning
+          component: data-platform
+        annotations:
+          summary: "DolphinScheduler workflow failed"
+          description: "Workflow {{ $labels.workflow_name }} failed"
+      
+      # Workflow Running Too Long
+      - alert: WorkflowRunningTooLong
+        expr: |
+          (time() - dolphinscheduler_workflow_start_time) > 3600
+        for: 5m
+        labels:
+          severity: warning
+          component: data-platform
+        annotations:
+          summary: "Workflow running too long"
+          description: "Workflow {{ $labels.workflow_name }} has been running for over 1 hour"
+      
+      # Data Quality Check Failed
+      - alert: DataQualityCheckFailed
+        expr: |
+          data_quality_check_status{status="FAILED"} == 1
+        for: 1m
+        labels:
+          severity: critical
+          component: data-platform
+        annotations:
+          summary: "Data quality check failed"
+          description: "Data quality check for {{ $labels.table }} failed"

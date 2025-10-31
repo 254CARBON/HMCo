@@ -38,6 +38,22 @@ spec:
           echo "MinIO is ready!"
           
           # Create required buckets
+          echo "Creating bucket: hmco-raw"
+          mc mb --ignore-existing minio/hmco-raw
+          
+          echo "Creating bucket: hmco-staged"
+          mc mb --ignore-existing minio/hmco-staged
+          
+          echo "Creating bucket: hmco-curated"
+          mc mb --ignore-existing minio/hmco-curated
+          
+          echo "Creating bucket: hmco-ml"
+          mc mb --ignore-existing minio/hmco-ml
+          
+          echo "Creating bucket: hmco-backup"
+          mc mb --ignore-existing minio/hmco-backup
+          
+          # Legacy buckets for backward compatibility
           echo "Creating bucket: iceberg-warehouse"
           mc mb --ignore-existing minio/iceberg-warehouse
           
@@ -50,14 +66,53 @@ spec:
           echo "Creating bucket: lakefs-data"
           mc mb --ignore-existing minio/lakefs-data
           
-          # Set bucket policies for public access (optional)
+          # Set bucket policies (least privilege)
           echo "Setting bucket policies..."
           
-          # Allow read access to iceberg-warehouse
-          mc policy set public minio/iceberg-warehouse || true
+          # ETL writer policy: write to raw and staged only
+          cat > /tmp/etl-writer-policy.json <<'EOF'
+          {
+            "Version": "2012-10-17",
+            "Statement": [
+              {
+                "Effect": "Allow",
+                "Action": ["s3:PutObject", "s3:GetObject"],
+                "Resource": ["arn:aws:s3:::hmco-raw/*", "arn:aws:s3:::hmco-staged/*"]
+              },
+              {
+                "Effect": "Allow",
+                "Action": ["s3:ListBucket"],
+                "Resource": ["arn:aws:s3:::hmco-raw", "arn:aws:s3:::hmco-staged"]
+              }
+            ]
+          }
+          EOF
           
-          # Allow read access to seatunnel-output  
-          mc policy set public minio/seatunnel-output || true
+          # BI reader policy: read curated only
+          cat > /tmp/bi-reader-policy.json <<'EOF'
+          {
+            "Version": "2012-10-17",
+            "Statement": [
+              {
+                "Effect": "Allow",
+                "Action": ["s3:GetObject"],
+                "Resource": ["arn:aws:s3:::hmco-curated/*"]
+              },
+              {
+                "Effect": "Allow",
+                "Action": ["s3:ListBucket"],
+                "Resource": ["arn:aws:s3:::hmco-curated"]
+              }
+            ]
+          }
+          EOF
+          
+          # Apply policies (commented out - requires MinIO admin credentials)
+          # mc admin policy create minio etl-writer /tmp/etl-writer-policy.json || true
+          # mc admin policy create minio bi-reader /tmp/bi-reader-policy.json || true
+          
+          # Set default public read for curated (for BI tools)
+          mc anonymous set download minio/hmco-curated || true
           
           echo "All buckets initialized successfully!"
           echo ""

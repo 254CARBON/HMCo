@@ -989,7 +989,83 @@ For issues or questions:
 3. Contact platform engineering team
 4. Escalate to infrastructure team if critical
 
+## Partition Specifications and Table Design
+
+### Partitioning Strategy
+
+The following partition specs are used across all Iceberg tables in the data platform:
+
+#### EIA, FRED, Census (Daily Data)
+```sql
+-- Partition by days for daily granularity data
+CREATE TABLE hub_curated.eia_daily_fuel (
+  ts TIMESTAMP,
+  region STRING,
+  series STRING,
+  value DOUBLE
+)
+PARTITIONED BY (days(ts))
+TBLPROPERTIES (
+  'write.format.default' = 'parquet',
+  'write.parquet.compression-codec' = 'zstd'
+);
+```
+
+#### ISO 5-Minute Real-Time Data (CAISO, MISO, SPP)
+```sql
+-- Partition by days with sort order for high-frequency data
+CREATE TABLE hub_curated.iso_rt_lmp (
+  ts TIMESTAMP,
+  iso STRING,
+  node STRING,
+  lmp DOUBLE,
+  congestion DOUBLE,
+  loss DOUBLE
+)
+PARTITIONED BY (days(ts))
+TBLPROPERTIES (
+  'write.format.default' = 'parquet',
+  'write.parquet.compression-codec' = 'zstd',
+  'write.metadata.compression-codec' = 'gzip',
+  'sort.order' = 'iso,node,ts'
+);
+```
+
+#### NOAA Hourly Weather Data
+```sql
+-- Partition by days with grid_id sort
+CREATE TABLE hub_curated.noaa_hourly (
+  ts TIMESTAMP,
+  grid_id STRING,
+  temperature DOUBLE,
+  humidity DOUBLE,
+  wind_speed DOUBLE,
+  precipitation DOUBLE
+)
+PARTITIONED BY (days(ts))
+TBLPROPERTIES (
+  'write.format.default' = 'parquet',
+  'write.parquet.compression-codec' = 'zstd',
+  'sort.order' = 'grid_id,ts'
+);
+```
+
+### Maintenance Strategy
+
+Iceberg tables require regular maintenance to ensure optimal query performance and storage efficiency:
+
+1. **Expire Snapshots**: Remove old snapshots beyond retention policy
+2. **Rewrite Manifests**: Consolidate manifest files for faster metadata operations
+3. **Compact Data Files**: Merge small files into larger ones to reduce metadata overhead
+
+These operations are automated via the maintenance chart (see Task 5).
+
 ## Changelog
+
+### Version 1.1 - October 31, 2025
+- Added partition specifications for all data sources
+- Defined maintenance strategy for Iceberg tables
+- Documented sort orders for high-frequency data
 
 ### Version 1.0 - October 19, 2025
 - Initial Iceberg REST Catalog integration
@@ -1001,5 +1077,5 @@ For issues or questions:
 
 ---
 
-**Last Updated**: October 19, 2025  
-**Next Review**: October 26, 2025
+**Last Updated**: October 31, 2025  
+**Next Review**: November 7, 2025

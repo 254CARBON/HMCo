@@ -1,5 +1,10 @@
 # ClickHouse Configuration
+# Topology: 3 shards × 2 replicas for HA
 replicaCount: 1
+cluster:
+  enabled: true
+  shards: 3
+  replicas: 2
 
 image:
   repository: clickhouse/clickhouse-server
@@ -58,6 +63,34 @@ clickhouse:
     # Note: In production, password should be provided via Kubernetes Secret
     # kubectl create secret generic clickhouse-password --from-literal=password=<secure-password>
     defaultPassword: "ClickHouse@254Carbon2025"
+  
+  # RBAC settings
+  rbac:
+    enabled: true
+    roles:
+      - name: etl_writer
+        grants:
+          - "INSERT, SELECT ON *.*"
+      - name: bi_reader
+        grants:
+          - "SELECT ON *.*"
+    users:
+      - name: trino
+        password_secret: clickhouse-trino-password
+        roles:
+          - bi_reader
+      - name: etl_user
+        password_secret: clickhouse-etl-password
+        roles:
+          - etl_writer
+    # Row policies for per-desk isolation
+    row_policies:
+      - name: desk_isolation
+        database: default
+        table: rt_lmp
+        filter: "iso = currentUser()"
+        applies_to:
+          - bi_reader
     
   # Encryption settings
   encryption:

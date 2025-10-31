@@ -1,0 +1,33 @@
+minio:
+  primary:
+    endpoint: "http://minio.minio.svc.cluster.local:9000"
+    accessKey: "minio"
+    secretKey: "minio123"
+  secondary:
+    endpoint: "http://minio-dr.minio-dr.svc.cluster.local:9000"
+    accessKey: "minio-dr"
+    secretKey: "minio123"
+
+clickhouse:
+  host: "clickhouse.data-platform.svc.cluster.local"
+  port: 9000
+  database: "default"
+  backupBucket: "hmco-backup"
+  schedules:
+    full: "0 1 * * 0"      # Weekly full backup on Sunday 1 AM
+    incremental: "0 2 * * *" # Daily incremental backup at 2 AM
+
+postgres:
+  host: "postgres-shared-service.data-platform.svc.cluster.local"
+  port: 5432
+  database: "iceberg_catalog"
+  backupBucket: "hmco-backup"
+  schedule: "0 0 * * *" # Daily backup at midnight
+
+rpo:
+  minutes: 30
+  description: "Recovery Point Objective - maximum acceptable data loss"
+
+rto:
+  hours: 2
+  description: "Recovery Time Objective - maximum acceptable downtime"

@@ -1,0 +1,40 @@
+{
+  "name": "01-eia-daily",
+  "description": "EIA daily fuel and generation data pipeline",
+  "schedule": "0 30 * * *",
+  "timezone": "America/New_York",
+  "tasks": [
+    {
+      "name": "compile_uis",
+      "type": "SHELL",
+      "command": "python /app/sdk/uis/compilers/seatunnel/compiler.py --spec /app/sdk/uis/compilers/seatunnel/fixtures/eia_daily.json --output /tmp/eia_daily_job.conf"
+    },
+    {
+      "name": "run_ingestion",
+      "type": "SEATUNNEL",
+      "config": "/tmp/eia_daily_job.conf",
+      "dependsOn": ["compile_uis"]
+    },
+    {
+      "name": "data_quality",
+      "type": "PYTHON",
+      "script": "/app/data-quality/runner.py",
+      "args": ["--suite", "eia_daily", "--table", "hub_curated.eia_daily_fuel"],
+      "dependsOn": ["run_ingestion"]
+    },
+    {
+      "name": "publish",
+      "type": "SHELL",
+      "command": "echo 'EIA daily pipeline completed successfully'",
+      "dependsOn": ["data_quality"]
+    }
+  ],
+  "sla": {
+    "freshness_minutes": 30,
+    "alert": {
+      "enabled": true,
+      "channel": "slack-data-platform",
+      "recipients": ["data-eng@254carbon.com"]
+    }
+  }
+}
