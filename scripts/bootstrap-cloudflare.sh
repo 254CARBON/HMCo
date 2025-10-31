@@ -182,6 +182,24 @@ for tool in kubectl jq curl; do
 done
 log_success "All required tools found"
 
+# Check required scripts exist (fail-fast)
+log_info "Validating required scripts..."
+REQUIRED_SCRIPTS=(
+    "configure-cloudflare-tunnel-token.sh"
+    "create-cloudflare-dns-records.sh"
+    "create-cloudflare-access-apps.sh"
+    "verify-ssl-certificates.sh"
+)
+
+for script in "${REQUIRED_SCRIPTS[@]}"; do
+    if [[ ! -f "${SCRIPT_DIR}/${script}" ]]; then
+        log_error "Required script not found: ${script}"
+        log_error "Expected location: ${SCRIPT_DIR}/${script}"
+        exit 1
+    fi
+done
+log_success "All required scripts found"
+
 # Check kubectl connectivity
 if ! kubectl cluster-info &> /dev/null; then
     log_error "kubectl is not connected to a cluster"
@@ -196,12 +214,6 @@ if [[ "$SKIP_TUNNEL" == "false" ]]; then
     if [[ "$DRY_RUN" == "true" ]]; then
         log_info "[DRY RUN] Would configure tunnel token in Kubernetes"
     else
-        # Verify the script exists
-        if [[ ! -f "${SCRIPT_DIR}/configure-cloudflare-tunnel-token.sh" ]]; then
-            log_error "configure-cloudflare-tunnel-token.sh not found in ${SCRIPT_DIR}"
-            exit 1
-        fi
-        
         log_info "Configuring tunnel token..."
         "${SCRIPT_DIR}/configure-cloudflare-tunnel-token.sh" \
             --account-id "$ACCOUNT_ID" \

@@ -282,16 +282,17 @@ curl -o ~/cloudflare-certs/origin-pull-ca.pem \
 # Verify the certificate fingerprint
 openssl x509 -in ~/cloudflare-certs/origin-pull-ca.pem -noout -fingerprint -sha256
 
-# Expected SHA256 fingerprint (verify against Cloudflare documentation):
-# SHA256 Fingerprint=C6:C1:E8:E0:62:B3:AB:0C:1E:6E:4C:57:4E:F6:8C:97:8D:64:84:42:60:C5:5F:7A:8E:7E:4F:16:C1:E4:F5:41
-
 # Verify the certificate details
 openssl x509 -in ~/cloudflare-certs/origin-pull-ca.pem -text -noout | head -20
 ```
 
 Expected issuer: `CN=Cloudflare Inc ECC CA-3, O=Cloudflare, Inc., C=US`
 
-**Security Note**: Always verify the certificate fingerprint against the official [Cloudflare documentation](https://developers.cloudflare.com/ssl/origin-configuration/authenticated-origin-pull/set-up/) before using it in production.
+**IMPORTANT Security Note**: 
+- **ALWAYS** verify the certificate fingerprint against the **current** official [Cloudflare documentation](https://developers.cloudflare.com/ssl/origin-configuration/authenticated-origin-pull/set-up/) before using it in production
+- Do NOT rely solely on example fingerprints in this document as they may become outdated
+- Certificate fingerprints are published by Cloudflare and should be verified from their official sources
+- Check the certificate's validity period and ensure it has not expired
 
 ### 6.2 Create Kubernetes Secret for Origin Pull CA
 
