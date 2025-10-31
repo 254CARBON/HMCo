@@ -1,3 +1,6 @@
+# Target namespace for Rollouts (where application Rollouts will be created)
+targetNamespace: data-platform
+
 # Argo Rollouts Configuration
 argoRollouts:
   image:

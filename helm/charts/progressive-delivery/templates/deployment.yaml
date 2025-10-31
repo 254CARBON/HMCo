@@ -32,7 +32,7 @@ spec:
         args:
         - --namespaced
         - --namespace
-        - data-platform
+        - {{ .Values.targetNamespace }}
         ports:
         - name: metrics
           containerPort: 8090

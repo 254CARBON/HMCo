@@ -703,5 +703,3 @@ spec:
       allowEmpty: false
     syncOptions:
       - CreateNamespace=true
-    syncWaves:
-      - order: -10

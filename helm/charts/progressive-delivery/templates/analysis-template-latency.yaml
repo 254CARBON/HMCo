@@ -3,14 +3,14 @@ apiVersion: argoproj.io/v1alpha1
 kind: AnalysisTemplate
 metadata:
   name: latency
-  namespace: data-platform
+  namespace: {{ .Values.targetNamespace }}
   labels:
     {{- include "progressive-delivery.labels" . | nindent 4 }}
 spec:
   args:
   - name: service-name
   - name: namespace
-    value: data-platform
+    value: {{ .Values.targetNamespace }}
   metrics:
   - name: latency-p95
     interval: {{ .Values.analysisTemplates.latency.intervalSeconds }}s

@@ -3,14 +3,14 @@ apiVersion: argoproj.io/v1alpha1
 kind: AnalysisTemplate
 metadata:
   name: error-rate
-  namespace: data-platform
+  namespace: {{ .Values.targetNamespace }}
   labels:
     {{- include "progressive-delivery.labels" . | nindent 4 }}
 spec:
   args:
   - name: service-name
   - name: namespace
-    value: data-platform
+    value: {{ .Values.targetNamespace }}
   metrics:
   - name: error-rate
     interval: {{ .Values.analysisTemplates.errorRate.intervalSeconds }}s
