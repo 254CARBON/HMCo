@@ -110,7 +110,9 @@ class BayesianHMM:
         
         # Forward algorithm for state probabilities
         alpha, _ = self._forward_backward(features)
-        state_probs = alpha / alpha.sum(axis=1, keepdims=True)
+        alpha_sum = alpha.sum(axis=1, keepdims=True)
+        # Add small epsilon to avoid division by zero
+        state_probs = alpha / (alpha_sum + 1e-10)
         
         return most_likely_states, state_probs
     
