@@ -15,12 +15,31 @@ const PUBLIC_PATHS = new Set([
   '/favicon.ico',
 ]);
 
+// E2E bypass configuration - only active when E2E_BYPASS=1
+const E2E_BYPASS_ENABLED = process.env.E2E_BYPASS === '1';
+const E2E_BYPASS_HEADER = 'x-e2e-bypass';
+const E2E_BYPASS_USER_EMAIL = process.env.E2E_BYPASS_USER_EMAIL || 'e2e-test@example.com';
+
 function isPublicPath(pathname: string) {
   if (pathname === '/') return false;
   if (PUBLIC_PATHS.has(pathname)) return true;
   return Array.from(PUBLIC_PATHS).some(
     (path) => path !== '/' && pathname.startsWith(`${path}/`)
   );
+}
+
+/**
+ * Check if request has E2E bypass header (dev/test mode only)
+ * This allows E2E tests to bypass Cloudflare Access authentication
+ * Only works when E2E_BYPASS=1 environment variable is set
+ */
+function hasE2EBypass(req: NextRequest): boolean {
+  if (!E2E_BYPASS_ENABLED) {
+    return false;
+  }
+  
+  const bypassHeader = req.headers.get(E2E_BYPASS_HEADER);
+  return !!bypassHeader;
 }
 
 export async function middleware(req: NextRequest) {
@@ -32,6 +51,20 @@ export async function middleware(req: NextRequest) {
     pathname.match(/\.(png|jpg|jpeg|gif|webp|svg|ico)$/i)
   ) {
     return NextResponse.next();
+  }
+
+  // Check for E2E bypass (dev/test mode only)
+  const hasE2EBypassHeader = hasE2EBypass(req);
+  if (hasE2EBypassHeader) {
+    // Allow E2E tests to bypass authentication
+    const requestHeaders = new Headers(req.headers);
+    requestHeaders.set('x-authenticated-user-email', E2E_BYPASS_USER_EMAIL);
+    requestHeaders.set('x-authenticated-user-name', 'E2E Test User');
+    return NextResponse.next({
+      request: {
+        headers: requestHeaders,
+      },
+    });
   }
 
   const user = await getUserFromRequest(req);
