@@ -1,6 +1,62 @@
 # Network Policies for Zero-Trust Security Model
 # Restricts ingress/egress traffic between namespaces and pods
+# T13.1 - Default-deny egress with explicit allowlists
 
+---
+# Default Deny Egress - data-platform namespace
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-egress
+  namespace: data-platform
+spec:
+  podSelector: {}
+  policyTypes:
+  - Egress
+---
+# Default Deny Egress - vault-prod namespace
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-egress
+  namespace: vault-prod
+spec:
+  podSelector: {}
+  policyTypes:
+  - Egress
+---
+# Default Deny Egress - monitoring namespace
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-egress
+  namespace: monitoring
+spec:
+  podSelector: {}
+  policyTypes:
+  - Egress
+---
+# Default Deny Egress - istio-system namespace
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-egress
+  namespace: istio-system
+spec:
+  podSelector: {}
+  policyTypes:
+  - Egress
+---
+# Default Deny Egress - cloudflare-tunnel namespace
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-egress
+  namespace: cloudflare-tunnel
+spec:
+  podSelector: {}
+  policyTypes:
+  - Egress
 ---
 # Allow traffic from ingress-nginx to data-platform services
 apiVersion: networking.k8s.io/v1
@@ -245,7 +301,7 @@ spec:
   policyTypes:
   - Ingress
 ---
-# Allow DNS for all namespaces
+# Allow DNS egress for all namespaces - data-platform
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -259,12 +315,173 @@ spec:
   - to:
     - namespaceSelector:
         matchLabels:
-          name: kube-system
+          kubernetes.io/metadata.name: kube-system
     ports:
     - protocol: UDP
       port: 53
     - protocol: TCP
       port: 53
+---
+# Allow DNS egress - vault-prod namespace
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-dns-egress
+  namespace: vault-prod
+spec:
+  podSelector: {}
+  policyTypes:
+  - Egress
+  egress:
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: kube-system
+    ports:
+    - protocol: UDP
+      port: 53
+    - protocol: TCP
+      port: 53
+---
+# Allow DNS egress - monitoring namespace
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-dns-egress
+  namespace: monitoring
+spec:
+  podSelector: {}
+  policyTypes:
+  - Egress
+  egress:
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: kube-system
+    ports:
+    - protocol: UDP
+      port: 53
+    - protocol: TCP
+      port: 53
+---
+# Allow DNS egress - istio-system namespace
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-dns-egress
+  namespace: istio-system
+spec:
+  podSelector: {}
+  policyTypes:
+  - Egress
+  egress:
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: kube-system
+    ports:
+    - protocol: UDP
+      port: 53
+    - protocol: TCP
+      port: 53
+---
+# Allow DNS egress - cloudflare-tunnel namespace
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-dns-egress
+  namespace: cloudflare-tunnel
+spec:
+  podSelector: {}
+  policyTypes:
+  - Egress
+  egress:
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: kube-system
+    ports:
+    - protocol: UDP
+      port: 53
+    - protocol: TCP
+      port: 53
+---
+# Allow Cloudflare tunnel egress - cloudflare-tunnel namespace
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-cloudflare-egress
+  namespace: cloudflare-tunnel
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: cloudflare-tunnel
+  policyTypes:
+  - Egress
+  egress:
+  # Allow egress to Cloudflare API and tunnel endpoints
+  - to:
+    - namespaceSelector: {}
+    ports:
+    - protocol: TCP
+      port: 443
+    - protocol: TCP
+      port: 7844  # Cloudflare tunnel protocol
+  # Allow egress to ingress-nginx for routing traffic
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: ingress-nginx
+    ports:
+    - protocol: TCP
+      port: 80
+    - protocol: TCP
+      port: 443
+---
+# Allow package mirror egress for build pods - Spark drivers
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-package-mirrors-spark-driver
+  namespace: data-platform
+spec:
+  podSelector:
+    matchLabels:
+      spark-role: driver
+  policyTypes:
+  - Egress
+  egress:
+  # Allow access to package mirrors for dependency downloads
+  - to:
+    - namespaceSelector: {}
+    ports:
+    - protocol: TCP
+      port: 443  # HTTPS for pypi.org, npmjs.com, maven.org
+    - protocol: TCP
+      port: 80   # HTTP fallback
+---
+# Allow package mirror egress for build pods - Spark executors
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-package-mirrors-spark-executor
+  namespace: data-platform
+spec:
+  podSelector:
+    matchLabels:
+      spark-role: executor
+  policyTypes:
+  - Egress
+  egress:
+  # Allow access to package mirrors for dependency downloads
+  - to:
+    - namespaceSelector: {}
+    ports:
+    - protocol: TCP
+      port: 443  # HTTPS for pypi.org, npmjs.com, maven.org
+    - protocol: TCP
+      port: 80   # HTTP fallback
+---
 # Network Policies for Istio Service Mesh
 # Update existing policies to allow Istio sidecar communication
 
@@ -439,29 +656,6 @@ spec:
       port: 14250 # gRPC
 
 ---
-# Allow service-to-service via Envoy
-apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
-metadata:
-  name: allow-envoy-interception
-  namespace: data-platform
-spec:
-  podSelector: {}
-  policyTypes:
-  - Ingress
-  - Egress
-  ingress:
-  # Allow all traffic on application ports (Envoy will handle mTLS)
-  - from:
-    - podSelector: {}
-  egress:
-  # Allow all egress (Envoy will enforce policies)
-  - to:
-    - podSelector: {}
-  - to:
-    - namespaceSelector: {}
-
----
 # Updated PostgreSQL policy to allow Envoy traffic
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
@@ -538,30 +732,6 @@ spec:
       port: 9000
 
 ---
-# Allow external egress (for external APIs)
-apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
-metadata:
-  name: allow-istio-external-egress
-  namespace: data-platform
-spec:
-  podSelector: {}
-  policyTypes:
-  - Egress
-  egress:
-  # Allow all external traffic (Envoy handles this)
-  - to:
-    - podSelector: {}
-  - to:
-    - namespaceSelector: {}
-  - ports:
-    - protocol: TCP
-      port: 443
-    - protocol: TCP
-      port: 80
-
-
-
 # NetworkPolicy for Spark Operator
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
