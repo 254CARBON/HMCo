@@ -207,6 +207,12 @@ vault:
             remoteRef:
               key: secret/data-platform/mlflow/artifact
               property: artifact_root
+      - name: clickhouse-secret
+        data:
+          - secretKey: password
+            remoteRef:
+              key: secret/data-platform/clickhouse
+              property: password
 
 # DataHub - Data Catalog and Governance
 datahub:

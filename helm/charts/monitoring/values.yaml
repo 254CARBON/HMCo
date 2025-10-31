@@ -2,6 +2,15 @@
 # This is a YAML-formatted file.
 # Declare variables to be passed into your templates.
 
+vault:
+  # Enable Vault-backed ExternalSecrets for monitoring secrets
+  enabled: false
+  refreshInterval: 1h
+  creationPolicy: Owner
+  secretStoreRef:
+    name: platform-vault
+    kind: ClusterSecretStore
+
 # This will set the replicaset count more information can be found here: https://kubernetes.io/docs/concepts/workloads/controllers/replicaset/
 replicaCount: 1
 

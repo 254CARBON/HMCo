@@ -12,6 +12,19 @@ tokenSecret:
   key: token
   # token: "" # Do NOT set in Git; supply via external secret or existing Secret
 
+vault:
+  # Enable Vault-backed ExternalSecret for tunnel token
+  enabled: false
+  refreshInterval: 1h
+  creationPolicy: Owner
+  secretStoreRef:
+    name: platform-vault
+    kind: ClusterSecretStore
+  externalSecret:
+    remoteRef:
+      key: secret/cloudflare/tunnel
+      property: token
+
 metrics:
   enabled: true
   port: 2000
