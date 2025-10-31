@@ -1,0 +1,52 @@
+{
+  "name": "weather_h3_hourly",
+  "description": "NOAA HRRR/GFS H3 tiling and feature generation pipeline",
+  "schedule": "0 * * * *",
+  "timezone": "UTC",
+  "tasks": [
+    {
+      "name": "fetch_hrrr_grib2",
+      "type": "SHELL",
+      "command": "python /app/sdk/uis/tools/weather/fetch_hrrr.py --hour {{ execution_date.hour }} --output /tmp/hrrr_{{ ds }}_{{ execution_date.hour }}.grib2"
+    },
+    {
+      "name": "decode_grib2",
+      "type": "SHELL",
+      "command": "python /app/sdk/uis/tools/weather/decode_grib2.py --input /tmp/hrrr_{{ ds }}_{{ execution_date.hour }}.grib2 --output /tmp/hrrr_decoded.json",
+      "dependsOn": ["fetch_hrrr_grib2"]
+    },
+    {
+      "name": "compile_h3_tiling",
+      "type": "SHELL",
+      "command": "python /app/sdk/uis/compilers/spark/compiler.py --spec /app/sdk/uis/compilers/spark/fixtures/weather_h3_tiling.json --output /tmp/h3_tiling_job.conf",
+      "dependsOn": ["decode_grib2"]
+    },
+    {
+      "name": "run_h3_tiling",
+      "type": "SPARK",
+      "config": "/tmp/h3_tiling_job.conf",
+      "dependsOn": ["compile_h3_tiling"]
+    },
+    {
+      "name": "compute_deltas",
+      "type": "SPARK",
+      "config": "/app/spark/jobs/weather_forecast_deltas.py",
+      "dependsOn": ["run_h3_tiling"]
+    },
+    {
+      "name": "data_quality",
+      "type": "PYTHON",
+      "script": "/app/data-quality/runner.py",
+      "args": ["--suite", "weather_h3", "--table", "features.weather_h3_hourly"],
+      "dependsOn": ["compute_deltas"]
+    }
+  ],
+  "sla": {
+    "freshness_minutes": 90,
+    "alert": {
+      "enabled": true,
+      "channel": "slack-data-platform",
+      "recipients": ["data-eng@254carbon.com"]
+    }
+  }
+}

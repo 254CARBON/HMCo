@@ -1,0 +1,60 @@
+{
+  "type": "record",
+  "name": "OutageEvent",
+  "namespace": "com.carbon254.feeds.iso",
+  "doc": "Power plant or transmission outage event",
+  "fields": [
+    {
+      "name": "event_id",
+      "type": "string",
+      "doc": "Unique event identifier"
+    },
+    {
+      "name": "event_class",
+      "type": {
+        "type": "enum",
+        "name": "OutageClass",
+        "symbols": ["FORCED", "PLANNED", "MAINTENANCE"]
+      },
+      "doc": "Outage classification"
+    },
+    {
+      "name": "asset",
+      "type": "string",
+      "doc": "Asset identifier (plant, line, etc.)"
+    },
+    {
+      "name": "start_ts",
+      "type": {
+        "type": "long",
+        "logicalType": "timestamp-millis"
+      },
+      "doc": "Outage start timestamp"
+    },
+    {
+      "name": "end_ts",
+      "type": [
+        "null",
+        {
+          "type": "long",
+          "logicalType": "timestamp-millis"
+        }
+      ],
+      "doc": "Outage end timestamp (null if ongoing)"
+    },
+    {
+      "name": "status",
+      "type": {
+        "type": "enum",
+        "name": "OutageStatus",
+        "symbols": ["ACTIVE", "RESOLVED", "CANCELLED"]
+      },
+      "doc": "Current outage status"
+    },
+    {
+      "name": "capacity_mw",
+      "type": "double",
+      "doc": "Affected capacity in MW"
+    }
+  ]
+}

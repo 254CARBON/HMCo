@@ -1,0 +1,50 @@
+{
+  "name": "iso_reference_nodes",
+  "description": "ISO node and hub reference data pipeline (SCD2)",
+  "schedule": "0 2 * * 0",
+  "timezone": "UTC",
+  "tasks": [
+    {
+      "name": "fetch_caiso_nodes",
+      "type": "SHELL",
+      "command": "python /app/sdk/uis/tools/iso_adapters/caiso_reference.py --type nodes --output /tmp/caiso_nodes.json"
+    },
+    {
+      "name": "fetch_miso_nodes",
+      "type": "SHELL",
+      "command": "python /app/sdk/uis/tools/iso_adapters/miso_reference.py --type nodes --output /tmp/miso_nodes.json"
+    },
+    {
+      "name": "fetch_spp_nodes",
+      "type": "SHELL",
+      "command": "python /app/sdk/uis/tools/iso_adapters/spp_reference.py --type nodes --output /tmp/spp_nodes.json"
+    },
+    {
+      "name": "compile_spark_job",
+      "type": "SHELL",
+      "command": "python /app/sdk/uis/compilers/spark/compiler.py --spec /app/sdk/uis/compilers/spark/fixtures/iso_reference_nodes.json --output /tmp/ref_nodes_job.conf",
+      "dependsOn": ["fetch_caiso_nodes", "fetch_miso_nodes", "fetch_spp_nodes"]
+    },
+    {
+      "name": "run_scd2_merge",
+      "type": "SPARK",
+      "config": "/tmp/ref_nodes_job.conf",
+      "dependsOn": ["compile_spark_job"]
+    },
+    {
+      "name": "data_quality",
+      "type": "PYTHON",
+      "script": "/app/data-quality/runner.py",
+      "args": ["--suite", "iso_reference", "--table", "ref.nodes"],
+      "dependsOn": ["run_scd2_merge"]
+    }
+  ],
+  "sla": {
+    "freshness_hours": 24,
+    "alert": {
+      "enabled": true,
+      "channel": "slack-data-platform",
+      "recipients": ["data-eng@254carbon.com"]
+    }
+  }
+}

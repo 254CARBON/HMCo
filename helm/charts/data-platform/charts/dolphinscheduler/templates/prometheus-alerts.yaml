@@ -144,3 +144,188 @@ data:
         annotations:
           summary: "Data quality check failed"
           description: "Data quality check for {{ $labels.table }} failed"
+      
+    - name: feed_slos
+      interval: 1m
+      rules:
+      # ISO RT LMP Freshness
+      - alert: ISOLMPFreshnessSLAViolation
+        expr: |
+          (time() - max(feed_last_watermark_timestamp{feed=~"iso.rt.lmp.*"})) > 60
+        for: 2m
+        labels:
+          severity: critical
+          component: data-platform
+          slo: freshness
+        annotations:
+          summary: "ISO RT LMP freshness SLA violated"
+          description: "Feed {{ $labels.feed }} has not updated in 60 seconds (SLA: 60s)"
+      
+      # ISO DA Awards Freshness
+      - alert: ISODAAwardsFreshnessSLAViolation
+        expr: |
+          (time() - max(feed_last_watermark_timestamp{feed=~"iso.da.schedule.*"})) > 3600
+        for: 10m
+        labels:
+          severity: warning
+          component: data-platform
+          slo: freshness
+        annotations:
+          summary: "ISO DA awards freshness SLA violated"
+          description: "Feed {{ $labels.feed }} has not updated in 60 minutes (SLA: 60min)"
+      
+      # Outage Events Freshness
+      - alert: OutageEventsFreshnessSLAViolation
+        expr: |
+          (time() - max(feed_last_watermark_timestamp{feed=~"iso.events.outage.*"})) > 300
+        for: 5m
+        labels:
+          severity: warning
+          component: data-platform
+          slo: freshness
+        annotations:
+          summary: "Outage events freshness SLA violated"
+          description: "Feed {{ $labels.feed }} has not updated in 5 minutes"
+      
+      # Weather H3 Freshness
+      - alert: WeatherH3FreshnessSLAViolation
+        expr: |
+          (time() - max(feed_last_watermark_timestamp{feed="weather.h3.hourly"})) > 5400
+        for: 10m
+        labels:
+          severity: warning
+          component: data-platform
+          slo: freshness
+        annotations:
+          summary: "Weather H3 freshness SLA violated"
+          description: "Weather H3 data has not updated in 90 minutes (SLA: 90min)"
+      
+      # LNG Send-out Freshness
+      - alert: LNGSendoutFreshnessSLAViolation
+        expr: |
+          (time() - max(feed_last_watermark_timestamp{feed="lng.sendout.hourly"})) > 900
+        for: 5m
+        labels:
+          severity: warning
+          component: data-platform
+          slo: freshness
+        annotations:
+          summary: "LNG send-out freshness SLA violated"
+          description: "LNG send-out data has not updated in 15 minutes (SLA: 15min)"
+      
+      # Telemetry Freshness
+      - alert: ISOTelemetryFreshnessSLAViolation
+        expr: |
+          (time() - max(feed_last_watermark_timestamp{feed=~"iso.rt.telemetry.*"})) > 300
+        for: 5m
+        labels:
+          severity: warning
+          component: data-platform
+          slo: freshness
+        annotations:
+          summary: "ISO telemetry freshness SLA violated"
+          description: "Feed {{ $labels.feed }} has not updated in 5 minutes"
+      
+      # Feed Completeness
+      - alert: FeedCompletenessSLAViolation
+        expr: |
+          feed_completeness_ratio < 0.95
+        for: 5m
+        labels:
+          severity: warning
+          component: data-platform
+          slo: completeness
+        annotations:
+          summary: "Feed completeness below threshold"
+          description: "Feed {{ $labels.feed }} completeness is {{ $value | humanizePercentage }} (SLA: 95%)"
+      
+      # Feed Duplicate Rate
+      - alert: FeedDuplicateRateHigh
+        expr: |
+          feed_duplicate_rate > 0.01
+        for: 5m
+        labels:
+          severity: warning
+          component: data-platform
+          slo: dup_rate
+        annotations:
+          summary: "Feed duplicate rate too high"
+          description: "Feed {{ $labels.feed }} duplicate rate is {{ $value | humanizePercentage }} (SLA: <1%)"
+      
+      # Feed Late Data Rate
+      - alert: FeedLateDataRateHigh
+        expr: |
+          feed_late_data_rate > 0.05
+        for: 10m
+        labels:
+          severity: info
+          component: data-platform
+          slo: late_data
+        annotations:
+          summary: "Feed late data rate elevated"
+          description: "Feed {{ $labels.feed }} late data rate is {{ $value | humanizePercentage }} (threshold: 5%)"
+      
+      # Macro Data Freshness (EIA/FRED/Census)
+      - alert: MacroDataFreshnessSLAViolation
+        expr: |
+          (time() - max(feed_last_watermark_timestamp{feed=~"macro.*"})) > 1800
+        for: 10m
+        labels:
+          severity: warning
+          component: data-platform
+          slo: freshness
+        annotations:
+          summary: "Macro data freshness SLA violated"
+          description: "Feed {{ $labels.feed }} has not updated in 30 minutes (SLA: 30min post-publish)"
+      
+      # Curve Snapshots Freshness
+      - alert: CurveSnapshotFreshnessSLAViolation
+        expr: |
+          (time() - max(feed_last_watermark_timestamp{feed=~"market.curves.*"})) > 900
+        for: 5m
+        labels:
+          severity: warning
+          component: data-platform
+          slo: freshness
+        annotations:
+          summary: "Curve snapshot freshness SLA violated"
+          description: "Feed {{ $labels.feed }} has not updated in 15 minutes"
+      
+    - name: feed_ledger_health
+      interval: 1m
+      rules:
+      # Feed Ledger Service Down
+      - alert: FeedLedgerServiceDown
+        expr: |
+          up{job="feed-ledger"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          component: feed-ledger
+        annotations:
+          summary: "Feed ledger service is down"
+          description: "Feed ledger service is not responding"
+      
+      # Feed Stuck in Running State
+      - alert: FeedStuckRunning
+        expr: |
+          feed_ledger_entry_age_seconds{state="running"} > 3600
+        for: 5m
+        labels:
+          severity: warning
+          component: feed-ledger
+        annotations:
+          summary: "Feed stuck in running state"
+          description: "Feed {{ $labels.feed }} has been running for over 1 hour"
+      
+      # High Feed Failure Rate
+      - alert: HighFeedFailureRate
+        expr: |
+          rate(feed_ledger_entries_total{state="failed"}[5m]) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+          component: feed-ledger
+        annotations:
+          summary: "High feed failure rate"
+          description: "Feed failure rate is {{ $value | humanize }} failures/sec"

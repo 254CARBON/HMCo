@@ -1,0 +1,50 @@
+{
+  "name": "eia_macro_daily",
+  "description": "EIA macro and fundamentals data pipeline",
+  "schedule": "0 10 * * *",
+  "timezone": "America/New_York",
+  "tasks": [
+    {
+      "name": "fetch_eia_storage",
+      "type": "SHELL",
+      "command": "python /app/sdk/uis/tools/adapters/eia_adapter.py --dataset storage --output /tmp/eia_storage_{{ ds }}.json"
+    },
+    {
+      "name": "fetch_eia_generation",
+      "type": "SHELL",
+      "command": "python /app/sdk/uis/tools/adapters/eia_adapter.py --dataset generation --output /tmp/eia_generation_{{ ds }}.json"
+    },
+    {
+      "name": "fetch_eia_demand",
+      "type": "SHELL",
+      "command": "python /app/sdk/uis/tools/adapters/eia_adapter.py --dataset demand --output /tmp/eia_demand_{{ ds }}.json"
+    },
+    {
+      "name": "compile_spark_job",
+      "type": "SHELL",
+      "command": "python /app/sdk/uis/compilers/spark/compiler.py --spec /app/sdk/uis/compilers/spark/fixtures/eia_macro.json --output /tmp/eia_job.conf",
+      "dependsOn": ["fetch_eia_storage", "fetch_eia_generation", "fetch_eia_demand"]
+    },
+    {
+      "name": "run_transform",
+      "type": "SPARK",
+      "config": "/tmp/eia_job.conf",
+      "dependsOn": ["compile_spark_job"]
+    },
+    {
+      "name": "data_quality",
+      "type": "PYTHON",
+      "script": "/app/data-quality/runner.py",
+      "args": ["--suite", "eia_macro", "--table", "macro.eia_storage,macro.eia_generation,macro.eia_demand"],
+      "dependsOn": ["run_transform"]
+    }
+  ],
+  "sla": {
+    "freshness_minutes": 30,
+    "alert": {
+      "enabled": true,
+      "channel": "slack-data-platform",
+      "recipients": ["data-eng@254carbon.com"]
+    }
+  }
+}

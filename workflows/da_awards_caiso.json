@@ -1,0 +1,40 @@
+{
+  "name": "da_awards_caiso",
+  "description": "CAISO Day-Ahead awards and schedules pipeline",
+  "schedule": "0 8 * * *",
+  "timezone": "America/Los_Angeles",
+  "tasks": [
+    {
+      "name": "fetch_caiso_oasis",
+      "type": "SHELL",
+      "command": "python /app/sdk/uis/tools/iso_adapters/caiso_oasis.py --date {{ ds }} --output /tmp/caiso_da_{{ ds }}.json"
+    },
+    {
+      "name": "compile_spark_job",
+      "type": "SHELL",
+      "command": "python /app/sdk/uis/compilers/spark/compiler.py --spec /app/sdk/uis/compilers/spark/fixtures/da_awards_caiso.json --output /tmp/da_awards_job.conf",
+      "dependsOn": ["fetch_caiso_oasis"]
+    },
+    {
+      "name": "run_transform",
+      "type": "SPARK",
+      "config": "/tmp/da_awards_job.conf",
+      "dependsOn": ["compile_spark_job"]
+    },
+    {
+      "name": "data_quality",
+      "type": "PYTHON",
+      "script": "/app/data-quality/runner.py",
+      "args": ["--suite", "caiso_da_awards", "--table", "curated.iso_da_award"],
+      "dependsOn": ["run_transform"]
+    }
+  ],
+  "sla": {
+    "freshness_minutes": 60,
+    "alert": {
+      "enabled": true,
+      "channel": "slack-data-platform",
+      "recipients": ["data-eng@254carbon.com"]
+    }
+  }
+}

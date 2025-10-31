@@ -116,6 +116,422 @@ topics:
         - awarded_mw: double
         - self_schedule_mw: double
 
+  # ISO-specific RT LMP topics (1-min partitions for nowcasting)
+  - name: iso.rt.lmp.caiso
+    partitions: 12
+    replication_factor: 3
+    config:
+      retention.ms: 604800000  # 7 days
+      segment.ms: 60000  # 1 minute
+      compression.type: zstd
+      cleanup.policy: delete
+      min.insync.replicas: 2
+    description: "CAISO real-time LMP with 1-min partitions for nowcasting"
+    schema:
+      key: "node:timestamp"
+      value:
+        - node: string
+        - timestamp: timestamp
+        - lmp: double
+        - congestion: double
+        - loss: double
+        - energy: double
+        - market_run: string
+
+  - name: iso.rt.lmp.miso
+    partitions: 12
+    replication_factor: 3
+    config:
+      retention.ms: 604800000  # 7 days
+      segment.ms: 60000  # 1 minute
+      compression.type: zstd
+      cleanup.policy: delete
+      min.insync.replicas: 2
+    description: "MISO real-time LMP with 1-min partitions for nowcasting"
+    schema:
+      key: "node:timestamp"
+      value:
+        - node: string
+        - timestamp: timestamp
+        - lmp: double
+        - congestion: double
+        - loss: double
+        - energy: double
+        - market_run: string
+
+  - name: iso.rt.lmp.spp
+    partitions: 12
+    replication_factor: 3
+    config:
+      retention.ms: 604800000  # 7 days
+      segment.ms: 60000  # 1 minute
+      compression.type: zstd
+      cleanup.policy: delete
+      min.insync.replicas: 2
+    description: "SPP real-time LMP with 1-min partitions for nowcasting"
+    schema:
+      key: "node:timestamp"
+      value:
+        - node: string
+        - timestamp: timestamp
+        - lmp: double
+        - congestion: double
+        - loss: double
+        - energy: double
+        - market_run: string
+
+  # ISO Day-Ahead schedules
+  - name: iso.da.schedule.caiso
+    partitions: 8
+    replication_factor: 3
+    config:
+      retention.ms: 7776000000  # 90 days
+      segment.ms: 86400000  # 1 day
+      compression.type: zstd
+      cleanup.policy: delete
+      min.insync.replicas: 2
+    description: "CAISO day-ahead schedules and awards"
+    schema:
+      key: "unit_id:trade_date:hour"
+      value:
+        - unit_id: string
+        - trade_date: date
+        - hour_ending: int
+        - product: string
+        - award_mw: double
+        - price: double
+        - constraints: array
+
+  - name: iso.da.schedule.miso
+    partitions: 8
+    replication_factor: 3
+    config:
+      retention.ms: 7776000000  # 90 days
+      segment.ms: 86400000  # 1 day
+      compression.type: zstd
+      cleanup.policy: delete
+      min.insync.replicas: 2
+    description: "MISO day-ahead schedules and awards"
+    schema:
+      key: "unit_id:trade_date:hour"
+      value:
+        - unit_id: string
+        - trade_date: date
+        - hour_ending: int
+        - product: string
+        - award_mw: double
+        - price: double
+        - constraints: array
+
+  - name: iso.da.schedule.spp
+    partitions: 8
+    replication_factor: 3
+    config:
+      retention.ms: 7776000000  # 90 days
+      segment.ms: 86400000  # 1 day
+      compression.type: zstd
+      cleanup.policy: delete
+      min.insync.replicas: 2
+    description: "SPP day-ahead schedules and awards"
+    schema:
+      key: "unit_id:trade_date:hour"
+      value:
+        - unit_id: string
+        - trade_date: date
+        - hour_ending: int
+        - product: string
+        - award_mw: double
+        - price: double
+        - constraints: array
+
+  # ISO outage and constraint events
+  - name: iso.events.outage.caiso
+    partitions: 6
+    replication_factor: 3
+    config:
+      retention.ms: 7776000000  # 90 days
+      segment.ms: 86400000  # 1 day
+      compression.type: zstd
+      cleanup.policy: delete
+      min.insync.replicas: 2
+    description: "CAISO outage events (event sourcing)"
+    schema:
+      key: "event_id"
+      value:
+        - event_id: string
+        - event_class: string
+        - asset: string
+        - start_ts: timestamp
+        - end_ts: timestamp
+        - status: string
+        - capacity_mw: double
+
+  - name: iso.events.outage.miso
+    partitions: 6
+    replication_factor: 3
+    config:
+      retention.ms: 7776000000  # 90 days
+      segment.ms: 86400000  # 1 day
+      compression.type: zstd
+      cleanup.policy: delete
+      min.insync.replicas: 2
+    description: "MISO outage events (event sourcing)"
+    schema:
+      key: "event_id"
+      value:
+        - event_id: string
+        - event_class: string
+        - asset: string
+        - start_ts: timestamp
+        - end_ts: timestamp
+        - status: string
+        - capacity_mw: double
+
+  - name: iso.events.outage.spp
+    partitions: 6
+    replication_factor: 3
+    config:
+      retention.ms: 7776000000  # 90 days
+      segment.ms: 86400000  # 1 day
+      compression.type: zstd
+      cleanup.policy: delete
+      min.insync.replicas: 2
+    description: "SPP outage events (event sourcing)"
+    schema:
+      key: "event_id"
+      value:
+        - event_id: string
+        - event_class: string
+        - asset: string
+        - start_ts: timestamp
+        - end_ts: timestamp
+        - status: string
+        - capacity_mw: double
+
+  - name: iso.events.constraint.caiso
+    partitions: 6
+    replication_factor: 3
+    config:
+      retention.ms: 7776000000  # 90 days
+      segment.ms: 86400000  # 1 day
+      compression.type: zstd
+      cleanup.policy: delete
+      min.insync.replicas: 2
+    description: "CAISO constraint events"
+    schema:
+      key: "event_id"
+      value:
+        - event_id: string
+        - constraint_name: string
+        - start_ts: timestamp
+        - end_ts: timestamp
+        - shadow_price: double
+        - status: string
+
+  - name: iso.events.constraint.miso
+    partitions: 6
+    replication_factor: 3
+    config:
+      retention.ms: 7776000000  # 90 days
+      segment.ms: 86400000  # 1 day
+      compression.type: zstd
+      cleanup.policy: delete
+      min.insync.replicas: 2
+    description: "MISO constraint events"
+    schema:
+      key: "event_id"
+      value:
+        - event_id: string
+        - constraint_name: string
+        - start_ts: timestamp
+        - end_ts: timestamp
+        - shadow_price: double
+        - status: string
+
+  - name: iso.events.constraint.spp
+    partitions: 6
+    replication_factor: 3
+    config:
+      retention.ms: 7776000000  # 90 days
+      segment.ms: 86400000  # 1 day
+      compression.type: zstd
+      cleanup.policy: delete
+      min.insync.replicas: 2
+    description: "SPP constraint events"
+    schema:
+      key: "event_id"
+      value:
+        - event_id: string
+        - constraint_name: string
+        - start_ts: timestamp
+        - end_ts: timestamp
+        - shadow_price: double
+        - status: string
+
+  # ISO real-time telemetry (renewables & load)
+  - name: iso.rt.telemetry.caiso
+    partitions: 8
+    replication_factor: 3
+    config:
+      retention.ms: 604800000  # 7 days
+      segment.ms: 300000  # 5 minutes
+      compression.type: zstd
+      cleanup.policy: delete
+      min.insync.replicas: 2
+    description: "CAISO real-time telemetry (solar/wind/load)"
+    schema:
+      key: "zone:resource:timestamp"
+      value:
+        - zone: string
+        - resource: string
+        - timestamp: timestamp
+        - value_mw: double
+        - resource_type: string
+
+  - name: iso.rt.telemetry.miso
+    partitions: 8
+    replication_factor: 3
+    config:
+      retention.ms: 604800000  # 7 days
+      segment.ms: 300000  # 5 minutes
+      compression.type: zstd
+      cleanup.policy: delete
+      min.insync.replicas: 2
+    description: "MISO real-time telemetry (solar/wind/load)"
+    schema:
+      key: "zone:resource:timestamp"
+      value:
+        - zone: string
+        - resource: string
+        - timestamp: timestamp
+        - value_mw: double
+        - resource_type: string
+
+  - name: iso.rt.telemetry.spp
+    partitions: 8
+    replication_factor: 3
+    config:
+      retention.ms: 604800000  # 7 days
+      segment.ms: 300000  # 5 minutes
+      compression.type: zstd
+      cleanup.policy: delete
+      min.insync.replicas: 2
+    description: "SPP real-time telemetry (solar/wind/load)"
+    schema:
+      key: "zone:resource:timestamp"
+      value:
+        - zone: string
+        - resource: string
+        - timestamp: timestamp
+        - value_mw: double
+        - resource_type: string
+
+  # LNG and AIS feeds
+  - name: marine.ais.raw
+    partitions: 8
+    replication_factor: 3
+    config:
+      retention.ms: 604800000  # 7 days
+      segment.ms: 3600000  # 1 hour
+      compression.type: zstd
+      cleanup.policy: delete
+      min.insync.replicas: 2
+    description: "Raw AIS vessel tracking data"
+    schema:
+      key: "mmsi:timestamp"
+      value:
+        - mmsi: string
+        - timestamp: timestamp
+        - lat: double
+        - lon: double
+        - speed_knots: double
+        - course: double
+        - vessel_type: string
+
+  - name: lng.port_events
+    partitions: 4
+    replication_factor: 3
+    config:
+      retention.ms: 7776000000  # 90 days
+      segment.ms: 86400000  # 1 day
+      compression.type: zstd
+      cleanup.policy: delete
+      min.insync.replicas: 2
+    description: "LNG port events (ETA/ETD, berth)"
+    schema:
+      key: "vessel_id:port:timestamp"
+      value:
+        - vessel_id: string
+        - port: string
+        - terminal: string
+        - event_type: string
+        - eta: timestamp
+        - etd: timestamp
+        - berth: string
+        - cargo_m3: double
+
+  # Market curve snapshots
+  - name: market.curves.power
+    partitions: 8
+    replication_factor: 3
+    config:
+      retention.ms: 7776000000  # 90 days
+      segment.ms: 86400000  # 1 day
+      compression.type: zstd
+      cleanup.policy: delete
+      min.insync.replicas: 2
+    description: "Power futures curve snapshots"
+    schema:
+      key: "snapshot_id:hub"
+      value:
+        - snapshot_id: string
+        - hub: string
+        - snapshot_ts: timestamp
+        - vendor: string
+        - tenors: array
+        - prices: array
+
+  - name: market.curves.gas
+    partitions: 8
+    replication_factor: 3
+    config:
+      retention.ms: 7776000000  # 90 days
+      segment.ms: 86400000  # 1 day
+      compression.type: zstd
+      cleanup.policy: delete
+      min.insync.replicas: 2
+    description: "Gas futures curve snapshots"
+    schema:
+      key: "snapshot_id:hub"
+      value:
+        - snapshot_id: string
+        - hub: string
+        - snapshot_ts: timestamp
+        - vendor: string
+        - tenors: array
+        - prices: array
+
+  - name: market.options.power
+    partitions: 8
+    replication_factor: 3
+    config:
+      retention.ms: 7776000000  # 90 days
+      segment.ms: 86400000  # 1 day
+      compression.type: zstd
+      cleanup.policy: delete
+      min.insync.replicas: 2
+    description: "Power options surface snapshots"
+    schema:
+      key: "snapshot_id:hub:expiry:strike"
+      value:
+        - snapshot_id: string
+        - hub: string
+        - expiry: date
+        - strike: double
+        - call_price: double
+        - put_price: double
+        - iv: double
+
   # Dead letter queue for failed messages
   - name: DLQ_STREAMING
     partitions: 4

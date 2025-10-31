@@ -1,0 +1,40 @@
+{
+  "name": "lng_sendout_pipeline",
+  "description": "LNG/AIS to regas send-out pipeline",
+  "schedule": "*/10 * * * *",
+  "timezone": "UTC",
+  "tasks": [
+    {
+      "name": "compile_ais_flink",
+      "type": "SHELL",
+      "command": "python /app/sdk/uis/compilers/flink/compiler.py --spec /app/sdk/uis/compilers/flink/fixtures/ais_enrichment.json --output /tmp/ais_flink.conf"
+    },
+    {
+      "name": "run_ais_enrichment",
+      "type": "FLINK",
+      "config": "/tmp/ais_flink.conf",
+      "dependsOn": ["compile_ais_flink"]
+    },
+    {
+      "name": "compute_sendout",
+      "type": "SPARK",
+      "config": "/app/spark/jobs/lng_sendout_estimator.py",
+      "dependsOn": ["run_ais_enrichment"]
+    },
+    {
+      "name": "data_quality",
+      "type": "PYTHON",
+      "script": "/app/data-quality/runner.py",
+      "args": ["--suite", "lng_sendout", "--table", "features.lng_sendout_hourly"],
+      "dependsOn": ["compute_sendout"]
+    }
+  ],
+  "sla": {
+    "freshness_minutes": 15,
+    "alert": {
+      "enabled": true,
+      "channel": "slack-data-platform",
+      "recipients": ["data-eng@254carbon.com", "trading-ops@254carbon.com"]
+    }
+  }
+}
