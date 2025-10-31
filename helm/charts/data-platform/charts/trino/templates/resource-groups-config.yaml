@@ -1,0 +1,67 @@
+{{- if .Values.resourceGroups.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: trino-resource-groups-config
+  namespace: {{ .Release.Namespace }}
+data:
+  resource-groups.json: |
+    {
+      "rootGroups": [
+        {
+          "name": "global",
+          "softMemoryLimit": "80%",
+          "hardConcurrencyLimit": 100,
+          "maxQueued": 1000,
+          "schedulingPolicy": "weighted",
+          "jmxExport": true,
+          "subGroups": [
+            {
+              "name": "interactive",
+              "softMemoryLimit": "40%",
+              "hardConcurrencyLimit": 30,
+              "maxQueued": 100,
+              "schedulingWeight": 3,
+              "schedulingPolicy": "fair",
+              "jmxExport": true
+            },
+            {
+              "name": "etl",
+              "softMemoryLimit": "50%",
+              "hardConcurrencyLimit": 50,
+              "maxQueued": 500,
+              "schedulingWeight": 2,
+              "schedulingPolicy": "weighted_fair",
+              "jmxExport": true
+            },
+            {
+              "name": "adhoc",
+              "softMemoryLimit": "10%",
+              "hardConcurrencyLimit": 10,
+              "maxQueued": 50,
+              "schedulingWeight": 1,
+              "schedulingPolicy": "fair",
+              "jmxExport": true
+            }
+          ]
+        }
+      ],
+      "selectors": [
+        {
+          "user": ".*_etl$",
+          "group": "global.etl"
+        },
+        {
+          "source": ".*dashboard.*",
+          "group": "global.interactive"
+        },
+        {
+          "source": ".*notebook.*",
+          "group": "global.adhoc"
+        },
+        {
+          "group": "global.interactive"
+        }
+      ]
+    }
+{{- end }}

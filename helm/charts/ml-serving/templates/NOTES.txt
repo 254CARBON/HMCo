@@ -1,0 +1,149 @@
+Thank you for installing {{ .Chart.Name }}!
+
+Your ML Serving platform has been deployed to namespace: {{ .Values.global.namespace }}
+
+=============================================================================
+  ML SERVING DEPLOYMENT STATUS
+=============================================================================
+
+{{- if .Values.exampleModel.enabled }}
+
+Example Model: {{ .Values.exampleModel.name }}
+Runtime: {{ .Values.exampleModel.runtime }}
+Storage: {{ .Values.exampleModel.storageUri }}
+
+To check the status of your InferenceService:
+
+  kubectl get inferenceservice {{ .Values.exampleModel.name }} -n {{ .Values.global.namespace }}
+
+{{- if .Values.exampleModel.canary.enabled }}
+
+Canary Deployment: ENABLED
+  - Progressive traffic shifting with Argo Rollouts
+  - Automated analysis and validation
+  - Automatic rollback on failure
+
+To watch the rollout progress:
+
+  kubectl argo rollouts get rollout {{ .Values.exampleModel.name }}-predictor -n {{ .Values.global.namespace }} --watch
+
+To manually promote the canary:
+
+  kubectl argo rollouts promote {{ .Values.exampleModel.name }}-predictor -n {{ .Values.global.namespace }}
+
+To abort and rollback:
+
+  kubectl argo rollouts abort {{ .Values.exampleModel.name }}-predictor -n {{ .Values.global.namespace }}
+{{- end }}
+
+To test inference:
+
+  # Get the service URL
+  kubectl get inferenceservice {{ .Values.exampleModel.name }} -n {{ .Values.global.namespace }}
+  
+  # Send a prediction request (example for sklearn-iris)
+  curl -X POST http://{{ .Values.exampleModel.name }}.{{ .Values.global.namespace }}.svc.cluster.local/v1/models/{{ .Values.exampleModel.name }}:predict \
+    -H "Content-Type: application/json" \
+    -d '{"instances": [[5.1, 3.5, 1.4, 0.2]]}'
+
+{{- else }}
+
+No example model enabled. To deploy your own model, create an InferenceService:
+
+  kubectl apply -f - <<EOF
+  apiVersion: serving.kserve.io/v1beta1
+  kind: InferenceService
+  metadata:
+    name: my-model
+    namespace: {{ .Values.global.namespace }}
+  spec:
+    predictor:
+      model:
+        modelFormat:
+          name: sklearn
+        storageUri: gs://my-bucket/my-model
+  EOF
+
+{{- end }}
+
+=============================================================================
+  MONITORING & METRICS
+=============================================================================
+
+{{- if .Values.monitoring.enabled }}
+
+Metrics are being collected via ServiceMonitor.
+
+To view metrics in Prometheus:
+
+  kubectl port-forward -n monitoring svc/prometheus-operated 9090:9090
+  # Open http://localhost:9090
+
+Query examples:
+  - Inference request rate: sum(rate(inference_request_total[5m])) by (service, model)
+  - Inference latency p95: sli:inference_latency_p95:5m
+  - Inference error rate: sli:inference_error_rate:5m
+
+{{- end }}
+
+{{- if .Values.slo.enabled }}
+
+Service Level Objectives (SLOs) are configured:
+
+{{- if .Values.slo.latency.enabled }}
+  ✓ Latency SLO: P95 < {{ .Values.slo.latency.p95Threshold }}s, P99 < {{ .Values.slo.latency.p99Threshold }}s
+{{- end }}
+{{- if .Values.slo.availability.enabled }}
+  ✓ Availability SLO: {{ .Values.slo.availability.target | mul 100 }}% uptime
+{{- end }}
+
+To view SLO alerts:
+
+  kubectl get prometheusrules -n {{ .Values.global.namespace }}
+
+{{- end }}
+
+=============================================================================
+  AUTOSCALING
+=============================================================================
+
+{{- if .Values.autoscaling.enabled }}
+
+Horizontal Pod Autoscaling is configured:
+  - Min Replicas: {{ .Values.autoscaling.minReplicas }}
+  - Max Replicas: {{ .Values.autoscaling.maxReplicas }}
+  - CPU Target: {{ .Values.autoscaling.targetCPUUtilizationPercentage }}%
+  {{- if .Values.autoscaling.targetMemoryUtilizationPercentage }}
+  - Memory Target: {{ .Values.autoscaling.targetMemoryUtilizationPercentage }}%
+  {{- end }}
+
+To check HPA status:
+
+  kubectl get hpa -n {{ .Values.global.namespace }}
+
+{{- end }}
+
+=============================================================================
+  USEFUL COMMANDS
+=============================================================================
+
+View all resources:
+  kubectl get all -n {{ .Values.global.namespace }}
+
+View logs:
+  kubectl logs -n {{ .Values.global.namespace }} -l app.kubernetes.io/name={{ include "ml-serving.name" . }} -f
+
+Describe InferenceService:
+  kubectl describe inferenceservice -n {{ .Values.global.namespace }}
+
+Check SLO compliance:
+  kubectl get prometheusrules -n {{ .Values.global.namespace }} -o yaml
+
+=============================================================================
+
+For more information, visit:
+  - KServe docs: https://kserve.github.io/website
+  - Argo Rollouts docs: https://argoproj.github.io/rollouts
+  - Chart README: helm/charts/ml-serving/README.md
+
+Happy serving! 🚀

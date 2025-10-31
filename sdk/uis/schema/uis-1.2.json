@@ -1,0 +1,885 @@
+{
+  "$defs": {
+    "AuthType": {
+      "description": "Authentication types.",
+      "enum": [
+        "api_key",
+        "oauth2",
+        "hmac",
+        "basic",
+        "bearer",
+        "none"
+      ],
+      "title": "AuthType",
+      "type": "string"
+    },
+    "EndpointConfig": {
+      "description": "Configuration for a single data endpoint.",
+      "properties": {
+        "name": {
+          "description": "Unique name for this endpoint",
+          "title": "Name",
+          "type": "string"
+        },
+        "path": {
+          "description": "API path or endpoint identifier",
+          "title": "Path",
+          "type": "string"
+        },
+        "method": {
+          "default": "GET",
+          "description": "HTTP method",
+          "title": "Method",
+          "type": "string"
+        },
+        "auth": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AuthType"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "auth_config": {
+          "anyOf": [
+            {
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Auth Config"
+        },
+        "headers": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Headers"
+        },
+        "query_params": {
+          "anyOf": [
+            {
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Query Params"
+        },
+        "body_template": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Body Template"
+        },
+        "pagination": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/PaginationType"
+            }
+          ],
+          "default": "none"
+        },
+        "pagination_config": {
+          "anyOf": [
+            {
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Pagination Config"
+        },
+        "response_path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "JSONPath to extract data",
+          "title": "Response Path"
+        },
+        "field_mapping": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Field name mappings",
+          "title": "Field Mapping"
+        },
+        "rate_limit_group": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Rate Limit Group"
+        },
+        "rate_limit_per_second": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Rate Limit Per Second"
+        },
+        "sample_size": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": 100,
+          "description": "Sample size for validation",
+          "title": "Sample Size"
+        },
+        "validation_rules": {
+          "anyOf": [
+            {
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Validation Rules"
+        },
+        "is_active": {
+          "default": true,
+          "title": "Is Active",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "name",
+        "path"
+      ],
+      "title": "EndpointConfig",
+      "type": "object"
+    },
+    "IngestionMode": {
+      "description": "Ingestion modes supported by UIS.",
+      "enum": [
+        "batch",
+        "micro_batch",
+        "streaming",
+        "websocket",
+        "webhook",
+        "graphql_subscription"
+      ],
+      "title": "IngestionMode",
+      "type": "string"
+    },
+    "PaginationType": {
+      "description": "Pagination types.",
+      "enum": [
+        "cursor",
+        "offset",
+        "page",
+        "none"
+      ],
+      "title": "PaginationType",
+      "type": "string"
+    },
+    "ProviderConfig": {
+      "description": "Configuration for an external data provider.",
+      "properties": {
+        "name": {
+          "description": "Provider name",
+          "title": "Name",
+          "type": "string"
+        },
+        "display_name": {
+          "description": "Human-readable name",
+          "title": "Display Name",
+          "type": "string"
+        },
+        "description": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Description"
+        },
+        "provider_type": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/ProviderType"
+            }
+          ],
+          "description": "Type of provider"
+        },
+        "base_url": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Base URL for APIs",
+          "title": "Base Url"
+        },
+        "config": {
+          "anyOf": [
+            {
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Config"
+        },
+        "credentials_ref": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Vault secret reference",
+          "title": "Credentials Ref"
+        },
+        "schedule_cron": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Schedule Cron"
+        },
+        "schedule_timezone": {
+          "default": "UTC",
+          "title": "Schedule Timezone",
+          "type": "string"
+        },
+        "tenant_id": {
+          "description": "Tenant identifier",
+          "title": "Tenant Id",
+          "type": "string"
+        },
+        "owner": {
+          "description": "Data owner",
+          "title": "Owner",
+          "type": "string"
+        },
+        "tags": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Tags"
+        },
+        "endpoints": {
+          "items": {
+            "$ref": "#/$defs/EndpointConfig"
+          },
+          "title": "Endpoints",
+          "type": "array"
+        },
+        "transforms": {
+          "items": {
+            "$ref": "#/$defs/TransformConfig"
+          },
+          "title": "Transforms",
+          "type": "array"
+        },
+        "sinks": {
+          "description": "Target sinks",
+          "items": {
+            "$ref": "#/$defs/SinkConfig"
+          },
+          "minItems": 1,
+          "title": "Sinks",
+          "type": "array"
+        },
+        "schema_contract": {
+          "anyOf": [
+            {
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "JSON Schema",
+          "title": "Schema Contract"
+        },
+        "slos": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SLOConfig"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "mode": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/IngestionMode"
+            }
+          ],
+          "default": "batch"
+        },
+        "parallelism": {
+          "default": 1,
+          "minimum": 1,
+          "title": "Parallelism",
+          "type": "integer"
+        },
+        "retry_config": {
+          "anyOf": [
+            {
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Retry Config"
+        }
+      },
+      "required": [
+        "name",
+        "display_name",
+        "provider_type",
+        "tenant_id",
+        "owner",
+        "sinks"
+      ],
+      "title": "ProviderConfig",
+      "type": "object"
+    },
+    "ProviderType": {
+      "description": "Types of data providers.",
+      "enum": [
+        "rest_api",
+        "graphql",
+        "websocket",
+        "webhook",
+        "file_ftp",
+        "database",
+        "kafka",
+        "s3"
+      ],
+      "title": "ProviderType",
+      "type": "string"
+    },
+    "SLOConfig": {
+      "description": "Service Level Objective configuration.",
+      "properties": {
+        "freshness_target_minutes": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Freshness Target Minutes"
+        },
+        "accuracy_threshold": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Accuracy Threshold"
+        },
+        "completeness_threshold": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Completeness Threshold"
+        },
+        "availability_target": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Availability Target"
+        },
+        "block_on_schema_drift": {
+          "default": true,
+          "title": "Block On Schema Drift",
+          "type": "boolean"
+        },
+        "block_on_quality_drop": {
+          "default": true,
+          "title": "Block On Quality Drop",
+          "type": "boolean"
+        }
+      },
+      "title": "SLOConfig",
+      "type": "object"
+    },
+    "SinkConfig": {
+      "description": "Configuration for data sinks.",
+      "properties": {
+        "type": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/SinkType"
+            }
+          ],
+          "description": "Sink type"
+        },
+        "config": {
+          "description": "Sink-specific configuration",
+          "title": "Config",
+          "type": "object"
+        },
+        "table_name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Table Name"
+        },
+        "partition_by": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Partition By"
+        },
+        "clickhouse_table": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Clickhouse Table"
+        },
+        "clickhouse_cluster": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Clickhouse Cluster"
+        },
+        "kafka_topic": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Kafka Topic"
+        },
+        "kafka_key_field": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Kafka Key Field"
+        }
+      },
+      "required": [
+        "type",
+        "config"
+      ],
+      "title": "SinkConfig",
+      "type": "object"
+    },
+    "SinkType": {
+      "description": "Target sink types.",
+      "enum": [
+        "iceberg",
+        "clickhouse",
+        "kafka",
+        "parquet",
+        "postgres",
+        "elasticsearch"
+      ],
+      "title": "SinkType",
+      "type": "string"
+    },
+    "TransformConfig": {
+      "description": "Configuration for data transformations.",
+      "properties": {
+        "name": {
+          "description": "Transform name",
+          "title": "Name",
+          "type": "string"
+        },
+        "type": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/TransformType"
+            }
+          ],
+          "description": "Transform execution type"
+        },
+        "wasm_module": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "OCI reference to WASM module",
+          "title": "Wasm Module"
+        },
+        "wasm_function": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": "transform",
+          "description": "WASM function name",
+          "title": "Wasm Function"
+        },
+        "spark_config": {
+          "anyOf": [
+            {
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Spark Config"
+        },
+        "flink_config": {
+          "anyOf": [
+            {
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Flink Config"
+        },
+        "python_module": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Python Module"
+        },
+        "python_function": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Python Function"
+        },
+        "sql_query": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Sql Query"
+        },
+        "parameters": {
+          "anyOf": [
+            {
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Parameters"
+        },
+        "input_schema": {
+          "anyOf": [
+            {
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Input Schema"
+        },
+        "output_schema": {
+          "anyOf": [
+            {
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Output Schema"
+        }
+      },
+      "required": [
+        "name",
+        "type"
+      ],
+      "title": "TransformConfig",
+      "type": "object"
+    },
+    "TransformType": {
+      "description": "Transform execution types.",
+      "enum": [
+        "wasm",
+        "spark",
+        "flink",
+        "python",
+        "sql"
+      ],
+      "title": "TransformType",
+      "type": "string"
+    }
+  },
+  "description": "Unified Ingestion Specification version 1.1.",
+  "properties": {
+    "version": {
+      "default": "1.1",
+      "description": "UIS version",
+      "title": "Version",
+      "type": "string"
+    },
+    "name": {
+      "description": "Name of this ingestion spec",
+      "title": "Name",
+      "type": "string"
+    },
+    "description": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Description"
+    },
+    "provider": {
+      "$ref": "#/$defs/ProviderConfig"
+    },
+    "global_config": {
+      "anyOf": [
+        {
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Global Config"
+    },
+    "created_at": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Created At"
+    },
+    "created_by": {
+      "description": "Creator of this spec",
+      "title": "Created By",
+      "type": "string"
+    },
+    "schemaRef": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Reference to schema in Schema Registry (e.g., 'hmco.trading.orders-v1')",
+      "title": "Schema Reference"
+    },
+    "compatMode": {
+      "anyOf": [
+        {
+          "enum": [
+            "BACKWARD",
+            "FORWARD",
+            "FULL",
+            "NONE"
+          ],
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": "BACKWARD",
+      "description": "Schema compatibility mode for evolution",
+      "title": "Compatibility Mode"
+    }
+  },
+  "required": [
+    "name",
+    "provider",
+    "created_by"
+  ],
+  "title": "UnifiedIngestionSpec",
+  "type": "object",
+  "version": "1.2.0"
+}

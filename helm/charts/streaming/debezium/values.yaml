@@ -1,0 +1,109 @@
+replicaCount: 2
+
+image:
+  repository: debezium/connect
+  pullPolicy: IfNotPresent
+  tag: "2.5.0"
+
+service:
+  type: ClusterIP
+  port: 8083
+
+kafka:
+  bootstrapServers: "kafka-broker:9092"
+  groupId: "debezium-cdc-group"
+
+# Connector configurations
+connectors:
+  # PostgreSQL CDC connector
+  postgres:
+    enabled: true
+    connector.class: "io.debezium.connector.postgresql.PostgresConnector"
+    database.hostname: "postgres"
+    database.port: "5432"
+    database.user: "debezium"
+    database.dbname: "trading"
+    database.server.name: "hmco-trading-db"
+    table.include.list: "public.trades,public.positions,public.reference_data"
+    # Emit changes to Kafka topics
+    topic.prefix: "cdc.trading"
+    # Transform to Iceberg-friendly format
+    transforms: "unwrap"
+    transforms.unwrap.type: "io.debezium.transforms.ExtractNewRecordState"
+    transforms.unwrap.drop.tombstones: "false"
+    transforms.unwrap.delete.handling.mode: "rewrite"
+  
+  # MySQL CDC connector
+  mysql:
+    enabled: false
+    connector.class: "io.debezium.connector.mysql.MySqlConnector"
+    database.hostname: "mysql"
+    database.port: "3306"
+    database.user: "debezium"
+    database.server.id: "184054"
+    database.server.name: "hmco-mysql-db"
+    table.include.list: "inventory.*"
+    topic.prefix: "cdc.inventory"
+
+# Output targets
+outputTargets:
+  # Write to Iceberg tables
+  iceberg:
+    enabled: true
+    catalog: "rest"
+    warehouse: "s3://hmco-curated/"
+    tables:
+      - sourcePattern: "cdc.trading.trades"
+        targetTable: "hmco_curated.trading.trades"
+        writeMode: "upsert"
+        primaryKeys: ["trade_id"]
+      - sourcePattern: "cdc.trading.positions"
+        targetTable: "hmco_curated.trading.positions"
+        writeMode: "upsert"
+        primaryKeys: ["position_id"]
+  
+  # Also materialize to ClickHouse
+  clickhouse:
+    enabled: true
+    host: "clickhouse-service"
+    port: 8123
+    database: "trading"
+    tables:
+      - sourcePattern: "cdc.trading.trades"
+        targetTable: "trades_mv"
+        engine: "ReplicatedReplacingMergeTree"
+
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+  hosts:
+    - host: debezium.254carbon.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: debezium-tls
+      hosts:
+        - debezium.254carbon.com
+
+resources:
+  limits:
+    cpu: 2000m
+    memory: 4Gi
+  requests:
+    cpu: 500m
+    memory: 1Gi
+
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 6
+  targetCPUUtilizationPercentage: 70
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}

@@ -119,7 +119,7 @@ data:
           component: data-platform
         annotations:
           summary: "DolphinScheduler workflow failed"
-          description: "Workflow {{ $labels.workflow_name }} failed"
+          description: "Workflow {{"{{"}} $labels.workflow_name {{"}}"}} failed"
       
       # Workflow Running Too Long
       - alert: WorkflowRunningTooLong
@@ -131,7 +131,7 @@ data:
           component: data-platform
         annotations:
           summary: "Workflow running too long"
-          description: "Workflow {{ $labels.workflow_name }} has been running for over 1 hour"
+          description: "Workflow {{"{{"}} $labels.workflow_name {{"}}"}} has been running for over 1 hour"
       
       # Data Quality Check Failed
       - alert: DataQualityCheckFailed

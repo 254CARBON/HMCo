@@ -1,0 +1,68 @@
+version: 2
+
+sources:
+  - name: raw
+    database: iceberg
+    schema: raw
+    tables:
+      - name: lmp_prices
+        description: "Raw LMP pricing data from various ISOs"
+        columns:
+          - name: location_id
+            description: "Unique location identifier"
+            tests:
+              - not_null
+          - name: lmp_price
+            description: "Locational Marginal Price"
+            tests:
+              - not_null
+  
+  - name: curated
+    database: iceberg
+    schema: curated
+    tables:
+      - name: weather_features
+        description: "Curated weather features from weather API"
+
+models:
+  - name: stg_lmp_data
+    description: "Staging model for LMP data"
+    columns:
+      - name: location_id
+        description: "Location identifier"
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_locations')
+              field: location_id
+      - name: lmp_price
+        tests:
+          - not_null
+  
+  - name: lmp_hourly_summary
+    description: "Hourly aggregated LMP data by location"
+    columns:
+      - name: location_id
+        tests:
+          - not_null
+      - name: hour
+        tests:
+          - not_null
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          combination_of_columns:
+            - location_id
+            - hour
+  
+  - name: weather_lmp_join
+    description: "LMP data enriched with weather features"
+    columns:
+      - name: location_id
+        tests:
+          - not_null
+      - name: hour
+        tests:
+          - not_null
+      - name: avg_lmp
+        tests:
+          - not_null

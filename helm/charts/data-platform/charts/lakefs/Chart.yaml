@@ -1,0 +1,13 @@
+apiVersion: v2
+name: lakefs
+description: lakeFS for data versioning and sandboxing
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
+keywords:
+  - lakefs
+  - data-versioning
+  - git-for-data
+  - sandboxing
+maintainers:
+  - name: 254Carbon Platform Team
