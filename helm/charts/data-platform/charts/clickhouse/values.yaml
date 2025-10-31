@@ -55,6 +55,8 @@ clickhouse:
   security:
     enableSSL: false
     allowEmptyPassword: false
+    # Note: In production, password should be provided via Kubernetes Secret
+    # kubectl create secret generic clickhouse-password --from-literal=password=<secure-password>
     defaultPassword: "ClickHouse@254Carbon2025"
     
   # Encryption settings
@@ -87,7 +89,9 @@ resources:
 # Persistent volume configuration
 persistence:
   enabled: true
-  storageClass: local-path
+  # Use encrypted-local-path for production to ensure encryption at rest
+  # For non-production: local-path
+  storageClass: local-path  # TODO: Change to encrypted-local-path in production
   size: 100Gi
   accessModes:
     - ReadWriteOnce
@@ -95,7 +99,7 @@ persistence:
   encryption:
     enabled: true
     # Storage class should support encryption (e.g., encrypted-gp3, encrypted-local-path)
-    # For cloud providers: use encrypted storage classes
+    # For cloud providers: use encrypted storage classes (encrypted-gp3, encrypted-ebs, etc.)
     # For on-prem: use LUKS or dm-crypt at the volume level
     storageClassEncrypted: encrypted-local-path
     annotations:

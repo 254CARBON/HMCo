@@ -813,7 +813,7 @@ catalog = load_catalog(
     "rest",
     **{
         "uri": "http://iceberg-rest-catalog:8181",
-        "token": "<your-api-token>"
+        "token": "YOUR_API_TOKEN_HERE"  # Replace with actual token from kubectl
     }
 )
 

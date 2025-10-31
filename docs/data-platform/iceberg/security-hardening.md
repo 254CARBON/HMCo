@@ -756,7 +756,7 @@ spec:
       serviceAccountName: fluent-bit
       containers:
       - name: fluent-bit
-        image: fluent/fluent-bit:2.1
+        image: fluent/fluent-bit:2.1.10  # Pin to specific version for production
         volumeMounts:
         - name: varlog
           mountPath: /var/log
@@ -1135,7 +1135,7 @@ data:
             }
           },
           "delete": {
-            "min_age": "2555d",
+            "min_age": "2555d",  # 7 years (2555 days) for compliance (SOX, GDPR)
             "actions": {
               "delete": {}
             }
