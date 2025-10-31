@@ -1,8 +1,19 @@
-# Full-cluster Velero restore template.
+# Full-cluster Velero restore template for disaster recovery.
+#
+# This template restores all application namespaces including:
+# - data-platform (ClickHouse PVs, Portal services)
+# - ml-platform (MLflow)
+# - vault-prod (Vault Raft storage)
+# - monitoring, registry, cert-manager, cloudflare-tunnel, kubeflow
 #
 # Usage:
 #   export BACKUP_NAME="$(velero backup get --selector 'velero.io/schedule-name=weekly-full-backup' \
 #     --output json | jq -r '.items | sort_by(.status.completionTimestamp) | last | .metadata.name')"
+#   kubectl create -f <(envsubst < k8s/storage/velero-restore-full.yaml)
+#
+# For DR drill into an empty cluster:
+#   export BACKUP_NAME="$(velero backup get --selector 'velero.io/schedule-name=daily-backup' \
+#     --output json | jq -r '.items | map(select(.status.phase=="Completed")) | sort_by(.status.completionTimestamp) | last | .metadata.name')"
 #   kubectl create -f <(envsubst < k8s/storage/velero-restore-full.yaml)
 #
 # The resulting restore will replay the specified backup across all namespaces
