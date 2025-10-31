@@ -21,6 +21,26 @@ catalog:
   backend: jdbc
   warehouse: s3a://hmco-curated/
   
+# Multi-region configuration for active-active geo-federation
+multiRegion:
+  enabled: false
+  # Leader election for single-writer enforcement
+  leaderElection:
+    enabled: true
+    leaseDurationSeconds: 15
+    renewDeadlineSeconds: 10
+    retryPeriodSeconds: 2
+  # Read replicas for read-local queries
+  readReplicas:
+    enabled: false
+    # PostgreSQL read replicas
+    replicas: []
+    # Example:
+    # - name: us-west-2
+    #   endpoint: postgres-ro-us-west-2.example.com:5432
+    # - name: eu-west-1
+    #   endpoint: postgres-ro-eu-west-1.example.com:5432
+  
 postgres:
   # Connection details from ExternalSecret
   secretName: iceberg-rest-catalog-postgres
