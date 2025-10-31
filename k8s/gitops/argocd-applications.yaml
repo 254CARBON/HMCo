@@ -672,3 +672,68 @@ spec:
       allowEmpty: false
     syncOptions:
       - CreateNamespace=true
+
+---
+# ArgoCD Application: ML Serving
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: ml-serving
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "-3"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: production
+  source:
+    repoURL: https://github.com/254CARBON/HMCo.git
+    targetRevision: main
+    path: helm/charts/ml-serving
+    helm:
+      valueFiles:
+        - values.yaml
+        - values/prod.yaml
+      parameters:
+      - name: "kserve.enabled"
+        value: "true"
+      - name: "argoRollouts.enabled"
+        value: "true"
+      - name: "exampleModel.enabled"
+        value: "true"
+      - name: "slo.enabled"
+        value: "true"
+      - name: "monitoring.enabled"
+        value: "true"
+      - name: "autoscaling.enabled"
+        value: "true"
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: ml-serving
+  ignoreDifferences:
+    - group: monitoring.coreos.com
+      kind: PrometheusRule
+      managedFieldsManagers:
+        - prometheus-operator
+      jsonPointers:
+        - /metadata/labels
+        - /metadata/annotations
+    - group: monitoring.coreos.com
+      kind: ServiceMonitor
+      managedFieldsManagers:
+        - prometheus-operator
+      jsonPointers:
+        - /metadata/labels
+        - /metadata/annotations
+  syncPolicy:
+    automated:
+      prune: false
+      selfHeal: true
+      allowEmpty: false
+    syncOptions:
+      - CreateNamespace=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2

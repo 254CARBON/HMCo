@@ -1,0 +1,69 @@
+{{- if and .Values.exampleModel.enabled .Values.exampleModel.canary.enabled }}
+apiVersion: argoproj.io/v1alpha1
+kind: Rollout
+metadata:
+  name: {{ .Values.exampleModel.name }}-predictor
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "ml-serving.labels" . | nindent 4 }}
+    serving.kserve.io/inferenceservice: {{ .Values.exampleModel.name }}
+spec:
+  replicas: {{ .Values.autoscaling.minReplicas }}
+  revisionHistoryLimit: 3
+  selector:
+    matchLabels:
+      serving.kserve.io/inferenceservice: {{ .Values.exampleModel.name }}
+      component: predictor
+  strategy:
+    canary:
+      {{- with .Values.exampleModel.canary.steps }}
+      steps:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- if .Values.exampleModel.canary.analysis.enabled }}
+      analysis:
+        templates:
+          - templateName: {{ .Values.exampleModel.name }}-analysis
+        startingStep: 2  # Start analysis after first weight increase
+        args:
+          - name: service-name
+            value: {{ .Values.exampleModel.name }}-predictor-canary
+      {{- end }}
+      canaryService: {{ .Values.exampleModel.name }}-predictor-canary
+      stableService: {{ .Values.exampleModel.name }}-predictor-stable
+      trafficRouting:
+        istio:
+          virtualService:
+            name: {{ .Values.exampleModel.name }}-vs
+            routes:
+              - primary
+  template:
+    metadata:
+      labels:
+        serving.kserve.io/inferenceservice: {{ .Values.exampleModel.name }}
+        component: predictor
+        {{- include "ml-serving.labels" . | nindent 8 }}
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    spec:
+      containers:
+        - name: kserve-container
+          image: kserve/sklearnserver:latest
+          ports:
+            - containerPort: 8080
+              name: http
+              protocol: TCP
+          env:
+            - name: STORAGE_URI
+              value: {{ .Values.exampleModel.storageUri }}
+          {{- with .Values.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+{{- end }}

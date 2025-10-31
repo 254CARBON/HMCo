@@ -1,0 +1,86 @@
+{{- if .Values.slo.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: ml-serving-slo-recording-rules
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "ml-serving.labels" . | nindent 4 }}
+    role: slo-recording
+spec:
+  groups:
+    - name: ml-serving.slo.recording
+      interval: 30s
+      rules:
+        # Inference request rate
+        - record: sli:inference_request_rate:5m
+          expr: |
+            sum(rate(inference_request_total[5m])) by (service, model)
+        
+        # Inference error rate
+        - record: sli:inference_error_rate:5m
+          expr: |
+            sum(rate(inference_request_errors[5m])) by (service, model) /
+            sum(rate(inference_request_total[5m])) by (service, model)
+        
+        # Inference success rate
+        - record: sli:inference_success_rate:5m
+          expr: |
+            1 - (
+              sum(rate(inference_request_errors[5m])) by (service, model) /
+              sum(rate(inference_request_total[5m])) by (service, model)
+            )
+        
+        # Inference latency percentiles
+        - record: sli:inference_latency_p50:5m
+          expr: |
+            histogram_quantile(0.50,
+              sum(rate(inference_request_duration_seconds_bucket[5m])) by (le, service, model)
+            )
+        
+        - record: sli:inference_latency_p95:5m
+          expr: |
+            histogram_quantile(0.95,
+              sum(rate(inference_request_duration_seconds_bucket[5m])) by (le, service, model)
+            )
+        
+        - record: sli:inference_latency_p99:5m
+          expr: |
+            histogram_quantile(0.99,
+              sum(rate(inference_request_duration_seconds_bucket[5m])) by (le, service, model)
+            )
+        
+        # Inference availability over different time windows
+        - record: sli:inference_availability:5m
+          expr: |
+            avg_over_time(up{job="ml-serving"}[5m])
+        
+        - record: sli:inference_availability:1h
+          expr: |
+            avg_over_time(up{job="ml-serving"}[1h])
+        
+        - record: sli:inference_availability:24h
+          expr: |
+            avg_over_time(up{job="ml-serving"}[24h])
+        
+        # Error budget burn rates (multi-window, multi-burn)
+        - record: sli:inference_error_ratio:2h
+          expr: |
+            sum(rate(inference_request_errors[2h])) by (service, model) /
+            sum(rate(inference_request_total[2h])) by (service, model)
+        
+        - record: sli:inference_error_ratio:6h
+          expr: |
+            sum(rate(inference_request_errors[6h])) by (service, model) /
+            sum(rate(inference_request_total[6h])) by (service, model)
+        
+        - record: sli:inference_error_ratio:24h
+          expr: |
+            sum(rate(inference_request_errors[24h])) by (service, model) /
+            sum(rate(inference_request_total[24h])) by (service, model)
+        
+        - record: sli:inference_error_ratio:3d
+          expr: |
+            sum(rate(inference_request_errors[3d])) by (service, model) /
+            sum(rate(inference_request_total[3d])) by (service, model)
+{{- end }}

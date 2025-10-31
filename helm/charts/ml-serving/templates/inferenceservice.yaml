@@ -1,0 +1,36 @@
+{{- if .Values.exampleModel.enabled }}
+apiVersion: serving.kserve.io/v1beta1
+kind: InferenceService
+metadata:
+  name: {{ .Values.exampleModel.name }}
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "ml-serving.labels" . | nindent 4 }}
+  annotations:
+    serving.kserve.io/enable-prometheus-scraping: "true"
+    {{- if .Values.exampleModel.canary.enabled }}
+    serving.kserve.io/rollout-strategy: "canary"
+    {{- end }}
+spec:
+  predictor:
+    {{- if .Values.autoscaling.enabled }}
+    minReplicas: {{ .Values.autoscaling.minReplicas }}
+    maxReplicas: {{ .Values.autoscaling.maxReplicas }}
+    scaleTarget: {{ .Values.autoscaling.targetCPUUtilizationPercentage }}
+    scaleMetric: cpu
+    {{- end }}
+    model:
+      modelFormat:
+        name: {{ .Values.exampleModel.runtime }}
+      storageUri: {{ .Values.exampleModel.storageUri }}
+      resources:
+        {{- toYaml .Values.resources | nindent 8 }}
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    {{- with .Values.securityContext }}
+    containerSecurityContext:
+      {{- toYaml . | nindent 6 }}
+    {{- end }}
+{{- end }}

@@ -1,0 +1,84 @@
+# Production Values for ML Serving
+# Override default values for production deployment
+
+global:
+  namespace: ml-serving
+  domain: 254carbon.com
+  storageClass: local-path
+
+# KServe Configuration
+kserve:
+  enabled: true
+
+# Argo Rollouts Configuration
+argoRollouts:
+  enabled: true
+  controller:
+    replicas: 2
+    metrics:
+      enabled: true
+      serviceMonitor:
+        enabled: true
+
+# Example Model - Disabled in production
+# Users should define their own models
+exampleModel:
+  enabled: false
+
+# Production Autoscaling
+autoscaling:
+  enabled: true
+  minReplicas: 2  # Higher minimum for production
+  maxReplicas: 20  # Higher maximum for production
+  targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: 80
+  customMetrics:
+    enabled: true
+    requestsPerSecond:
+      targetValue: 200  # Higher target for production
+
+# Production SLOs - Stricter thresholds
+slo:
+  enabled: true
+  latency:
+    enabled: true
+    p95Threshold: 0.3  # 300ms for production
+    p99Threshold: 0.8  # 800ms for production
+  availability:
+    enabled: true
+    target: 0.999  # 99.9% availability
+    errorBudget: 0.001
+
+# Production Monitoring
+monitoring:
+  enabled: true
+  serviceMonitor:
+    enabled: true
+    interval: 15s
+    scrapeTimeout: 10s
+  metrics:
+    enabled: true
+    port: 8080
+    path: /metrics
+
+# Production Resources - Higher limits
+resources:
+  requests:
+    cpu: 500m
+    memory: 1Gi
+  limits:
+    cpu: 2000m
+    memory: 4Gi
+
+# Security - Enforced in production
+securityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  fsGroup: 1000
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL
+  readOnlyRootFilesystem: true
+  seccompProfile:
+    type: RuntimeDefault
