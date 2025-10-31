@@ -112,7 +112,7 @@ data:
             {
               "datasource": "Prometheus",
               "expr": "sum(rate(dolphinscheduler_task_success_total[1h])) by (workflow_name)",
-              "legendFormat": "{{ "{{" }} workflow_name {{ "}}" }}"
+              "legendFormat": ""{{ "{{workflow_name}}" }}""
             }
           ],
           "gridPos": {"h": 6, "w": 12, "x": 0, "y": 0}
@@ -150,7 +150,7 @@ data:
             {
               "datasource": "Prometheus",
               "expr": "rate(commodity_records_ingested_total[1m])",
-              "legendFormat": "{{ "{{" }} source {{ "}}" }}"
+              "legendFormat": ""{{ "{{source}}" }}""
             }
           ],
           "gridPos": {"h": 8, "w": 24, "x": 0, "y": 6}
@@ -443,7 +443,7 @@ data:
             {
               "datasource": "Prometheus",
               "expr": "DCGM_FI_DEV_GPU_UTIL{pod=~\"rapids.*\"}",
-              "legendFormat": "GPU {{ "{{" }} gpu {{ "}}" }}"
+              "legendFormat": "GPU "{{ "{{gpu}}" }}""
             }
           ],
           "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0},
@@ -463,7 +463,7 @@ data:
             {
               "datasource": "Prometheus",
               "expr": "DCGM_FI_DEV_FB_USED{pod=~\"rapids.*\"} / DCGM_FI_DEV_FB_TOTAL * 100",
-              "legendFormat": "GPU {{ "{{" }} gpu {{ "}}" }} Memory"
+              "legendFormat": "GPU "{{ "{{gpu}}" }}" Memory"
             }
           ],
           "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0},
@@ -500,7 +500,7 @@ data:
             {
               "datasource": "Prometheus",
               "expr": "histogram_quantile(0.95, rate(rapids_job_duration_seconds_bucket[5m]))",
-              "legendFormat": "{{ "{{" }} job_type {{ "}}" }}"
+              "legendFormat": ""{{ "{{job_type}}" }}""
             }
           ],
           "gridPos": {"h": 6, "w": 16, "x": 8, "y": 8},

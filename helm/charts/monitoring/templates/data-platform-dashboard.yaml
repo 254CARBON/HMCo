@@ -142,7 +142,7 @@ data:
           "targets": [
             {
               "expr": "sum(container_memory_working_set_bytes{namespace=\"data-platform\"}) by (pod)",
-              "legendFormat": "{{ "{{" }}pod{{ "}}" }}",
+              "legendFormat": "{{ "{{pod}}" }}",
               "refId": "A"
             }
           ],
@@ -210,7 +210,7 @@ data:
           "targets": [
             {
               "expr": "sum(rate(container_cpu_usage_seconds_total{namespace=\"data-platform\"}[5m])) by (pod)",
-              "legendFormat": "{{ "{{" }}pod{{ "}}" }}",
+              "legendFormat": "{{ "{{pod}}" }}",
               "refId": "A"
             }
           ],
