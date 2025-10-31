@@ -36,7 +36,7 @@ data:
           }
         },
         {
-          "ID": "curated-repl",
+          "ID": "curated-repl-primary-to-secondary",
           "Status": "Enabled",
           "Priority": 1,
           "DeleteMarkerReplication": {
@@ -44,8 +44,15 @@ data:
           },
           "Destination": {
             "Bucket": "arn:aws:s3:::hmco-curated-dr",
-            "StorageClass": "STANDARD"
-          }
+            "StorageClass": "STANDARD",
+            "ReplicationTime": {
+              "Status": "Enabled",
+              "Time": {
+                "Minutes": 15
+              }
+            }
+          },
+          "Filter": {}
         },
         {
           "ID": "ml-repl",
@@ -114,13 +121,17 @@ spec:
               mc version enable secondary/hmco-curated-dr
               mc version enable secondary/hmco-ml-dr
               
-              # Apply replication rules
+              # Apply replication rules (unidirectional for raw, staged, ml)
               mc replicate add primary/hmco-raw --remote-bucket secondary/hmco-raw-dr --priority 1
               mc replicate add primary/hmco-staged --remote-bucket secondary/hmco-staged-dr --priority 1
-              mc replicate add primary/hmco-curated --remote-bucket secondary/hmco-curated-dr --priority 1
               mc replicate add primary/hmco-ml --remote-bucket secondary/hmco-ml-dr --priority 1
               
-              echo "Replication setup complete"
+              # Apply BIDIRECTIONAL replication for curated (active-active geo-federation)
+              echo "Setting up bidirectional replication for curated bucket..."
+              mc replicate add primary/hmco-curated --remote-bucket secondary/hmco-curated-dr --priority 1
+              mc replicate add secondary/hmco-curated-dr --remote-bucket primary/hmco-curated --priority 1
+              
+              echo "Replication setup complete (curated is bidirectional for geo-federation)"
             resources:
               limits:
                 memory: "256Mi"

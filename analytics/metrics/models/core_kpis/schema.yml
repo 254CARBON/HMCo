@@ -1,0 +1,71 @@
+version: 2
+
+sources:
+  - name: curated
+    description: Curated data lake tables
+    tables:
+      - name: rt_lmp_5m
+        description: Real-time 5-minute LMP data
+      - name: weather_hourly
+        description: Hourly weather observations
+      - name: load_hourly
+        description: Hourly load data
+
+models:
+  - name: lmp_spread
+    description: >
+      **Canonical Metric: LMP Spread**
+      
+      Difference between locational marginal price and hub reference price.
+      This is the single source of truth for LMP spread calculations across all BI tools and notebooks.
+    meta:
+      owner: trading-analytics
+      sla_minutes: 60
+      breaking_change_protection: true
+    columns:
+      - name: metric_timestamp
+        description: Timestamp of the metric observation
+        tests:
+          - not_null
+      - name: iso
+        description: ISO/RTO market identifier
+        tests:
+          - not_null
+      - name: node
+        description: Pricing node identifier
+        tests:
+          - not_null
+      - name: lmp_spread
+        description: Node LMP minus hub reference LMP
+        tests:
+          - not_null
+    tests:
+      - dbt_utils.expression_is_true:
+          expression: "ABS(lmp_spread) < 1000"
+          name: lmp_spread_within_reasonable_bounds
+      
+  - name: nodal_congestion_factor
+    description: >
+      **Canonical Metric: Nodal Congestion Factor**
+      
+      Congestion component as a factor of total LMP.
+      This metric provides a standardized view of congestion severity.
+    meta:
+      owner: trading-analytics
+      sla_minutes: 60
+      breaking_change_protection: true
+    columns:
+      - name: metric_timestamp
+        description: Timestamp of the metric observation
+        tests:
+          - not_null
+      - name: congestion_factor
+        description: Congestion divided by LMP
+        tests:
+          - not_null
+      - name: congestion_severity
+        description: Categorized congestion level (low/medium/high)
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['low', 'medium', 'high']

@@ -1,0 +1,45 @@
+replicaCount: 2
+
+image:
+  repository: envoyproxy/envoy
+  tag: v1.28.0
+  pullPolicy: IfNotPresent
+
+service:
+  type: ClusterIP
+  port: 8080
+  targetPort: 8080
+
+regions:
+  primary:
+    name: us-east-1
+    endpoint: http://trino-primary.data-platform.svc.cluster.local:8080
+    priority: 1
+    weight: 100
+  secondary:
+    name: us-west-2
+    endpoint: http://trino-secondary.data-platform.svc.cluster.local:8080
+    priority: 2
+    weight: 50
+
+routingPolicy:
+  # Route reads to nearest region
+  readLocal: true
+  # Allow cross-region fallback
+  crossRegionFallback: true
+  # Timeout for regional failover (ms)
+  failoverTimeoutMs: 5000
+  # Health check interval (seconds)
+  healthCheckIntervalSeconds: 10
+
+resources:
+  limits:
+    cpu: 500m
+    memory: 512Mi
+  requests:
+    cpu: 100m
+    memory: 128Mi
+
+affinity: {}
+tolerations: []
+nodeSelector: {}
