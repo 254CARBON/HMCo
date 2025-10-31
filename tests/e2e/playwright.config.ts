@@ -32,9 +32,13 @@ export default defineConfig({
     },
   ],
 
-  /* Run your local dev server before starting the tests */
+  /* Run your local dev server before starting the tests
+   * Note: In CI, the portal is started manually in the workflow to allow better control
+   * over the startup sequence and environment variables. For local development, the
+   * webServer config below will automatically start the portal with E2E_BYPASS enabled.
+   */
   webServer: process.env.CI ? undefined : {
-    command: 'cd ../../portal && npm run dev',
+    command: 'cd ../../portal && E2E_BYPASS=1 npm run dev',
     url: 'http://localhost:8080',
     reuseExistingServer: !process.env.CI,
     timeout: 120 * 1000,

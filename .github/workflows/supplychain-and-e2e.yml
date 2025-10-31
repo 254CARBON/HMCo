@@ -490,7 +490,7 @@ jobs:
           echo "Waiting for portal to start..."
           timeout=60
           while [ $timeout -gt 0 ]; do
-            if curl -s http://localhost:8080 > /dev/null; then
+            if curl -s http://localhost:8080 | grep -q "<!DOCTYPE html>"; then
               echo "Portal is ready"
               break
             fi
@@ -504,7 +504,7 @@ jobs:
             exit 1
           fi
           
-          # Run Playwright tests
+          # Run Playwright tests (navigate from portal back to tests/e2e)
           cd ../tests/e2e
           npx playwright test smoke.spec.ts --reporter=list,github
           TEST_EXIT_CODE=$?
