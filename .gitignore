@@ -29,3 +29,13 @@ Thumbs.db
 actionlint
 kubeval
 kubeconform
+
+# Test artifacts
+.coverage
+*.coverage
+htmlcov/
+test-reports/
+.pytest_cache/
+benchmark-results.json
+benchmark-baseline.json
+.tox/

@@ -1,0 +1,111 @@
+{
+  "rootGroups": [
+    {
+      "name": "global",
+      "softMemoryLimit": "80%",
+      "hardConcurrencyLimit": 100,
+      "maxQueued": 1000,
+      "schedulingPolicy": "weighted_fair",
+      "jmxExport": true,
+      "subGroups": [
+        {
+          "name": "interactive",
+          "softMemoryLimit": "40%",
+          "hardConcurrencyLimit": 30,
+          "maxQueued": 100,
+          "schedulingWeight": 3,
+          "schedulingPolicy": "fair",
+          "softCpuLimit": "50%",
+          "hardCpuLimit": "70%",
+          "queryTimeout": "15m",
+          "killOnTimeout": true,
+          "jmxExport": true
+        },
+        {
+          "name": "etl",
+          "softMemoryLimit": "50%",
+          "hardConcurrencyLimit": 20,
+          "maxQueued": 200,
+          "schedulingWeight": 2,
+          "schedulingPolicy": "weighted_fair",
+          "softCpuLimit": "70%",
+          "hardCpuLimit": "100%",
+          "queryTimeout": "2h",
+          "killOnTimeout": false,
+          "jmxExport": true
+        },
+        {
+          "name": "batch",
+          "softMemoryLimit": "30%",
+          "hardConcurrencyLimit": 10,
+          "maxQueued": 500,
+          "schedulingWeight": 1,
+          "schedulingPolicy": "fair",
+          "queryTimeout": "6h",
+          "killOnTimeout": false,
+          "jmxExport": true
+        },
+        {
+          "name": "admin",
+          "softMemoryLimit": "10%",
+          "hardConcurrencyLimit": 5,
+          "maxQueued": 10,
+          "schedulingWeight": 4,
+          "schedulingPolicy": "fair",
+          "jmxExport": true
+        }
+      ]
+    }
+  ],
+  "selectors": [
+    {
+      "user": "admin@254carbon.com",
+      "group": "global.admin"
+    },
+    {
+      "user": ".*",
+      "source": ".*jupyter.*",
+      "group": "global.interactive"
+    },
+    {
+      "user": ".*",
+      "source": ".*superset.*",
+      "group": "global.interactive"
+    },
+    {
+      "user": ".*",
+      "source": ".*airflow.*",
+      "group": "global.etl"
+    },
+    {
+      "user": ".*",
+      "source": ".*dolphinscheduler.*",
+      "group": "global.etl"
+    },
+    {
+      "user": ".*",
+      "source": ".*spark.*",
+      "group": "global.batch"
+    },
+    {
+      "user": ".*",
+      "clientTags": ["interactive"],
+      "group": "global.interactive"
+    },
+    {
+      "user": ".*",
+      "clientTags": ["etl"],
+      "group": "global.etl"
+    },
+    {
+      "user": ".*",
+      "clientTags": ["batch"],
+      "group": "global.batch"
+    },
+    {
+      "user": ".*",
+      "group": "global.interactive"
+    }
+  ],
+  "cpuQuotaPeriod": "1h"
+}

@@ -1,0 +1,59 @@
+{
+  "job_type": "streaming",
+  "name": "outage_events_streaming",
+  "description": "Real-time outage event processing, filtering, and alerting",
+  "flink_config": {
+    "taskmanager.memory.process.size": "4g",
+    "taskmanager.numberOfTaskSlots": "4",
+    "parallelism.default": "2",
+    "state.backend": "rocksdb",
+    "state.checkpoints.dir": "s3://flink-checkpoints/outages",
+    "execution.checkpointing.interval": "60000",
+    "kafka.bootstrap.servers": "redpanda:9092"
+  },
+  "sources": [
+    {
+      "type": "kafka",
+      "name": "outage_source",
+      "bootstrap_servers": "redpanda:9092",
+      "topics": ["OUTAGES"],
+      "group_id": "flink-outage-consumer",
+      "starting_offsets": "latest",
+      "format": "json"
+    }
+  ],
+  "transforms": [
+    {
+      "type": "filter",
+      "name": "filter_critical_outages",
+      "condition": "capacity_mw > 500"
+    },
+    {
+      "type": "enrich",
+      "name": "add_severity_and_impact",
+      "fields": {
+        "severity": "capacity_mw > 1000 ? 'critical' : 'major'",
+        "impact_category": "facility_type == 'nuclear' ? 'high' : 'medium'"
+      }
+    }
+  ],
+  "sinks": [
+    {
+      "type": "iceberg",
+      "name": "outage_iceberg_sink",
+      "catalog_name": "hive_prod",
+      "database": "power_markets",
+      "table": "outages",
+      "write_mode": "append",
+      "format": "parquet"
+    },
+    {
+      "type": "kafka",
+      "name": "critical_alerts_sink",
+      "bootstrap_servers": "redpanda:9092",
+      "topic": "OUTAGE_ALERTS",
+      "format": "json",
+      "key_field": "outage_id"
+    }
+  ]
+}

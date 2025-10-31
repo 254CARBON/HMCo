@@ -1,0 +1,66 @@
+{
+  "job_type": "streaming",
+  "name": "weather_rt_streaming",
+  "description": "Real-time weather data processing with rolling aggregations",
+  "flink_config": {
+    "taskmanager.memory.process.size": "4g",
+    "taskmanager.numberOfTaskSlots": "4",
+    "parallelism.default": "4",
+    "state.backend": "rocksdb",
+    "state.checkpoints.dir": "s3://flink-checkpoints/weather-rt",
+    "execution.checkpointing.interval": "120000",
+    "kafka.bootstrap.servers": "redpanda:9092"
+  },
+  "sources": [
+    {
+      "type": "kafka",
+      "name": "weather_rt_source",
+      "bootstrap_servers": "redpanda:9092",
+      "topics": ["WEATHER_RT"],
+      "group_id": "flink-weather-consumer",
+      "starting_offsets": "latest",
+      "format": "json"
+    }
+  ],
+  "transforms": [
+    {
+      "type": "watermark",
+      "name": "add_event_time_watermark",
+      "timestamp_column": "timestamp",
+      "max_out_of_orderness_ms": 60000
+    },
+    {
+      "type": "sliding_window",
+      "name": "rolling_1hr_avg",
+      "window_size_ms": 3600000,
+      "slide_ms": 300000,
+      "aggregations": [
+        {"field": "temperature_f", "function": "avg", "alias": "avg_temp_f"},
+        {"field": "humidity_pct", "function": "avg", "alias": "avg_humidity"},
+        {"field": "wind_speed_mph", "function": "avg", "alias": "avg_wind_speed"},
+        {"field": "temperature_f", "function": "max", "alias": "max_temp_f"},
+        {"field": "temperature_f", "function": "min", "alias": "min_temp_f"}
+      ],
+      "group_by": ["station_id"]
+    }
+  ],
+  "sinks": [
+    {
+      "type": "clickhouse",
+      "name": "weather_rt_clickhouse_sink",
+      "host": "clickhouse",
+      "port": 8123,
+      "database": "default",
+      "table": "weather_rt_1hr",
+      "username": "{{clickhouse_username}}",
+      "password": "{{clickhouse_password}}",
+      "batch_size": 10000,
+      "flush_interval_ms": 5000
+    }
+  ],
+  "monitoring": {
+    "metrics_enabled": true,
+    "latency_tracking": true,
+    "target_latency_ms": 120000
+  }
+}

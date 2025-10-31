@@ -1,0 +1,64 @@
+replicaCount: 2
+
+image:
+  repository: 254carbon/feature-store-api
+  tag: "latest"
+  pullPolicy: IfNotPresent
+
+service:
+  type: ClusterIP
+  port: 8080
+  annotations: {}
+
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+  hosts:
+    - host: features.254carbon.com
+      paths:
+        - path: /
+          pathType: Prefix
+
+resources:
+  limits:
+    cpu: 2
+    memory: 4Gi
+  requests:
+    cpu: 1
+    memory: 2Gi
+
+offline:
+  # Offline store: Iceberg for historical features
+  backend: iceberg
+  catalog: hive_prod
+  database: ml_features
+  warehouse: s3://data-lake/ml-features
+
+online:
+  # Online store: ClickHouse for low-latency serving
+  backend: clickhouse
+  host: clickhouse
+  port: 8123
+  database: ml_features
+  ttl_days: 30
+
+registry:
+  # Feature registry for metadata
+  backend: postgres
+  host: postgresql
+  port: 5432
+  database: feature_registry
+
+monitoring:
+  enabled: true
+  serviceMonitor:
+    enabled: true
+    interval: 30s
+
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 70
