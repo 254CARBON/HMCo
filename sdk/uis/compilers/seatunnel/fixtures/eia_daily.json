@@ -1,0 +1,32 @@
+{
+  "name": "eia_daily_fuel",
+  "source": {
+    "type": "http",
+    "auth": {
+      "type": "header",
+      "key": "X-API-KEY",
+      "secretRef": "eia_api_key"
+    },
+    "url": "https://api.eia.gov/v2/electricity/rto/region-data/data/?frequency=daily&data[0]=value",
+    "paging": "cursor"
+  },
+  "schema": {
+    "fields": [
+      {"name": "ts", "type": "timestamp"},
+      {"name": "region", "type": "string"},
+      {"name": "series", "type": "string"},
+      {"name": "value", "type": "double"}
+    ],
+    "primaryKey": ["ts", "region", "series"]
+  },
+  "target": {
+    "type": "iceberg",
+    "namespace": "hub_curated",
+    "table": "eia_daily_fuel",
+    "partition": ["days(ts)"],
+    "sort": ["region", "series", "ts"]
+  },
+  "dq": {
+    "suite": "eia_daily"
+  }
+}

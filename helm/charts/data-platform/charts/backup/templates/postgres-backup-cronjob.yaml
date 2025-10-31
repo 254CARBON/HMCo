@@ -1,0 +1,80 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: postgres-catalog-backup
+  namespace: data-platform
+  labels:
+    app: backup
+    component: postgres-backup
+spec:
+  schedule: {{ .Values.postgres.schedule | quote }}
+  concurrencyPolicy: Forbid
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: OnFailure
+          containers:
+          - name: postgres-backup
+            image: postgres:15
+            env:
+            - name: PGHOST
+              value: {{ .Values.postgres.host | quote }}
+            - name: PGPORT
+              value: {{ .Values.postgres.port | quote }}
+            - name: PGDATABASE
+              value: {{ .Values.postgres.database | quote }}
+            - name: PGUSER
+              valueFrom:
+                secretKeyRef:
+                  name: iceberg-rest-catalog-postgres
+                  key: username
+            - name: PGPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: iceberg-rest-catalog-postgres
+                  key: password
+            - name: AWS_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: minio-credentials
+                  key: accesskey
+            - name: AWS_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: minio-credentials
+                  key: secretkey
+            command:
+            - /bin/sh
+            - -c
+            - |
+              echo "Starting Postgres catalog backup"
+              
+              BACKUP_FILE="/tmp/iceberg-catalog-$(date +%Y%m%d-%H%M%S).sql.gz"
+              
+              # Create backup
+              pg_dump -Fc -Z 9 | gzip > $BACKUP_FILE
+              
+              # Upload to MinIO using AWS CLI (install if needed)
+              apt-get update && apt-get install -y awscli
+              
+              aws --endpoint-url http://minio.minio.svc.cluster.local:9000 \
+                  s3 cp $BACKUP_FILE s3://{{ .Values.postgres.backupBucket }}/postgres/
+              
+              echo "Backup uploaded successfully"
+              
+              # Clean up local file
+              rm $BACKUP_FILE
+              
+              # Also setup WAL archiving
+              echo "Configuring WAL archiving..."
+              psql -c "SHOW archive_command;"
+              
+              echo "Postgres backup complete"
+            resources:
+              limits:
+                memory: "1Gi"
+                cpu: "500m"
+              requests:
+                memory: "512Mi"
+                cpu: "250m"

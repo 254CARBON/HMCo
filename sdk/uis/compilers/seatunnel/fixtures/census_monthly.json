@@ -1,0 +1,34 @@
+{
+  "name": "census_monthly_data",
+  "source": {
+    "type": "http",
+    "auth": {
+      "type": "query_param",
+      "key": "key",
+      "secretRef": "census_api_key"
+    },
+    "url": "https://api.census.gov/data/{year}/acs/acs1",
+    "paging": "none"
+  },
+  "schema": {
+    "fields": [
+      {"name": "id", "type": "string"},
+      {"name": "geography", "type": "string"},
+      {"name": "measure", "type": "string"},
+      {"name": "value", "type": "double"},
+      {"name": "year", "type": "int"},
+      {"name": "updated_at", "type": "timestamp"}
+    ],
+    "primaryKey": ["id", "geography", "measure"]
+  },
+  "target": {
+    "type": "iceberg",
+    "namespace": "hub_curated",
+    "table": "census_static",
+    "partition": ["year"],
+    "sort": ["geography", "measure", "id"]
+  },
+  "dq": {
+    "suite": "census_monthly"
+  }
+}

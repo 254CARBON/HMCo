@@ -1,0 +1,60 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: trino-resource-groups
+  namespace: data-platform
+  labels:
+    app: trino
+    component: resource-groups
+data:
+  resource-groups.json: |
+    {
+      "rootGroups": [
+        {
+          "name": "global",
+          "softMemoryLimit": "80%",
+          "hardConcurrencyLimit": 100,
+          "maxQueued": 1000,
+          "schedulingPolicy": "weighted",
+          "jmxExport": true,
+          "subGroups": [
+            {
+              "name": "bi-adhoc",
+              "softMemoryLimit": "30%",
+              "hardConcurrencyLimit": 20,
+              "maxQueued": 100,
+              "schedulingWeight": 1
+            },
+            {
+              "name": "bi-dashboard",
+              "softMemoryLimit": "40%",
+              "hardConcurrencyLimit": 30,
+              "maxQueued": 200,
+              "schedulingWeight": 10
+            },
+            {
+              "name": "etl",
+              "softMemoryLimit": "50%",
+              "hardConcurrencyLimit": 50,
+              "maxQueued": 500,
+              "schedulingWeight": 100
+            }
+          ]
+        }
+      ],
+      "selectors": [
+        {
+          "user": "bi_.*",
+          "group": "global.bi-adhoc"
+        },
+        {
+          "source": "superset",
+          "group": "global.bi-dashboard"
+        },
+        {
+          "user": "etl_.*",
+          "group": "global.etl"
+        }
+      ],
+      "cpuQuotaPeriod": "1h"
+    }

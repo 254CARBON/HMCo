@@ -1,0 +1,40 @@
+{
+  "name": "07-census-monthly",
+  "description": "US Census monthly data pipeline",
+  "schedule": "0 0 1 * *",
+  "timezone": "America/New_York",
+  "tasks": [
+    {
+      "name": "compile_uis",
+      "type": "SHELL",
+      "command": "python /app/sdk/uis/compilers/seatunnel/compiler.py --spec /app/sdk/uis/compilers/seatunnel/fixtures/census_monthly.json --output /tmp/census_monthly_job.conf"
+    },
+    {
+      "name": "run_ingestion",
+      "type": "SEATUNNEL",
+      "config": "/tmp/census_monthly_job.conf",
+      "dependsOn": ["compile_uis"]
+    },
+    {
+      "name": "data_quality",
+      "type": "PYTHON",
+      "script": "/app/data-quality/runner.py",
+      "args": ["--suite", "census_monthly", "--table", "hub_curated.census_static"],
+      "dependsOn": ["run_ingestion"]
+    },
+    {
+      "name": "publish",
+      "type": "SHELL",
+      "command": "echo 'Census monthly pipeline completed successfully'",
+      "dependsOn": ["data_quality"]
+    }
+  ],
+  "sla": {
+    "freshness_hours": 24,
+    "alert": {
+      "enabled": true,
+      "channel": "slack-data-platform",
+      "recipients": ["data-eng@254carbon.com"]
+    }
+  }
+}

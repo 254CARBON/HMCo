@@ -1,0 +1,130 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: minio-replication-config
+  namespace: data-platform
+  labels:
+    app: backup
+    component: minio-replication
+data:
+  replication-policy.json: |
+    {
+      "Role": "replication-role",
+      "Rules": [
+        {
+          "ID": "raw-repl",
+          "Status": "Enabled",
+          "Priority": 1,
+          "DeleteMarkerReplication": {
+            "Status": "Enabled"
+          },
+          "Destination": {
+            "Bucket": "arn:aws:s3:::hmco-raw-dr",
+            "StorageClass": "STANDARD"
+          }
+        },
+        {
+          "ID": "staged-repl",
+          "Status": "Enabled",
+          "Priority": 1,
+          "DeleteMarkerReplication": {
+            "Status": "Enabled"
+          },
+          "Destination": {
+            "Bucket": "arn:aws:s3:::hmco-staged-dr",
+            "StorageClass": "STANDARD"
+          }
+        },
+        {
+          "ID": "curated-repl",
+          "Status": "Enabled",
+          "Priority": 1,
+          "DeleteMarkerReplication": {
+            "Status": "Enabled"
+          },
+          "Destination": {
+            "Bucket": "arn:aws:s3:::hmco-curated-dr",
+            "StorageClass": "STANDARD"
+          }
+        },
+        {
+          "ID": "ml-repl",
+          "Status": "Enabled",
+          "Priority": 1,
+          "DeleteMarkerReplication": {
+            "Status": "Enabled"
+          },
+          "Destination": {
+            "Bucket": "arn:aws:s3:::hmco-ml-dr",
+            "StorageClass": "STANDARD"
+          }
+        }
+      ]
+    }
+
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: minio-replication-setup
+  namespace: data-platform
+  labels:
+    app: backup
+    component: minio-replication
+spec:
+  schedule: "0 0 * * 0"  # Weekly on Sunday at midnight
+  concurrencyPolicy: Forbid
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: OnFailure
+          containers:
+          - name: setup-replication
+            image: minio/mc:latest
+            env:
+            - name: MC_HOST_primary
+              value: "{{ .Values.minio.primary.endpoint }}"
+            - name: MC_HOST_secondary
+              value: "{{ .Values.minio.secondary.endpoint }}"
+            command:
+            - /bin/sh
+            - -c
+            - |
+              echo "Setting up bucket replication from primary to secondary MinIO"
+              
+              # Configure both sites
+              mc alias set primary {{ .Values.minio.primary.endpoint }} {{ .Values.minio.primary.accessKey }} {{ .Values.minio.primary.secretKey }}
+              mc alias set secondary {{ .Values.minio.secondary.endpoint }} {{ .Values.minio.secondary.accessKey }} {{ .Values.minio.secondary.secretKey }}
+              
+              # Create DR buckets on secondary site
+              mc mb --ignore-existing secondary/hmco-raw-dr
+              mc mb --ignore-existing secondary/hmco-staged-dr
+              mc mb --ignore-existing secondary/hmco-curated-dr
+              mc mb --ignore-existing secondary/hmco-ml-dr
+              
+              # Enable versioning (required for replication)
+              mc version enable primary/hmco-raw
+              mc version enable primary/hmco-staged
+              mc version enable primary/hmco-curated
+              mc version enable primary/hmco-ml
+              
+              mc version enable secondary/hmco-raw-dr
+              mc version enable secondary/hmco-staged-dr
+              mc version enable secondary/hmco-curated-dr
+              mc version enable secondary/hmco-ml-dr
+              
+              # Apply replication rules
+              mc replicate add primary/hmco-raw --remote-bucket secondary/hmco-raw-dr --priority 1
+              mc replicate add primary/hmco-staged --remote-bucket secondary/hmco-staged-dr --priority 1
+              mc replicate add primary/hmco-curated --remote-bucket secondary/hmco-curated-dr --priority 1
+              mc replicate add primary/hmco-ml --remote-bucket secondary/hmco-ml-dr --priority 1
+              
+              echo "Replication setup complete"
+            resources:
+              limits:
+                memory: "256Mi"
+                cpu: "250m"
+              requests:
+                memory: "128Mi"
+                cpu: "100m"

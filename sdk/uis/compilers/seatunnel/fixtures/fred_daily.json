@@ -1,0 +1,31 @@
+{
+  "name": "fred_daily_indicators",
+  "source": {
+    "type": "http",
+    "auth": {
+      "type": "query_param",
+      "key": "api_key",
+      "secretRef": "fred_api_key"
+    },
+    "url": "https://api.stlouisfed.org/fred/series/observations",
+    "paging": "offset"
+  },
+  "schema": {
+    "fields": [
+      {"name": "ts", "type": "date"},
+      {"name": "series_id", "type": "string"},
+      {"name": "value", "type": "double"}
+    ],
+    "primaryKey": ["ts", "series_id"]
+  },
+  "target": {
+    "type": "iceberg",
+    "namespace": "hub_curated",
+    "table": "fred_daily",
+    "partition": ["days(ts)"],
+    "sort": ["series_id", "ts"]
+  },
+  "dq": {
+    "suite": "fred_daily"
+  }
+}

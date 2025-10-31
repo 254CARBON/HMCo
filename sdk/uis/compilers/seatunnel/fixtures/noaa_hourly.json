@@ -1,0 +1,32 @@
+{
+  "name": "noaa_hourly_weather",
+  "source": {
+    "type": "http",
+    "auth": {
+      "type": "none"
+    },
+    "url": "https://api.weather.gov/gridpoints/{grid_id}/forecast/hourly",
+    "paging": "none"
+  },
+  "schema": {
+    "fields": [
+      {"name": "ts", "type": "timestamp"},
+      {"name": "grid_id", "type": "string"},
+      {"name": "temperature", "type": "double"},
+      {"name": "humidity", "type": "double"},
+      {"name": "wind_speed", "type": "double"},
+      {"name": "precipitation", "type": "double"}
+    ],
+    "primaryKey": ["ts", "grid_id"]
+  },
+  "target": {
+    "type": "iceberg",
+    "namespace": "hub_curated",
+    "table": "noaa_hourly",
+    "partition": ["days(ts)"],
+    "sort": ["grid_id", "ts"]
+  },
+  "dq": {
+    "suite": "noaa_hourly"
+  }
+}

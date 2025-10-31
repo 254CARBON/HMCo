@@ -1,0 +1,40 @@
+{
+  "name": "05-miso-rt",
+  "description": "MISO real-time 5-minute LMP data pipeline",
+  "schedule": "*/5 * * * *",
+  "timezone": "America/Chicago",
+  "tasks": [
+    {
+      "name": "compile_uis",
+      "type": "SHELL",
+      "command": "python /app/sdk/uis/compilers/seatunnel/compiler.py --spec /app/sdk/uis/compilers/seatunnel/fixtures/miso_rt_lmp.json --output /tmp/miso_rt_job.conf"
+    },
+    {
+      "name": "run_ingestion",
+      "type": "SEATUNNEL",
+      "config": "/tmp/miso_rt_job.conf",
+      "dependsOn": ["compile_uis"]
+    },
+    {
+      "name": "data_quality",
+      "type": "PYTHON",
+      "script": "/app/data-quality/runner.py",
+      "args": ["--suite", "miso_rt_lmp", "--table", "default.rt_lmp", "--clickhouse"],
+      "dependsOn": ["run_ingestion"]
+    },
+    {
+      "name": "publish",
+      "type": "SHELL",
+      "command": "echo 'MISO RT LMP pipeline completed successfully'",
+      "dependsOn": ["data_quality"]
+    }
+  ],
+  "sla": {
+    "freshness_minutes": 10,
+    "alert": {
+      "enabled": true,
+      "channel": "slack-data-platform-critical",
+      "recipients": ["data-eng@254carbon.com", "trading-ops@254carbon.com"]
+    }
+  }
+}
