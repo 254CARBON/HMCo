@@ -1,0 +1,49 @@
+{{- if and .Values.exampleModel.enabled .Values.features.canaryDeployment .Values.exampleModel.canary.enabled .Values.exampleModel.canary.analysis.enabled }}
+apiVersion: argoproj.io/v1alpha1
+kind: AnalysisTemplate
+metadata:
+  name: {{ .Values.exampleModel.name }}-analysis
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "ml-serving.labels" . | nindent 4 }}
+spec:
+  args:
+    - name: service-name
+  metrics:
+    # Success rate metric
+    - name: success-rate
+      interval: 30s
+      successCondition: result >= {{ .Values.exampleModel.canary.analysis.successRate.threshold }}
+      failureLimit: 3
+      provider:
+        prometheus:
+          address: http://prometheus-operated.monitoring.svc.cluster.local:9090
+          query: |
+            sum(rate(
+              inference_request_success{
+                service="{{`{{args.service-name}}`}}"
+              }[2m]
+            )) /
+            sum(rate(
+              inference_request_total{
+                service="{{`{{args.service-name}}`}}"
+              }[2m]
+            )) * 100
+    
+    # P95 latency metric
+    - name: latency-p95
+      interval: 30s
+      successCondition: result <= {{ .Values.exampleModel.canary.analysis.latencyP95.threshold }}
+      failureLimit: 3
+      provider:
+        prometheus:
+          address: http://prometheus-operated.monitoring.svc.cluster.local:9090
+          query: |
+            histogram_quantile(0.95,
+              sum(rate(
+                inference_request_duration_seconds_bucket{
+                  service="{{`{{args.service-name}}`}}"
+                }[2m]
+              )) by (le)
+            ) * 1000
+{{- end }}

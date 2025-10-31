@@ -1,0 +1,97 @@
+name: 'hmco_metrics'
+version: '1.0.0'
+config-version: 2
+
+profile: 'hmco_metrics'
+
+model-paths: ["models"]
+analysis-paths: ["analyses"]
+test-paths: ["tests"]
+seed-paths: ["seeds"]
+macro-paths: ["macros"]
+snapshot-paths: ["snapshots"]
+
+target-path: "target"
+clean-targets:
+  - "target"
+  - "dbt_packages"
+
+models:
+  hmco_metrics:
+    +materialized: view
+    +schema: metrics
+    core_kpis:
+      +materialized: table
+      +tags: ["metrics", "kpi", "governed"]
+    
+vars:
+  # Metric configuration
+  metric_freshness_sla_hours: 1
+  
+# Configure semantic layer metrics
+metrics:
+  - name: lmp_spread
+    label: "LMP Spread"
+    description: "Difference between locational marginal price and reference price"
+    calculation_method: avg
+    timestamp: metric_timestamp
+    time_grains: [hour, day, week, month]
+    dimensions:
+      - iso
+      - node
+      - hub
+    meta:
+      owner: "trading-analytics"
+      sla_minutes: 60
+      
+  - name: nodal_congestion_factor
+    label: "Nodal Congestion Factor"
+    description: "Congestion component of LMP as factor of total LMP"
+    calculation_method: avg
+    timestamp: metric_timestamp
+    time_grains: [hour, day, week, month]
+    dimensions:
+      - iso
+      - node
+    meta:
+      owner: "trading-analytics"
+      sla_minutes: 60
+      
+  - name: degree_day_delta
+    label: "Degree Day Delta"
+    description: "Variance from historical average degree days"
+    calculation_method: sum
+    timestamp: metric_timestamp
+    time_grains: [day, week, month]
+    dimensions:
+      - region
+      - weather_station
+    meta:
+      owner: "weather-analytics"
+      sla_minutes: 360
+      
+  - name: load_factor
+    label: "Load Factor"
+    description: "Ratio of average load to peak load over time period"
+    calculation_method: avg
+    timestamp: metric_timestamp
+    time_grains: [hour, day, week, month]
+    dimensions:
+      - iso
+      - zone
+    meta:
+      owner: "demand-analytics"
+      sla_minutes: 60
+      
+  - name: data_freshness_pct
+    label: "On-Time Data Freshness %"
+    description: "Percentage of datasets delivered within SLA"
+    calculation_method: avg
+    timestamp: metric_timestamp
+    time_grains: [hour, day, week]
+    dimensions:
+      - dataset
+      - pipeline
+    meta:
+      owner: "data-platform"
+      sla_minutes: 15

@@ -1,0 +1,73 @@
+replicaCount: 3
+
+image:
+  repository: confluentinc/cp-schema-registry
+  pullPolicy: IfNotPresent
+  tag: "7.5.0"
+
+service:
+  type: ClusterIP
+  port: 8081
+
+kafka:
+  bootstrapServers: "kafka-broker:9092"
+  # Or use Redpanda
+  # bootstrapServers: "redpanda:9092"
+
+schemaRegistry:
+  # Compatibility mode: BACKWARD, FORWARD, FULL, NONE
+  compatibilityLevel: BACKWARD
+  
+  # Master election for multi-node setups
+  masterEligibility: true
+  
+  # Storage backend
+  kafkaStore:
+    topic: _schemas
+    replicationFactor: 3
+
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+  hosts:
+    - host: schema-registry.254carbon.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: schema-registry-tls
+      hosts:
+        - schema-registry.254carbon.com
+
+resources:
+  limits:
+    cpu: 1000m
+    memory: 2Gi
+  requests:
+    cpu: 250m
+    memory: 512Mi
+
+autoscaling:
+  enabled: true
+  minReplicas: 3
+  maxReplicas: 6
+  targetCPUUtilizationPercentage: 70
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity:
+  podAntiAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 100
+        podAffinityTerm:
+          labelSelector:
+            matchExpressions:
+              - key: app
+                operator: In
+                values:
+                  - schema-registry
+          topologyKey: kubernetes.io/hostname

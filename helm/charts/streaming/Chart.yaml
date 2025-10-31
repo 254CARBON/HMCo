@@ -1,0 +1,14 @@
+apiVersion: v2
+name: streaming
+description: A Helm chart for Streaming Platform components
+version: 1.0.0
+appVersion: "1.0"
+dependencies:
+  - name: schema-registry
+    version: "1.0.0"
+    repository: "file://./schema-registry"
+    condition: schema-registry.enabled
+  - name: debezium
+    version: "1.0.0"
+    repository: "file://./debezium"
+    condition: debezium.enabled

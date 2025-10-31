@@ -1,0 +1,6 @@
+apiVersion: v2
+name: debezium
+description: Debezium CDC connector for streaming database changes
+type: application
+version: 1.0.0
+appVersion: "2.5.0"

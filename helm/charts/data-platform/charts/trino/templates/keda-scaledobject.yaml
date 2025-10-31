@@ -1,0 +1,45 @@
+{{- if .Values.keda.enabled }}
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: trino-worker-scaler
+  namespace: {{ .Release.Namespace }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: trino-worker
+  
+  minReplicaCount: {{ .Values.keda.minReplicas }}
+  maxReplicaCount: {{ .Values.keda.maxReplicas }}
+  
+  cooldownPeriod: {{ .Values.keda.cooldownPeriod | default 300 }}
+  pollingInterval: {{ .Values.keda.pollingInterval | default 30 }}
+  
+  triggers:
+  # Scale based on query queue depth
+  - type: prometheus
+    metadata:
+      serverAddress: http://prometheus-server
+      metricName: trino_query_queue_depth
+      query: sum(trino_query_manager_queued_queries{cluster="trino"})
+      threshold: '{{ .Values.keda.queueThreshold | default "10" }}'
+  
+  # Scale based on CPU utilization
+  - type: prometheus
+    metadata:
+      serverAddress: http://prometheus-server
+      metricName: trino_worker_cpu
+      query: avg(rate(container_cpu_usage_seconds_total{pod=~"trino-worker.*"}[5m])) * 100
+      threshold: '{{ .Values.keda.cpuThreshold | default "70" }}'
+  
+  # Scale to zero during off-hours (optional)
+  {{- if .Values.keda.scaleToZero.enabled }}
+  - type: cron
+    metadata:
+      timezone: {{ .Values.keda.scaleToZero.timezone | default "UTC" }}
+      start: {{ .Values.keda.scaleToZero.startSchedule | default "0 18 * * 1-5" }}
+      end: {{ .Values.keda.scaleToZero.endSchedule | default "0 6 * * 1-5" }}
+      desiredReplicas: "0"
+  {{- end }}
+{{- end }}

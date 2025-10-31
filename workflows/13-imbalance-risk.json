@@ -1,0 +1,43 @@
+{
+  "name": "13-imbalance-risk",
+  "description": "DA-RT imbalance cost modeling and risk premia calculation",
+  "schedule": "0 1 * * *",
+  "timezone": "UTC",
+  "tasks": [
+    {
+      "name": "extract_features",
+      "type": "PYTHON",
+      "script": "/app/models/imbalance/features.py",
+      "args": [
+        "--da-lmp", "${data.da_lmp_path}",
+        "--rt-lmp", "${data.rt_lmp_path}",
+        "--load-forecast", "${data.load_forecast_path}",
+        "--load-actual", "${data.load_actual_path}",
+        "--output", "${output.features_path}"
+      ],
+      "timeout": 900
+    },
+    {
+      "name": "train_model",
+      "type": "PYTHON",
+      "script": "/app/models/imbalance/train.py",
+      "args": [
+        "--features", "${output.features_path}",
+        "--output", "${output.model_path}"
+      ],
+      "dependsOn": ["extract_features"],
+      "timeout": 1200
+    },
+    {
+      "name": "compute_risk_premia",
+      "type": "PYTHON",
+      "script": "/app/analytics/signals/imbalance_cost.py",
+      "args": [
+        "--history", "${data.imbalance_history}",
+        "--output", "${output.risk_premia}"
+      ],
+      "dependsOn": ["train_model"],
+      "timeout": 600
+    }
+  ]
+}
