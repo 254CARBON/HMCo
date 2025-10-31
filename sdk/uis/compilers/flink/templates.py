@@ -166,7 +166,9 @@ class FlinkTemplates:
                 "write.wap.enabled": "true",
                 "write.metadata.delete-after-commit.enabled": "true",
                 "write.metadata.previous-versions-max": "5",
-                "write.upsert.enabled": "false"  # Use append-only for EOS
+                # Disable upserts to ensure exactly-once semantics with append-only writes
+                # Upserts can cause duplicates on replay; append-only guarantees idempotence
+                "write.upsert.enabled": "false"
             }
         }
 

@@ -19,7 +19,7 @@ WITH lmp_data AS (
         loss,
         energy
     FROM {{ source('curated', 'rt_lmp_5m') }}
-    WHERE timestamp >= CURRENT_TIMESTAMP - INTERVAL '7' DAY
+    WHERE timestamp >= CURRENT_TIMESTAMP - INTERVAL '{{ var("metric_lookback_days", 7) }}' DAY
 ),
 
 hub_reference AS (
@@ -30,7 +30,7 @@ hub_reference AS (
         AVG(lmp) AS hub_lmp
     FROM {{ source('curated', 'rt_lmp_5m') }}
     WHERE is_hub = true
-        AND timestamp >= CURRENT_TIMESTAMP - INTERVAL '7' DAY
+        AND timestamp >= CURRENT_TIMESTAMP - INTERVAL '{{ var("metric_lookback_days", 7) }}' DAY
     GROUP BY timestamp, iso, hub
 )
 

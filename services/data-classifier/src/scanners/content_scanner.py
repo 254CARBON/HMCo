@@ -75,7 +75,8 @@ class ContentScanner:
                     table_name: str,
                     column_name: str,
                     sample_data: List[str],
-                    column_metadata: Optional[Dict[str, Any]] = None) -> ColumnClassification:
+                    column_metadata: Optional[Dict[str, Any]] = None,
+                    max_samples: int = 100) -> ColumnClassification:
         """Scan a column for sensitive data"""
         
         # Convert to strings
@@ -85,10 +86,10 @@ class ContentScanner:
             return self._create_empty_classification(table_name, column_name)
         
         # Run Presidio analysis
-        presidio_results = self._analyze_with_presidio(sample_data)
+        presidio_results = self._analyze_with_presidio(sample_data, max_samples)
         
         # Run regex pattern matching
-        regex_results = self._analyze_with_regex(sample_data)
+        regex_results = self._analyze_with_regex(sample_data, max_samples)
         
         # Combine results
         all_detected = presidio_results + regex_results
@@ -117,11 +118,11 @@ class ContentScanner:
             reasoning=reasoning
         )
     
-    def _analyze_with_presidio(self, sample_data: List[str]) -> List[Dict[str, Any]]:
+    def _analyze_with_presidio(self, sample_data: List[str], max_samples: int = 100) -> List[Dict[str, Any]]:
         """Analyze sample data with Presidio"""
         results = []
         
-        for text in sample_data[:100]:  # Sample first 100 rows
+        for text in sample_data[:max_samples]:
             try:
                 analysis = self.analyzer.analyze(
                     text=text,
@@ -141,11 +142,11 @@ class ContentScanner:
         
         return results
     
-    def _analyze_with_regex(self, sample_data: List[str]) -> List[Dict[str, Any]]:
+    def _analyze_with_regex(self, sample_data: List[str], max_samples: int = 100) -> List[Dict[str, Any]]:
         """Analyze sample data with regex patterns"""
         results = []
         
-        for text in sample_data[:100]:
+        for text in sample_data[:max_samples]:
             for pattern_name, pattern_regex in self.patterns.items():
                 matches = re.findall(pattern_regex, text)
                 for match in matches:
