@@ -1,24 +1,30 @@
 dependencies:
 - name: data-lake
   repository: file://./charts/data-lake
-  version: 0.1.0
+  version: 1.0.0
 - name: datahub
   repository: file://./charts/datahub
-  version: 0.1.0
+  version: 1.0.0
 - name: spark-operator
   repository: file://./charts/spark-operator
-  version: 0.1.0
+  version: 1.0.0
 - name: dolphinscheduler
   repository: file://./charts/dolphinscheduler
-  version: 0.1.0
+  version: 1.0.0
 - name: trino
   repository: file://./charts/trino
-  version: 0.1.0
+  version: 1.0.0
 - name: clickhouse
   repository: file://./charts/clickhouse
-  version: 0.1.0
+  version: 1.0.0
 - name: superset
   repository: file://./charts/superset
+  version: 1.0.0
+- name: lakefs
+  repository: file://./charts/lakefs
   version: 0.1.0
-digest: sha256:df1e254ab891fa6195ff581195019903abd404442523e6653cf51a1e5e910754
-generated: "2025-10-25T03:27:01.102367909Z"
+- name: marquez
+  repository: file://./charts/marquez
+  version: 1.0.0
+digest: sha256:1dcc9c01849514cbc99183bd3e612c9a18d84e9863f0f6a9d553c7ef2a6e6abf
+generated: "2025-10-31T07:37:55.24626321Z"
