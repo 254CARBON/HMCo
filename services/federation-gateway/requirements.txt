@@ -1,7 +1,7 @@
 fastapi==0.108.0
 uvicorn==0.25.0
 pyjwt==2.8.0
-cryptography==41.0.7
+cryptography==43.0.1
 pyiceberg==0.6.0
 sqlalchemy==2.0.23
 pydantic==2.5.3
