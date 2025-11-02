@@ -47,3 +47,4 @@ spec:
       protocol: TCP
   selector:
     {{- include "clickhouse.selectorLabels" . | nindent 4 }}
+

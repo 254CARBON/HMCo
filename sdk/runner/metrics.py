@@ -323,3 +323,4 @@ class MetricsCollector:
             "registry_type": "prometheus",
             "metrics_count": len(self._metrics)
         }
+

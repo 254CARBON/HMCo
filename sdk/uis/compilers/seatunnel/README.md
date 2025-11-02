@@ -263,3 +263,4 @@ The compiler provides detailed validation of generated configurations. Common va
 ## License
 
 This compiler is part of the HMCo data platform SDK.
+

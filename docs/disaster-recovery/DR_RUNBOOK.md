@@ -482,3 +482,4 @@ kubectl describe pvc <pvc-name> -n <namespace>
 **Last Tested**: October 21, 2025  
 **Test Result**: ✅ PASS  
 **Next Test Due**: November 3, 2025 (First Sunday)
+

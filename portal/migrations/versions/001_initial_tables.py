@@ -171,3 +171,4 @@ def downgrade() -> None:
     run_status_enum.drop(bind, checkfirst=True)
     provider_status_enum.drop(bind, checkfirst=True)
     provider_type_enum.drop(bind, checkfirst=True)
+

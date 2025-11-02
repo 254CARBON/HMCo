@@ -34,3 +34,4 @@
 
 4. For Trino Integration:
    Add catalog configuration for ClickHouse
+

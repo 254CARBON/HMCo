@@ -101,3 +101,4 @@ spec:
           persistentVolumeClaim:
             claimName: {{ include "clickhouse.fullname" . }}-logs
       {{- end }}
+

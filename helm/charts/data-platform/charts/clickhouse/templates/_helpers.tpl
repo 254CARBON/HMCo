@@ -69,3 +69,4 @@ ClickHouse database URI for external services
 {{- $dbName := index .Values.clickhouse.databases 0 | default (dict "name" "default") | dig "name" "default" }}
 {{- printf "clickhouse://%s:%d/%s" (include "clickhouse.fullname" .) .Values.clickhouse.server.tcpPort $dbName }}
 {{- end }}
+

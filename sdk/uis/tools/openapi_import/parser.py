@@ -569,3 +569,4 @@ class OpenAPIParser:
                 }
 
         return None
+

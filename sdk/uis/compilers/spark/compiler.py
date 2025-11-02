@@ -518,3 +518,4 @@ class SparkCompiler:
                 errors.append(f"Missing required Spark configuration: {key}")
 
         return errors
+

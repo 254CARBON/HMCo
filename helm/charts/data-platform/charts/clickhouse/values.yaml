@@ -191,3 +191,4 @@ integrations:
   trino:
     enabled: true
     catalog: clickhouse_catalog
+

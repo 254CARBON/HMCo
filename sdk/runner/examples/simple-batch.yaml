@@ -86,3 +86,4 @@ provider:
 global_config:
   timeout_seconds: 300
   retry_attempts: 3
+

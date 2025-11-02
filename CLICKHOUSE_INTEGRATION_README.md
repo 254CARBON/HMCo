@@ -259,3 +259,4 @@ For issues or questions:
 **Migration Completed**: October 25, 2025
 **ClickHouse Version**: 24.8.7
 **Integration Status**: ✅ Complete
+

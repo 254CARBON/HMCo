@@ -52,3 +52,4 @@ echo "  - TCP Interface: clickhouse.data-platform:9000"
 echo "  - Database: default"
 echo "  - Username: default"
 echo "  - Password: ClickHouse@254Carbon2025"
+

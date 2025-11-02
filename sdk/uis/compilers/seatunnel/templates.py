@@ -103,3 +103,4 @@ class SeaTunnelTemplates:
             "result_table_name": "validated_data",
             "schema": {}
         }
+

@@ -64,3 +64,4 @@ echo "2. Check Superset dashboards for ClickHouse data source"
 echo "3. Verify Trino can query ClickHouse tables"
 echo "4. Check Grafana for ClickHouse metrics"
 echo "5. Test data ingestion and querying workflows"
+
