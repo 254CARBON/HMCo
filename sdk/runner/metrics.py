@@ -324,3 +324,4 @@ class MetricsCollector:
             "metrics_count": len(self._metrics)
         }
 
+

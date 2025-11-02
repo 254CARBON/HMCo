@@ -172,3 +172,4 @@ def downgrade() -> None:
     provider_status_enum.drop(bind, checkfirst=True)
     provider_type_enum.drop(bind, checkfirst=True)
 
+

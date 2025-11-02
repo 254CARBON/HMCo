@@ -53,3 +53,4 @@ def drop_tables():
     """Drop all tables."""
     Base.metadata.drop_all(bind=engine)
 
+

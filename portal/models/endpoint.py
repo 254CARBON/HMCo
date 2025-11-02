@@ -58,3 +58,4 @@ class ProviderEndpoint(BaseModel):
     def __repr__(self):
         return f"<ProviderEndpoint(id={self.id}, provider_id={self.provider_id}, name='{self.name}')>"
 
+
